@@ -1,0 +1,30 @@
+﻿{
+    "name":  "July.Audio",
+    "rootNamespace":  "July.Audio",
+    "references":  [
+                       "July.Arch",
+                       "July.Resource",
+                       "UniTask",
+                       "UniTask.DOTween",
+                       "DOTweenAot"
+                   ],
+    "includePlatforms":  [
+
+                         ],
+    "excludePlatforms":  [
+
+                         ],
+    "allowUnsafeCode":  false,
+    "overrideReferences":  false,
+    "precompiledReferences":  [
+
+                              ],
+    "autoReferenced":  true,
+    "defineConstraints":  [
+
+                          ],
+    "versionDefines":  [
+
+                       ],
+    "noEngineReferences":  false
+}

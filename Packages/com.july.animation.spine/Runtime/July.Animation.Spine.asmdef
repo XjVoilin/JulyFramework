@@ -1,0 +1,29 @@
+﻿{
+    "name":  "July.Animation.Spine",
+    "rootNamespace":  "July.Animation.Spine",
+    "references":  [
+                       "July.Animation",
+                       "spine-csharp",
+                       "spine-unity",
+                       "UnityEngine.UI"
+                   ],
+    "includePlatforms":  [
+
+                         ],
+    "excludePlatforms":  [
+
+                         ],
+    "allowUnsafeCode":  false,
+    "overrideReferences":  false,
+    "precompiledReferences":  [
+
+                              ],
+    "autoReferenced":  true,
+    "defineConstraints":  [
+
+                          ],
+    "versionDefines":  [
+
+                       ],
+    "noEngineReferences":  false
+}

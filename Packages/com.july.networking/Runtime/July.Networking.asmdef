@@ -1,0 +1,29 @@
+﻿{
+    "name":  "July.Networking",
+    "rootNamespace":  "July.Networking",
+    "references":  [
+                       "July.Arch",
+                       "July.Logging",
+                       "July.Persistence",
+                       "UniTask"
+                   ],
+    "includePlatforms":  [
+
+                         ],
+    "excludePlatforms":  [
+
+                         ],
+    "allowUnsafeCode":  false,
+    "overrideReferences":  false,
+    "precompiledReferences":  [
+
+                              ],
+    "autoReferenced":  true,
+    "defineConstraints":  [
+
+                          ],
+    "versionDefines":  [
+
+                       ],
+    "noEngineReferences":  false
+}

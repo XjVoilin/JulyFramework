@@ -1,0 +1,17 @@
+﻿{
+    "name":  "com.july.ui.authoring",
+    "version":  "0.1.0",
+    "displayName":  "July UI Authoring",
+    "description":  "July UI Authoring package for the July Unity seed framework.",
+    "unity":  "2022.3",
+    "dependencies":  {
+                         "com.july.arch":  "0.1.0",
+                         "com.july.ui":  "0.1.0",
+                         "com.unity.ugui":  "1.0.0",
+                         "com.unity.textmeshpro":  "3.0.9"
+                     },
+    "author":  {
+                   "name":  "July"
+               }
+}
+

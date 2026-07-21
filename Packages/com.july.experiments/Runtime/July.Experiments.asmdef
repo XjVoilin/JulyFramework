@@ -1,0 +1,27 @@
+﻿{
+    "name":  "July.Experiments",
+    "rootNamespace":  "July.Experiments",
+    "references":  [
+                       "July.Arch",
+                       "UniTask"
+                   ],
+    "includePlatforms":  [
+
+                         ],
+    "excludePlatforms":  [
+
+                         ],
+    "allowUnsafeCode":  false,
+    "overrideReferences":  false,
+    "precompiledReferences":  [
+
+                              ],
+    "autoReferenced":  true,
+    "defineConstraints":  [
+
+                          ],
+    "versionDefines":  [
+
+                       ],
+    "noEngineReferences":  false
+}

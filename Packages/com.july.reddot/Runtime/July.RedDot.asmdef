@@ -1,0 +1,31 @@
+﻿{
+    "name":  "July.RedDot",
+    "rootNamespace":  "July.RedDot",
+    "references":  [
+                       "July.Arch",
+                       "July.Logging",
+                       "July.Events",
+                       "UniTask",
+                       "UnityEngine.UI",
+                       "Unity.TextMeshPro"
+                   ],
+    "includePlatforms":  [
+
+                         ],
+    "excludePlatforms":  [
+
+                         ],
+    "allowUnsafeCode":  false,
+    "overrideReferences":  false,
+    "precompiledReferences":  [
+
+                              ],
+    "autoReferenced":  true,
+    "defineConstraints":  [
+
+                          ],
+    "versionDefines":  [
+
+                       ],
+    "noEngineReferences":  false
+}

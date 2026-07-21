@@ -1,0 +1,16 @@
+﻿{
+    "name":  "com.july.audio",
+    "version":  "0.1.0",
+    "displayName":  "July Audio",
+    "description":  "July Audio package for the July Unity seed framework.",
+    "unity":  "2022.3",
+    "dependencies":  {
+                         "com.july.resource":  "0.1.0",
+                         "com.july.arch":  "0.1.0",
+                         "com.cysharp.unitask":  "2.5.10",
+                         "com.demigiant.dotween":  "1.2.632"
+                     },
+    "author":  {
+                   "name":  "July"
+               }
+}

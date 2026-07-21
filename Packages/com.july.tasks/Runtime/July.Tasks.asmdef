@@ -1,0 +1,28 @@
+﻿{
+    "name":  "July.Tasks",
+    "rootNamespace":  "July.Tasks",
+    "references":  [
+                       "July.Arch",
+                       "July.Logging",
+                       "UniTask"
+                   ],
+    "includePlatforms":  [
+
+                         ],
+    "excludePlatforms":  [
+
+                         ],
+    "allowUnsafeCode":  false,
+    "overrideReferences":  false,
+    "precompiledReferences":  [
+
+                              ],
+    "autoReferenced":  true,
+    "defineConstraints":  [
+
+                          ],
+    "versionDefines":  [
+
+                       ],
+    "noEngineReferences":  false
+}

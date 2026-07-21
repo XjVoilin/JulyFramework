@@ -1,0 +1,13 @@
+﻿{
+    "name":  "com.july.logging",
+    "version":  "0.1.0",
+    "displayName":  "July Logging",
+    "description":  "July Logging package for the July Unity seed framework.",
+    "unity":  "2022.3",
+    "dependencies":  {
+
+                     },
+    "author":  {
+                   "name":  "July"
+               }
+}

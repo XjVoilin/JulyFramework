@@ -1,0 +1,28 @@
+﻿{
+    "name":  "July.Guide",
+    "rootNamespace":  "July.Guide",
+    "references":  [
+                       "July.Arch",
+                       "July.Persistence",
+                       "UniTask"
+                   ],
+    "includePlatforms":  [
+
+                         ],
+    "excludePlatforms":  [
+
+                         ],
+    "allowUnsafeCode":  false,
+    "overrideReferences":  false,
+    "precompiledReferences":  [
+
+                              ],
+    "autoReferenced":  true,
+    "defineConstraints":  [
+
+                          ],
+    "versionDefines":  [
+
+                       ],
+    "noEngineReferences":  false
+}

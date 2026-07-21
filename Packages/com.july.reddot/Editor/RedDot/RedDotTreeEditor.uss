@@ -1,0 +1,213 @@
+/* 红点树编辑器样式 */
+
+/* 根容器 */
+.root {
+    flex-grow: 1;
+    flex-direction: column;
+}
+
+/* 工具栏 */
+.toolbar {
+    flex-direction: row;
+    padding: 4px;
+    background-color: #3c3c3c;
+    height: 30px;
+}
+
+.export-button {
+    background-color: #4a8c4a;
+    color: white;
+}
+
+.export-button:hover {
+    background-color: #5a9c5a;
+}
+
+/* 主内容区 */
+.main-content {
+    flex-grow: 1;
+    flex-direction: row;
+}
+
+/* 左侧面板 */
+.left-panel {
+    width: 50%;
+    flex-direction: column;
+    padding: 8px;
+}
+
+/* 右侧面板 */
+.right-panel {
+    flex-grow: 1;
+    flex-direction: column;
+    padding: 8px;
+}
+
+/* 分隔线 */
+.splitter {
+    width: 2px;
+    background-color: #2a2a2a;
+}
+
+/* 面板标题 */
+.panel-header {
+    font-size: 14px;
+    -unity-font-style: bold;
+    padding: 8px 4px;
+    margin-bottom: 4px;
+}
+
+.section-header {
+    font-size: 12px;
+    -unity-font-style: bold;
+    padding: 8px 0 4px 0;
+    margin-top: 16px;
+}
+
+/* 快速添加面板 */
+.quick-add-panel {
+    background-color: #3a3a3a;
+    border-radius: 4px;
+    padding: 8px;
+    margin-bottom: 8px;
+}
+
+.quick-add-row {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.add-button {
+    width: 25px;
+    height: 20px;
+    background-color: #4a8c4a;
+    color: white;
+    margin-left: 4px;
+}
+
+.add-button:hover {
+    background-color: #5a9c5a;
+}
+
+/* 树视图容器 */
+.tree-container {
+    flex-grow: 1;
+    background-color: #2d2d2d;
+    border-radius: 4px;
+    padding: 4px;
+}
+
+.tree-view {
+    flex-grow: 1;
+}
+
+/* 树节点项 */
+.tree-item {
+    flex-direction: row;
+    align-items: center;
+    padding: 2px 4px;
+    min-height: 22px;
+}
+
+.tree-item:hover {
+    background-color: #3a3a3a;
+}
+
+.tree-item-icon {
+    width: 16px;
+    font-size: 12px;
+    -unity-text-align: middle-center;
+    margin-right: 4px;
+}
+
+.tree-item-label {
+    flex-grow: 1;
+    -unity-text-align: middle-left;
+}
+
+.tree-item-module {
+    color: #888888;
+    font-size: 10px;
+    margin-right: 8px;
+}
+
+.tree-item-delete {
+    width: 20px;
+    height: 18px;
+    background-color: #8c4a4a;
+    color: white;
+    font-size: 12px;
+    border-radius: 2px;
+}
+
+.tree-item-delete:hover {
+    background-color: #a05a5a;
+}
+
+/* 详情面板 */
+.detail-panel {
+    background-color: #3a3a3a;
+    border-radius: 4px;
+    padding: 12px;
+    margin-bottom: 8px;
+}
+
+.hint-label {
+    color: #888888;
+    -unity-text-align: middle-center;
+    padding: 20px;
+}
+
+.path-label {
+    background-color: #2d2d2d;
+    padding: 4px 8px;
+    border-radius: 4px;
+    margin-top: 4px;
+}
+
+.child-link {
+    background-color: transparent;
+    border-width: 0;
+    -unity-text-align: middle-left;
+    color: #6699cc;
+    padding: 2px 0;
+}
+
+.child-link:hover {
+    color: #88bbee;
+}
+
+/* 验证面板 */
+.validation-panel {
+    background-color: #4a3a3a;
+    border-radius: 4px;
+    padding: 8px;
+    margin-bottom: 8px;
+}
+
+.error-label {
+    color: #ff8888;
+    margin: 2px 0;
+}
+
+/* 统计面板 */
+.statistics-panel {
+    background-color: #3a3a3a;
+    border-radius: 4px;
+    padding: 12px;
+}
+
+/* 状态栏 */
+.status-bar {
+    flex-direction: row;
+    padding: 4px 8px;
+    background-color: #2d2d2d;
+    border-top-width: 1px;
+    border-top-color: #1a1a1a;
+}
+
+.status-label {
+    flex-grow: 0;
+}
+

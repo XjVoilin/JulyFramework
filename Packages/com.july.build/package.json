@@ -1,0 +1,13 @@
+﻿{
+    "name":  "com.july.build",
+    "version":  "0.1.0",
+    "displayName":  "July Build",
+    "description":  "July Build package for the July Unity seed framework.",
+    "unity":  "2022.3",
+    "dependencies":  {
+
+                     },
+    "author":  {
+                   "name":  "July"
+               }
+}

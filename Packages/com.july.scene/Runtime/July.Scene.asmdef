@@ -1,0 +1,29 @@
+﻿{
+    "name":  "July.Scene",
+    "rootNamespace":  "July.Scene",
+    "references":  [
+                       "July.Arch",
+                       "July.Logging",
+                       "July.Resource",
+                       "UniTask"
+                   ],
+    "includePlatforms":  [
+
+                         ],
+    "excludePlatforms":  [
+
+                         ],
+    "allowUnsafeCode":  false,
+    "overrideReferences":  false,
+    "precompiledReferences":  [
+
+                              ],
+    "autoReferenced":  true,
+    "defineConstraints":  [
+
+                          ],
+    "versionDefines":  [
+
+                       ],
+    "noEngineReferences":  false
+}

@@ -1,0 +1,18 @@
+﻿{
+    "name":  "com.july.localization",
+    "version":  "0.1.0",
+    "displayName":  "July Localization",
+    "description":  "July Localization package for the July Unity seed framework.",
+    "unity":  "2022.3",
+    "dependencies":  {
+                         "com.july.logging":  "0.1.0",
+                         "com.july.arch":  "0.1.0",
+                         "com.unity.ugui":  "1.0.0",
+                         "com.cysharp.unitask":  "2.5.10",
+                         "com.unity.textmeshpro":  "3.0.9"
+                     },
+    "author":  {
+                   "name":  "July"
+               }
+}
+

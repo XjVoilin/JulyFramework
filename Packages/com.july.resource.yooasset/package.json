@@ -1,0 +1,16 @@
+﻿{
+    "name":  "com.july.resource.yooasset",
+    "version":  "0.1.0",
+    "displayName":  "July Resource - YooAsset",
+    "description":  "July Resource - YooAsset package for the July Unity seed framework.",
+    "unity":  "2022.3",
+    "dependencies":  {
+                         "com.july.resource":  "0.1.0",
+                         "com.july.arch":  "0.1.0",
+                         "com.cysharp.unitask":  "2.5.10",
+                         "com.tuyoogame.yooasset":  "2.3.12"
+                     },
+    "author":  {
+                   "name":  "July"
+               }
+}

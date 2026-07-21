@@ -1,0 +1,30 @@
+{
+    "name":  "July.Scene.Tests",
+    "rootNamespace":  "July.Scene.Tests",
+    "references":  [
+                       "July.Scene",
+                       "July.Arch",
+                       "July.Resource",
+                       "UniTask"
+                   ],
+    "includePlatforms":  [],
+    "excludePlatforms":  [
+
+                         ],
+    "allowUnsafeCode":  false,
+    "overrideReferences":  false,
+    "precompiledReferences":  [
+
+                              ],
+    "autoReferenced":  false,
+    "defineConstraints":  [
+                              "UNITY_INCLUDE_TESTS"
+                          ],
+    "versionDefines":  [
+
+                       ],
+    "noEngineReferences":  false,
+    "optionalUnityReferences":  [
+                                    "TestAssemblies"
+                                ]
+}

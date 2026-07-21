@@ -1,0 +1,27 @@
+{
+    "name":  "July.Events.Tests",
+    "rootNamespace":  "July.Events.Tests",
+    "references":  [
+                       "July.Events"
+                   ],
+    "includePlatforms":  [],
+    "excludePlatforms":  [
+
+                         ],
+    "allowUnsafeCode":  false,
+    "overrideReferences":  false,
+    "precompiledReferences":  [
+
+                              ],
+    "autoReferenced":  false,
+    "defineConstraints":  [
+                              "UNITY_INCLUDE_TESTS"
+                          ],
+    "versionDefines":  [
+
+                       ],
+    "noEngineReferences":  false,
+    "optionalUnityReferences":  [
+                                    "TestAssemblies"
+                                ]
+}

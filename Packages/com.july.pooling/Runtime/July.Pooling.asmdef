@@ -1,0 +1,27 @@
+﻿{
+    "name":  "July.Pooling",
+    "rootNamespace":  "July.Pooling",
+    "references":  [
+                       "July.Arch",
+                       "July.Logging"
+                   ],
+    "includePlatforms":  [
+
+                         ],
+    "excludePlatforms":  [
+
+                         ],
+    "allowUnsafeCode":  false,
+    "overrideReferences":  false,
+    "precompiledReferences":  [
+
+                              ],
+    "autoReferenced":  true,
+    "defineConstraints":  [
+
+                          ],
+    "versionDefines":  [
+
+                       ],
+    "noEngineReferences":  false
+}

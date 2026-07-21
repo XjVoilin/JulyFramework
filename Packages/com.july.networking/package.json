@@ -1,0 +1,17 @@
+﻿{
+    "name":  "com.july.networking",
+    "version":  "0.1.0",
+    "displayName":  "July Networking",
+    "description":  "July Networking package for the July Unity seed framework.",
+    "unity":  "2022.3",
+    "dependencies":  {
+                         "com.july.logging":  "0.1.0",
+                         "com.july.arch":  "0.1.0",
+                         "com.cysharp.unitask":  "2.5.10",
+                         "com.july.persistence":  "0.1.0",
+                         "com.unity.modules.unitywebrequest":  "1.0.0"
+                     },
+    "author":  {
+                   "name":  "July"
+               }
+}

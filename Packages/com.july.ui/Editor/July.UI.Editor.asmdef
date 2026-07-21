@@ -1,0 +1,30 @@
+﻿{
+    "name":  "July.UI.Editor",
+    "rootNamespace":  "July.UI.Editor",
+    "references":  [
+                       "July.UI",
+                       "July.Arch",
+                       "Unity.TextMeshPro",
+                       "UnityEditor.UI",
+                       "UnityEngine.UI"
+                   ],
+    "includePlatforms":  [
+                             "Editor"
+                         ],
+    "excludePlatforms":  [
+
+                         ],
+    "allowUnsafeCode":  false,
+    "overrideReferences":  false,
+    "precompiledReferences":  [
+
+                              ],
+    "autoReferenced":  true,
+    "defineConstraints":  [
+
+                          ],
+    "versionDefines":  [
+
+                       ],
+    "noEngineReferences":  false
+}

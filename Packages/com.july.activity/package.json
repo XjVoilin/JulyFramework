@@ -1,0 +1,16 @@
+﻿{
+    "name":  "com.july.activity",
+    "version":  "0.1.0",
+    "displayName":  "July Activity",
+    "description":  "July Activity package for the July Unity seed framework.",
+    "unity":  "2022.3",
+    "dependencies":  {
+                         "com.july.arch":  "0.1.0",
+                         "com.cysharp.unitask":  "2.5.10",
+                         "com.july.persistence":  "0.1.0",
+                         "com.july.time":  "0.1.0"
+                     },
+    "author":  {
+                   "name":  "July"
+               }
+}

@@ -1,0 +1,15 @@
+﻿{
+    "name":  "com.july.animation.spine",
+    "version":  "0.1.0",
+    "displayName":  "July Animation - Spine",
+    "description":  "July Animation - Spine package for the July Unity seed framework.",
+    "unity":  "2022.3",
+    "dependencies":  {
+                         "com.unity.ugui":  "1.0.0",
+                         "com.july.animation":  "0.1.0"
+                     },
+    "author":  {
+                   "name":  "July"
+               }
+}
+

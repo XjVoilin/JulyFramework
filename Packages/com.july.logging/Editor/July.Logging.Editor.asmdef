@@ -1,0 +1,26 @@
+﻿{
+    "name":  "July.Logging.Editor",
+    "rootNamespace":  "July.Logging.Editor",
+    "references":  [
+                       "July.Logging"
+                   ],
+    "includePlatforms":  [
+                             "Editor"
+                         ],
+    "excludePlatforms":  [
+
+                         ],
+    "allowUnsafeCode":  false,
+    "overrideReferences":  false,
+    "precompiledReferences":  [
+
+                              ],
+    "autoReferenced":  true,
+    "defineConstraints":  [
+
+                          ],
+    "versionDefines":  [
+
+                       ],
+    "noEngineReferences":  false
+}

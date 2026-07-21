@@ -1,0 +1,27 @@
+﻿{
+    "name":  "July.Animation.Editor",
+    "rootNamespace":  "July.Animation.Editor",
+    "references":  [
+                       "July.Animation",
+                       "UnityEngine.UI"
+                   ],
+    "includePlatforms":  [
+                             "Editor"
+                         ],
+    "excludePlatforms":  [
+
+                         ],
+    "allowUnsafeCode":  false,
+    "overrideReferences":  false,
+    "precompiledReferences":  [
+
+                              ],
+    "autoReferenced":  true,
+    "defineConstraints":  [
+
+                          ],
+    "versionDefines":  [
+
+                       ],
+    "noEngineReferences":  false
+}
