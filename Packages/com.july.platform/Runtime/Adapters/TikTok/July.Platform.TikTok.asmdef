@@ -1,0 +1,23 @@
+{
+    "name": "July.Platform.TikTok",
+    "rootNamespace": "July.Platform",
+    "references": [
+        "July.Platform",
+        "July.Arch",
+        "UniTask",
+        "UnityEngine.UI",
+        "com.bytedance.ttsdk.ref",
+        "TTLitJson"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "JULYGF_DY_MINIGAME"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

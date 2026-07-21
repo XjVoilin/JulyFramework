@@ -7,7 +7,7 @@ namespace July.Platform
     public sealed class PlatformSystem : SystemBase, IPlatformSystem
     {
         private readonly IPlatformAdapter _adapter;
-        private readonly PlatformCapabilityRegistry _registry = new();
+        private readonly PlatformServiceRegistry _registry = new();
 
         public int PlatformType => _adapter.PlatformType;
 

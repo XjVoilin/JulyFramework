@@ -1,0 +1,22 @@
+{
+    "name": "July.Platform.WeChat",
+    "rootNamespace": "July.Platform",
+    "references": [
+        "July.Platform",
+        "July.Arch",
+        "UniTask",
+        "UnityEngine.UI",
+        "Wx"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "JULYGF_WX_MINIGAME"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
