@@ -6,13 +6,7 @@ using UnityEngine;
 
 namespace July.Platform
 {
-    public readonly struct FeedSubscribeResultEvent
-    {
-        public readonly bool IsSuccess;
-        public FeedSubscribeResultEvent(bool isSuccess) => IsSuccess = isSuccess;
-    }
-
-    public class TikTokSubscribeService : ISubscribeService, ICanEvent
+    public class TikTokSubscribeService : ITikTokSubscribeService, ICanEvent
     {
         private bool _isFeedSubscribing;
 
@@ -85,4 +79,3 @@ namespace July.Platform
     }
 }
 #endif
-

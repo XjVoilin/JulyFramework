@@ -18,5 +18,20 @@ namespace July.Platform
         void SubscribeOnce(string[] templateIds);
         void SubscribeLongTerm(string[] templateIds);
     }
-}
 
+    public readonly struct FeedSubscribeResultEvent
+    {
+        public readonly bool IsSuccess;
+
+        public FeedSubscribeResultEvent(bool isSuccess)
+        {
+            IsSuccess = isSuccess;
+        }
+    }
+
+    public interface ITikTokSubscribeService : ISubscribeService
+    {
+        void FollowTiktokFeedSubscribe();
+        void CheckFeedSubscribeStatus();
+    }
+}

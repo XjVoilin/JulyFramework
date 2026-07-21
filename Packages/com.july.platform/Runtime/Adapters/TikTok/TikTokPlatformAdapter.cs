@@ -39,7 +39,9 @@ namespace July.Platform
             registry.Register<ISocialService>(new TikTokSocialService());
             registry.Register<IBookmarkService>(new TikTokBookmarkService());
             registry.Register<ILiveService>(new TikTokLiveService());
-            registry.Register<ISubscribeService>(new TikTokSubscribeService());
+            var subscribe = new TikTokSubscribeService();
+            registry.Register<ISubscribeService>(subscribe);
+            registry.Register<ITikTokSubscribeService>(subscribe);
             registry.Register<ILoginService>(new TikTokLoginService());
             registry.Register<ITikTokFeedService>(new TikTokFeedService());
             _device = registry.Get<IDeviceService>();
