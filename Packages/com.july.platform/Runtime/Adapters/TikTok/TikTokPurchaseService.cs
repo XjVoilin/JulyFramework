@@ -1,7 +1,7 @@
-using July.Arch;
 #if JULYGF_DY_MINIGAME
 using System;
 using System.Collections.Generic;
+using July.Arch;
 using TTSDK;
 using TTSDK.UNBridgeLib.LitJson;
 
@@ -19,92 +19,51 @@ namespace July.Platform
                         PurchaseIOS(orderAmount);
                     else if (platform == "android")
                         PurchaseAndroid(orderAmount);
-                    els…4952 tokens truncated…uthorizeType.Community => ScopeGameClubData,
-                AuthorizeType.UserLocation => ScopeUserFuzzyLocation,
-                AuthorizeType.UserInfo => ScopeUserInfo,
-                AuthorizeType.InteractedFriend => ScopeInteractedUserInfo,
-                _ => null
-            };
-
-            if (scope == null)
-            {
-                this.Publish(new AuthorizeResultEvent(type, false));
-                return;
-            }
-
-            if (type == AuthorizeType.UserInfo)
-            {
-                AuthorizeUserInfoViaButton(success =>
-                    this.Publish(new AuthorizeResultEvent(type, success)));
-                return;
-            }
-
-            var option = new AuthorizeOption
-            {
-                scope = scope,
-                success = _ =>
-                {
-                    SetScope(scope);
-                    this.Publish(new AuthorizeResultEvent(type, true));
+                    else
+                        this.Publish(new PurchaseResultEvent(false, orderAmount));
                 },
-                fail = _ => this.Publish(new AuthorizeResultEvent(type, false)),
+                _ => this.Publish(new PurchaseResultEvent(false, orderAmount)));
+        }
+
+        private void PurchaseIOS(int orderAmount)
+        {
+            var options = new JsonData
+            {
+                ["goodType"] = 2,
+                ["orderAmount"] = orderAmount,
+                ["currencyType"] = "DIAMOND",
+                ["zoneId"] = "1",
+                ["customId"] = GenerateOrderId(),
             };
-            WX.Authorize(option);
+            TT.OpenAwemeCustomerService(options,
+                () => this.Publish(new PurchaseResultEvent(true, orderAmount)),
+                (_, _) => this.Publish(new PurchaseResultEvent(false, orderAmount)));
         }
 
-        public void RequireUserInfo()
+        private void PurchaseAndroid(int orderAmount)
         {
-            if (HasScope(ScopeUserInfo))
+            var options = new Dictionary<string, object>
             {
-                var opt = new GetUserInfoOption
-                {
-                    withCredentials = false,
-                    lang = "zh_CN",
-                    success = data =>
-                        this.Publish(new UserInfoResultEvent(true, data.userInfo.nickName, data.userInfo.avatarUrl)),
-                    fail = _ =>
-                        this.Publish(new UserInfoResultEvent(false)),
-                };
-                WX.GetUserInfo(opt);
-            }
-            else
-            {
-                AuthorizeUserInfoViaButton();
-            }
+                ["goodType"] = 2,
+                ["orderAmount"] = orderAmount,
+                ["currencyType"] = "CNY",
+                ["zoneId"] = "1",
+                ["customId"] = GenerateOrderId(),
+                ["mode"] = "game",
+                ["env"] = 0,
+                ["platform"] = "android",
+            };
+            TT.RequestGamePayment(options,
+                () => this.Publish(new PurchaseResultEvent(true, orderAmount)),
+                (_, _) => this.Publish(new PurchaseResultEvent(false, orderAmount)));
         }
 
-        private void AuthorizeUserInfoViaButton(Action<bool> authorizeCallback = null)
+        private static string GenerateOrderId()
         {
-            var btn = WX.CreateUserInfoButton(0, 0, Screen.width, Screen.height, "zh_CN", false);
-            btn.OnTap(response =>
-            {
-                if (response.errCode == 0)
-                {
-                    SetScope(ScopeUserInfo);
-                    authorizeCallback?.Invoke(true);
-                    this.Publish(new UserInfoResultEvent(true,
-                        response.userInfo.nickName, response.userInfo.avatarUrl));
-                }
-                else
-                {
-                    authorizeCallback?.Invoke(false);
-                    this.Publish(new UserInfoResultEvent(false));
-                }
-                btn.Destroy();
-            });
-        }
-
-        private bool HasScope(string scope)
-        {
-            if (_authSetting == null) return false;
-            return _authSetting.ContainsKey(scope) && _authSetting[scope];
-        }
-
-        private void SetScope(string scope)
-        {
-            if (_authSetting != null) _authSetting[scope] = true;
+            var timePart = DateTime.Now.ToString("yyyyMMddHHmmss");
+            var random = new Random(Guid.NewGuid().GetHashCode());
+            return timePart + random.Next(1000, 9999);
         }
     }
 }
 #endif
-
