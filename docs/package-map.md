@@ -22,7 +22,8 @@ July uses package seams only where a capability has an independent installation 
 | `com.july.resource` | Resource contracts and the Unity Resources implementation. |
 | `com.july.resource.yooasset` | Optional YooAsset implementation, including mini-game file-system adapters. |
 | `com.july.persistence` | Save data, serialization, encryption, and platform-aware local storage. |
-| `com.july.networking` | HTTP, durable request queues, and optional Protobuf JSON adapters. |
+| `com.july.networking` | Vendor-neutral HTTP and durable request queues. |
+| `com.july.networking.protobuf` | Strongly typed Protobuf HTTP entities and bundled Google.Protobuf runtime. |
 | `com.july.config` | Typed providers plus remote JSON fetch/retry and WebGL cache mechanics. |
 | `com.july.localization` | Localization providers and localized text behaviour. |
 | `com.july.scene` | Scene lifecycle and navigation. |
@@ -50,7 +51,8 @@ July uses package seams only where a capability has an independent installation 
 
 | Location | Responsibility |
 | --- | --- |
-| `com.july.build` | Reusable editor build pipeline and optional HybridCLR build mechanics. |
+| `com.july.build` | Vendor-neutral reusable editor build pipeline. |
+| `com.july.build.hybridclr` | Strongly typed HybridCLR 8.7 build mechanics. |
 
 The external `Template_2022.3` repository owns the game composition root, scenes, project policy, generated configuration, and fixed third-party tooling. It also verifies that the packages work together in a real Unity project.
 

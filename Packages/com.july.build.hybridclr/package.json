@@ -1,0 +1,14 @@
+{
+  "name": "com.july.build.hybridclr",
+  "version": "0.1.0",
+  "displayName": "July Build - HybridCLR",
+  "description": "Strongly typed HybridCLR 8.7 build operations for July Build.",
+  "unity": "2022.3",
+  "dependencies": {
+    "com.july.build": "0.3.0",
+    "com.code-philosophy.hybridclr": "8.7.0"
+  },
+  "author": {
+    "name": "July"
+  }
+}

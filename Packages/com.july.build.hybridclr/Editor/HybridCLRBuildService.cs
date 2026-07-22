@@ -1,47 +1,32 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Text.RegularExpressions;
+using HybridCLR.Editor;
+using HybridCLR.Editor.AOT;
+using HybridCLR.Editor.Commands;
+using HybridCLR.Editor.HotUpdate;
+using HybridCLR.Editor.Installer;
 using UnityEditor;
 using UnityEngine;
 
 namespace July.Build
 {
     /// <summary>
-    /// HybridCLR build implementation without a hard assembly dependency on the optional SDK.
-    /// The adapter validates the SDK surface at runtime and keeps project paths in a profile.
+    /// Strongly typed HybridCLR 8.7 build implementation.
+    /// Project-owned paths remain explicit in <see cref="HybridCLRBuildProfile"/>.
     /// </summary>
     public static class HybridCLRBuildService
     {
-        private const BindingFlags StaticFlags =
-            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static;
-
         public static bool ValidateSettings(bool logErrors = true)
         {
-            try
-            {
-                RequireType("HybridCLR.Editor.SettingsUtil");
-                RequireType("HybridCLR.Editor.Commands.CompileDllCommand");
-                RequireType("HybridCLR.Editor.Commands.PrebuildCommand");
-                RequireType("HybridCLR.Editor.HotUpdate.MissingMetadataChecker");
-                RequireType("HybridCLR.Editor.AOT.AOTAssemblyMetadataStripper");
+            if (GetHotUpdateAssemblyNames().Count > 0)
+                return true;
 
-                if (GetHotUpdateAssemblyNames().Count > 0)
-                    return true;
-
-                if (logErrors)
-                    Debug.LogError("[HybridCLR] No hot-update assemblies are configured.");
-                return false;
-            }
-            catch (Exception exception)
-            {
-                if (logErrors)
-                    Debug.LogError($"[HybridCLR] SDK validation failed: {exception.Message}");
-                return false;
-            }
+            if (logErrors)
+                Debug.LogError("[HybridCLR] No hot-update assemblies are configured.");
+            return false;
         }
 
         public static bool CompileAndCopyDlls(HybridCLRBuildProfile profile,
@@ -71,30 +56,22 @@ namespace July.Build
         {
             try
             {
-                var controllerType =
-                    RequireType("HybridCLR.Editor.Installer.InstallerController");
-                var controller = Activator.CreateInstance(controllerType);
-                if ((bool)InvokeInstance(controllerType, controller,
-                        "HasInstalledHybridCLR"))
+                var controller = new InstallerController();
+                if (controller.HasInstalledHybridCLR())
                 {
-                    var version = GetInstanceMember(controllerType, controller,
-                        "InstalledLibil2cppVersion");
-                    Debug.Log($"[HybridCLR] Already installed (version: {version}).");
+                    Debug.Log($"[HybridCLR] Already installed (version: {controller.InstalledLibil2cppVersion}).");
                     return true;
                 }
 
                 Debug.Log("[HybridCLR] Installing the default libil2cpp environment...");
-                InvokeInstance(controllerType, controller, "InstallDefaultHybridCLR");
-                if (!(bool)InvokeInstance(controllerType, controller,
-                        "HasInstalledHybridCLR"))
+                controller.InstallDefaultHybridCLR();
+                if (!controller.HasInstalledHybridCLR())
                 {
                     Debug.LogError("[HybridCLR] Installation validation failed. Check git and network access.");
                     return false;
                 }
 
-                var installedVersion = GetInstanceMember(controllerType, controller,
-                    "InstalledLibil2cppVersion");
-                Debug.Log($"[HybridCLR] Installation completed (version: {installedVersion}).");
+                Debug.Log($"[HybridCLR] Installation completed (version: {controller.InstalledLibil2cppVersion}).");
                 return true;
             }
             catch (Exception exception)
@@ -111,8 +88,7 @@ namespace July.Build
             try
             {
                 EditorUtility.DisplayProgressBar("HybridCLR", "Generate All...", 0.1f);
-                InvokeStatic(RequireType("HybridCLR.Editor.Commands.PrebuildCommand"),
-                    "GenerateAll");
+                PrebuildCommand.GenerateAll();
                 AssetDatabase.Refresh();
                 return true;
             }
@@ -134,8 +110,7 @@ namespace July.Build
             try
             {
                 EditorUtility.DisplayProgressBar("HybridCLR", "Generate All...", 0.1f);
-                InvokeStatic(RequireType("HybridCLR.Editor.Commands.PrebuildCommand"),
-                    "GenerateAll");
+                PrebuildCommand.GenerateAll();
 
                 EditorUtility.DisplayProgressBar("HybridCLR", "Copying DLLs...", 0.7f);
                 if (!CopyHotUpdateDlls(profile, target)) return false;
@@ -250,8 +225,7 @@ namespace July.Build
         {
             try
             {
-                InvokeStatic(RequireType("HybridCLR.Editor.Commands.CompileDllCommand"),
-                    "CompileDll", target, development);
+                CompileDllCommand.CompileDll(target, development);
                 return true;
             }
             catch (Exception exception)
@@ -325,12 +299,7 @@ namespace July.Build
         {
             var result = new HybridCLRMetadataCheckResult();
             var hotUpdateNames = GetHotUpdateAssemblyNames();
-            var checkerType = RequireType("HybridCLR.Editor.HotUpdate.MissingMetadataChecker");
-            var checker = Activator.CreateInstance(checkerType, aotDllDirectory, hotUpdateNames);
-            var checkMethod = checkerType.GetMethod("Check",
-                BindingFlags.Public | BindingFlags.Instance);
-            if (checkMethod == null)
-                throw new MissingMethodException(checkerType.FullName, "Check");
+            var checker = new MissingMetadataChecker(aotDllDirectory, hotUpdateNames);
 
             var hotDllDirectory = GetHotUpdateDllOutputDirectory(target);
             foreach (var assemblyName in hotUpdateNames)
@@ -355,7 +324,7 @@ namespace July.Build
                 }
 
                 Application.logMessageReceived += Handler;
-                try { checkMethod.Invoke(checker, new object[] { path }); }
+                try { checker.Check(path); }
                 finally { Application.logMessageReceived -= Handler; }
             }
             return result;
@@ -370,8 +339,7 @@ namespace July.Build
                 : Path.Combine(backupDirectory, "AOTGenericReferences.cs");
             var parsed = ParseAotAssemblyList(referencePath);
             if (parsed.Count == 0)
-                parsed = GetStringList(GetStaticMember(
-                    RequireType("HybridCLR.Editor.SettingsUtil"), "AOTAssemblyNames"));
+                parsed = SettingsUtil.AOTAssemblyNames;
 
             foreach (var name in parsed.Concat(profile.MandatoryAotAssemblies))
             {
@@ -393,89 +361,16 @@ namespace July.Build
         }
 
         private static List<string> GetHotUpdateAssemblyNames() =>
-            GetStringList(GetStaticMember(RequireType("HybridCLR.Editor.SettingsUtil"),
-                "HotUpdateAssemblyNamesExcludePreserved"));
+            SettingsUtil.HotUpdateAssemblyNamesExcludePreserved;
 
         private static string GetHotUpdateDllOutputDirectory(BuildTarget target) =>
-            (string)InvokeStatic(RequireType("HybridCLR.Editor.SettingsUtil"),
-                "GetHotUpdateDllsOutputDirByTarget", target);
+            SettingsUtil.GetHotUpdateDllsOutputDirByTarget(target);
 
         private static string GetAssembliesPostIl2CppStripDirectory(BuildTarget target) =>
-            (string)InvokeStatic(RequireType("HybridCLR.Editor.SettingsUtil"),
-                "GetAssembliesPostIl2CppStripDir", target);
+            SettingsUtil.GetAssembliesPostIl2CppStripDir(target);
 
         private static byte[] StripAotAssembly(byte[] assemblyBytes) =>
-            (byte[])InvokeStatic(RequireType("HybridCLR.Editor.AOT.AOTAssemblyMetadataStripper"),
-                "Strip", assemblyBytes);
-
-        private static Type RequireType(string fullName)
-        {
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
-            {
-                var type = assembly.GetType(fullName, false);
-                if (type != null) return type;
-            }
-            throw new InvalidOperationException(
-                $"HybridCLR SDK type '{fullName}' is unavailable. Install HybridCLR first.");
-        }
-
-        private static object GetStaticMember(Type type, string name)
-        {
-            var property = type.GetProperty(name, StaticFlags);
-            if (property != null) return property.GetValue(null);
-            var field = type.GetField(name, StaticFlags);
-            if (field != null) return field.GetValue(null);
-            throw new MissingMemberException(type.FullName, name);
-        }
-
-        private static object GetInstanceMember(Type type, object instance, string name)
-        {
-            const BindingFlags flags =
-                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
-            var property = type.GetProperty(name, flags);
-            if (property != null) return property.GetValue(instance);
-            var field = type.GetField(name, flags);
-            if (field != null) return field.GetValue(instance);
-            throw new MissingMemberException(type.FullName, name);
-        }
-
-        private static object InvokeInstance(Type type, object instance,
-            string methodName, params object[] arguments)
-        {
-            const BindingFlags flags =
-                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
-            var method = type.GetMethods(flags).FirstOrDefault(candidate =>
-                candidate.Name == methodName &&
-                candidate.GetParameters().Length == arguments.Length);
-            if (method == null)
-                throw new MissingMethodException(type.FullName, methodName);
-            return method.Invoke(instance, arguments);
-        }
-
-        private static object InvokeStatic(Type type, string methodName, params object[] arguments)
-        {
-            var methods = type.GetMethods(StaticFlags)
-                .Where(method => method.Name == methodName &&
-                                 method.GetParameters().Length == arguments.Length);
-            foreach (var method in methods)
-            {
-                var parameters = method.GetParameters();
-                if (parameters.Select((parameter, index) => arguments[index] == null ||
-                        parameter.ParameterType.IsInstanceOfType(arguments[index]) ||
-                        parameter.ParameterType.IsEnum && arguments[index].GetType().IsEnum)
-                    .All(value => value))
-                    return method.Invoke(null, arguments);
-            }
-            throw new MissingMethodException(type.FullName, methodName);
-        }
-
-        private static List<string> GetStringList(object value)
-        {
-            if (value is not IEnumerable enumerable)
-                return new List<string>();
-            return enumerable.Cast<object>().Select(item => item?.ToString())
-                .Where(item => !string.IsNullOrWhiteSpace(item)).ToList();
-        }
+            AOTAssemblyMetadataStripper.Strip(assemblyBytes);
 
         private static void AddChildDirectories(ISet<string> target, string root)
         {

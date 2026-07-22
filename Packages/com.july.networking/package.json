@@ -1,8 +1,8 @@
 ﻿{
     "name":  "com.july.networking",
-    "version":  "0.2.1",
+    "version":  "0.3.0",
     "displayName":  "July Networking",
-    "description":  "HTTP runtime with optional Protobuf JSON entities and forward-compatible response parsing.",
+    "description":  "Vendor-neutral HTTP runtime with durable request queues.",
     "unity":  "2022.3",
     "dependencies":  {
                          "com.july.logging":  "0.1.0",

@@ -1,4 +1,3 @@
-#if JULYGF_PROTOBUF
 using Google.Protobuf;
 
 namespace July.Networking
@@ -24,7 +23,7 @@ namespace July.Networking
     {
         public override TRequest RqtData { get; } = new();
 
-        protected internal override string BuildBody() =>
+        protected override string BuildBody() =>
             ProtobufJsonCodec.Serialize(RqtData);
 
         protected override void SetResponseData(string dataJson) =>
@@ -38,11 +37,10 @@ namespace July.Networking
     {
         public override TRequest RqtData { get; } = new();
 
-        protected internal override string BuildBody() =>
+        protected override string BuildBody() =>
             ProtobufJsonCodec.Serialize(RqtData);
 
         protected override void SetResponseData(string dataJson) =>
             RespData = ProtobufJsonCodec.Deserialize<TResponse>(dataJson);
     }
 }
-#endif

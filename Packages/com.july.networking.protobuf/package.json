@@ -1,0 +1,13 @@
+{
+  "name": "com.july.networking.protobuf",
+  "version": "0.1.0",
+  "displayName": "July Networking - Protobuf",
+  "description": "Strongly typed Google.Protobuf HTTP entities for July Networking.",
+  "unity": "2022.3",
+  "dependencies": {
+    "com.july.networking": "0.3.0"
+  },
+  "author": {
+    "name": "July"
+  }
+}

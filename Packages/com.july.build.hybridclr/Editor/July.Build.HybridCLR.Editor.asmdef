@@ -1,0 +1,19 @@
+{
+  "name": "July.Build.HybridCLR.Editor",
+  "rootNamespace": "July.Build",
+  "references": [
+    "July.Build.Editor",
+    "HybridCLR.Editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
