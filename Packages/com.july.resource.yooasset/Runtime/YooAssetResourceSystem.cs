@@ -82,8 +82,7 @@ namespace July.Resource.YooAsset
                     $"资源包 '{_options.PackageName}' 当前状态为 {Package.InitializeStatus}。");
             }
 
-            if (_options.UpdateManifestAfterInitialization &&
-                _options.PlayMode != EPlayMode.EditorSimulateMode)
+            if (_options.UpdateManifestAfterInitialization)
                 await UpdateManifestAsync();
         }
 

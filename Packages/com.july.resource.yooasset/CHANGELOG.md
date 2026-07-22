@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.2 - 2026-07-22
+
+- Respect `UpdateManifestAfterInitialization` in every play mode, including Editor Simulate.
+- Restore the active-manifest invariant before asset queries and tag-based downloads.
+
 ## 0.2.1 - 2026-07-22
 
 - Validate complete collector definitions instead of checking group names only.

@@ -1,6 +1,6 @@
 ﻿{
     "name":  "com.july.resource.yooasset",
-    "version":  "0.2.1",
+    "version":  "0.2.2",
     "displayName":  "July Resource - YooAsset",
     "description":  "Production-ready YooAsset implementation for July.Resource, including early idempotent initialization and optional mini-game filesystem adapters.",
     "unity":  "2022.3",
