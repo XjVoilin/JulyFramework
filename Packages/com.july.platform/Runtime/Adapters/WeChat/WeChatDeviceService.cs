@@ -68,11 +68,14 @@ namespace July.Platform
 
         public void SetClipboardData(string data)
         {
+            Debug.Log($"[July.Platform.WeChat.Clipboard] Request length={data?.Length ?? 0}");
+
             var option = new SetClipboardDataOption
             {
                 data = data,
-                success = _ => { },
-                fail = _ => { },
+                success = _ => Debug.Log("[July.Platform.WeChat.Clipboard] Success"),
+                fail = result => Debug.LogError(
+                    $"[July.Platform.WeChat.Clipboard] Failed: {result.errMsg}"),
             };
             WX.SetClipboardData(option);
         }
@@ -135,4 +138,3 @@ namespace July.Platform
     }
 }
 #endif
-
