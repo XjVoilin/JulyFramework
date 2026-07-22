@@ -125,7 +125,6 @@ namespace July.Resource.YooAsset
             YooAssetCollectorGroupDefinition definition)
         {
             var changed = false;
-            changed |= Set(ref group.GroupDesc, definition.Description);
             changed |= Set(ref group.AssetTags, definition.Tag);
             changed |= Set(ref group.ActiveRuleName, nameof(EnableGroup));
 
@@ -156,7 +155,6 @@ namespace July.Resource.YooAsset
             YooAssetCollectorGroupDefinition definition)
         {
             if (group.GroupName != definition.Name ||
-                group.GroupDesc != definition.Description ||
                 group.AssetTags != definition.Tag ||
                 group.ActiveRuleName != nameof(EnableGroup))
                 return false;

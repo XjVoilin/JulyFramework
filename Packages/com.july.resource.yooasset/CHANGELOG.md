@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.3 - 2026-07-22
+
+- Treat collector group descriptions as project-owned, non-functional metadata.
+- Preserve existing descriptions while validating and repairing functional collector settings.
+
 ## 0.2.2 - 2026-07-22
 
 - Respect `UpdateManifestAfterInitialization` in every play mode, including Editor Simulate.
