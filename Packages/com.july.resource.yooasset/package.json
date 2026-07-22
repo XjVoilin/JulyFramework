@@ -1,8 +1,8 @@
 ﻿{
     "name":  "com.july.resource.yooasset",
-    "version":  "0.1.0",
+    "version":  "0.2.0",
     "displayName":  "July Resource - YooAsset",
-    "description":  "July Resource - YooAsset package for the July Unity seed framework.",
+    "description":  "Production-ready YooAsset implementation for July.Resource, including early idempotent initialization and optional mini-game filesystem adapters.",
     "unity":  "2022.3",
     "dependencies":  {
                          "com.july.resource":  "0.1.0",

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<linker>
+  <!-- ThinkingData is accessed through the optional reflection adapter. -->
+  <assembly fullname="ThinkingAnalytics" ignoreIfMissing="1">
+    <type fullname="ThinkingData.Analytics.TDAnalytics" preserve="all" />
+    <type fullname="ThinkingData.Analytics.TDConfig" preserve="all" />
+    <type fullname="ThinkingData.Analytics.TDMode" preserve="all" />
+    <type fullname="ThinkingData.Analytics.TDTimeZone" preserve="all" />
+    <type fullname="ThinkingData.Analytics.TDAutoTrackEventType" preserve="all" />
+  </assembly>
+</linker>

@@ -8,6 +8,7 @@ July Framework is a reusable Unity framework maintained as a package monorepo. T
 - `docs/adr/` records durable architectural decisions.
 
 See [docs/package-map.md](docs/package-map.md) for package boundaries and dependency rules.
+See [docs/installation.md](docs/installation.md) for copyable Git URLs and installation profiles.
 
 ## Deterministic development
 

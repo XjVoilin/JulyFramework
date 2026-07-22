@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<linker>
+  <!-- Mini-game file-system implementations are selected by platform and reflection. -->
+  <assembly fullname="YooAsset.MiniGame" preserve="all" />
+</linker>

@@ -1,0 +1,19 @@
+{
+  "name": "July.Resource.YooAsset.Editor",
+  "rootNamespace": "July.Resource.YooAsset",
+  "references": [
+    "July.Resource.YooAsset",
+    "YooAsset.Editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

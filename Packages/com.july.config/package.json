@@ -1,12 +1,14 @@
 ﻿{
     "name":  "com.july.config",
-    "version":  "0.1.0",
+    "version":  "0.2.0",
     "displayName":  "July Config",
-    "description":  "July Config package for the July Unity seed framework.",
+    "description":  "Configuration providers plus reusable remote JSON fetch, retry and WebGL cache mechanics.",
     "unity":  "2022.3",
     "dependencies":  {
                          "com.july.arch":  "0.1.0",
-                         "com.july.logging":  "0.1.0"
+                         "com.july.logging":  "0.1.0",
+                         "com.cysharp.unitask":  "2.5.10",
+                         "com.unity.modules.unitywebrequest":  "1.0.0"
                      },
     "author":  {
                    "name":  "July"

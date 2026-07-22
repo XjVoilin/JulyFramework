@@ -3,6 +3,10 @@ using YooAsset;
 
 namespace July.Resource.YooAsset
 {
+    /// <summary>
+    /// YooAsset 资源系统配置。项目负责提供资源地址和运行模式，
+    /// 包负责初始化、清单更新、下载和资源句柄生命周期。
+    /// </summary>
     public sealed class YooAssetOptions
     {
         public string PackageName { get; set; } = "DefaultPackage";
@@ -15,7 +19,8 @@ namespace July.Resource.YooAsset
         public bool UpdateManifestAfterInitialization { get; set; } = true;
 
         /// <summary>
-        /// 覆盖默认初始化参数。小游戏文件系统等平台差异应从这里注入。
+        /// 覆盖默认初始化参数。微信、抖音等平台文件系统 Adapter 从这里注入，
+        /// 项目无需复制资源系统 Implementation。
         /// </summary>
         public Func<ResourcePackage, InitializeParameters> CreateInitializeParameters { get; set; }
 

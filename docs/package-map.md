@@ -16,18 +16,19 @@ July uses package seams only where a capability has an independent installation 
 | Package | Responsibility |
 | --- | --- |
 | `com.july.fsm` | Finite-state machines. |
+| `com.july.input` | Input gating plus reusable pointer/touch input for UI, sprites, and gameplay. |
 | `com.july.pooling` | Reusable object pools. |
 | `com.july.time` | Game time, server time, and timers. |
 | `com.july.resource` | Resource contracts and the Unity Resources implementation. |
-| `com.july.resource.yooasset` | Optional YooAsset resource implementation; intentionally independent. |
-| `com.july.persistence` | Save data, serialization, encryption, and local storage. |
-| `com.july.networking` | HTTP requests and durable pending-request queues. |
-| `com.july.config` | Typed configuration providers. |
+| `com.july.resource.yooasset` | Optional YooAsset implementation, including mini-game file-system adapters. |
+| `com.july.persistence` | Save data, serialization, encryption, and platform-aware local storage. |
+| `com.july.networking` | HTTP, durable request queues, and optional Protobuf JSON adapters. |
+| `com.july.config` | Typed providers plus remote JSON fetch/retry and WebGL cache mechanics. |
 | `com.july.localization` | Localization providers and localized text behaviour. |
 | `com.july.scene` | Scene lifecycle and navigation. |
 | `com.july.audio` | Audio playback, pooling, and configuration. |
 | `com.july.platform` | Platform capability registration and adapters. |
-| `com.july.analytics` | Analytics event collection. |
+| `com.july.analytics` | Analytics dispatch and optional SDK channels. |
 | `com.july.diagnostics` | Runtime diagnostics and developer tools. |
 
 ## Presentation and gameplay
@@ -48,9 +49,9 @@ July uses package seams only where a capability has an independent installation 
 
 | Location | Responsibility |
 | --- | --- |
-| `com.july.build` | Reusable editor build pipeline. |
+| `com.july.build` | Reusable editor build pipeline and optional HybridCLR build mechanics. |
 
-The external `Template_2022.3` repository owns the game composition root, scenes, providers, input implementation, generated configuration, and fixed third-party tooling. It also verifies that the packages work together in a real Unity project.
+The external `Template_2022.3` repository owns the game composition root, scenes, project policy, generated configuration, and fixed third-party tooling. It also verifies that the packages work together in a real Unity project.
 
 ## Dependency rules
 

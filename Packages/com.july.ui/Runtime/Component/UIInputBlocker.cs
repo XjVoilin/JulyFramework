@@ -1,13 +1,8 @@
 using July.Arch;
+using July.Input;
 
 namespace July.UI
 {
-    public interface IInputGate
-    {
-        void Block();
-        void Unblock();
-    }
-
     /// <summary>
     /// 挂在需要屏蔽游戏输入的 UI 面板上（如 Help 弹窗、暂停菜单、全屏遮罩等）。
     /// 面板 SetActive(true) 时自动屏蔽，SetActive(false) 时自动恢复。

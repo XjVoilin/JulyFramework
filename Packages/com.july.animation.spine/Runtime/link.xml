@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<linker>
+  <!-- Components can be referenced only by remote AssetBundle prefabs. -->
+  <assembly fullname="July.Animation.Spine" preserve="all" />
+</linker>

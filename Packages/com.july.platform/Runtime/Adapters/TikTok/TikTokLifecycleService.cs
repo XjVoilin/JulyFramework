@@ -18,7 +18,7 @@ namespace July.Platform
             var sceneId = launchOpt.Scene ?? "";
             var query = launchOpt.Query;
 
-            ColdContext = new LaunchOptions(true, sceneId, query);
+            ColdContext = CreateLaunchOptions(true, sceneId, query);
             LatestContext = ColdContext;
 
             TT.GetAppLifeCycle().OnShow += res =>
@@ -38,7 +38,7 @@ namespace July.Platform
                     dic[kv.Key] = value;
                 }
 
-                LatestContext = new LaunchOptions(false, hotSceneId, dic);
+                LatestContext = CreateLaunchOptions(false, hotSceneId, dic);
                 this.Publish(new PlatformOnShowEvent(LatestContext));
             };
         }
@@ -47,7 +47,43 @@ namespace July.Platform
         {
             _coldLaunchCompleted = true;
         }
+
+        public void Restart() => TT.RestartMiniProgramSync();
+
+        public void Exit() => TT.ExitMiniProgram(false);
+
+        private static LaunchOptions CreateLaunchOptions(bool isColdStart,
+            string sceneId, IReadOnlyDictionary<string, string> query)
+        {
+            if (IsLiveScene(sceneId))
+                return new LaunchOptions(isColdStart, sceneId, query,
+                    source: LaunchSource.Live);
+
+            if (query != null &&
+                query.TryGetValue("feed_game_channel", out var rawChannel) &&
+                int.TryParse(rawChannel, out var channel) &&
+                query.TryGetValue("feed_game_content_id", out var contentId))
+            {
+                var normalizedChannel = channel switch
+                {
+                    1 => FeedLaunchChannel.Revisit,
+                    2 => FeedLaunchChannel.Acquisition,
+                    _ => FeedLaunchChannel.None,
+                };
+                if (normalizedChannel != FeedLaunchChannel.None)
+                    return new LaunchOptions(isColdStart, sceneId, query,
+                        source: LaunchSource.Feed,
+                        feedChannel: normalizedChannel,
+                        contentId: contentId);
+            }
+
+            return new LaunchOptions(isColdStart, sceneId, query);
+        }
+
+        private static bool IsLiveScene(string sceneId) =>
+            !string.IsNullOrEmpty(sceneId) &&
+            (sceneId.EndsWith("3009") || sceneId.EndsWith("3010") ||
+             sceneId.EndsWith("9003"));
     }
 }
 #endif
-

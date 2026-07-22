@@ -1,0 +1,17 @@
+{
+  "name": "July.Input",
+  "rootNamespace": "July.Input",
+  "references": [
+    "July.Arch",
+    "UnityEngine.UI"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

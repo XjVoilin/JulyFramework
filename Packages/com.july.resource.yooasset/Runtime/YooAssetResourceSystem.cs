@@ -11,26 +11,54 @@ using Object = UnityEngine.Object;
 
 namespace July.Resource.YooAsset
 {
+    /// <summary>
+    /// July.Resource 的 YooAsset Implementation。
+    /// 支持在 Arch 生命周期之前显式初始化；生命周期再次初始化时会复用同一个任务。
+    /// </summary>
     public sealed class YooAssetResourceSystem : SystemBase, IResourceSystem
     {
         private readonly YooAssetOptions _options;
         private readonly Dictionary<string, SceneHandle> _sceneHandles = new();
+        private UniTask _initializationTask;
+        private bool _initializationStarted;
 
         public ResourcePackage Package { get; private set; }
+        public bool IsInitialized => Package != null &&
+                                     Package.InitializeStatus == EOperationStatus.Succeed;
 
         public YooAssetResourceSystem(YooAssetOptions options)
         {
             _options = options ?? throw new ArgumentNullException(nameof(options));
         }
 
-        protected override async UniTask OnInitializeAsync()
+        /// <summary>
+        /// 提前初始化资源系统。多次调用共享同一个初始化过程，不会重复创建或初始化 Package。
+        /// 调用方取消只停止本次等待，不会中断其他调用方共享的初始化过程。
+        /// </summary>
+        public UniTask InitializeAsync(CancellationToken cancellationToken = default)
+        {
+            if (!_initializationStarted)
+            {
+                _initializationStarted = true;
+                _initializationTask = InitializeCoreAsync().Preserve();
+            }
+
+            return cancellationToken.CanBeCanceled
+                ? _initializationTask.AttachExternalCancellation(cancellationToken)
+                : _initializationTask;
+        }
+
+        protected override UniTask OnInitializeAsync() => InitializeAsync();
+
+        private async UniTask InitializeCoreAsync()
         {
             _options.Validate();
             YooAssets.Initialize();
             Package = YooAssets.TryGetPackage(_options.PackageName) ??
                       YooAssets.CreatePackage(_options.PackageName);
 
-            if (_options.SetAsDefaultPackage) YooAssets.SetDefaultPackage(Package);
+            if (_options.SetAsDefaultPackage)
+                YooAssets.SetDefaultPackage(Package);
 
             if (Package.InitializeStatus == EOperationStatus.None)
             {
@@ -43,7 +71,12 @@ namespace July.Resource.YooAsset
                 await UniTask.WaitUntil(() => initialize.IsDone);
                 EnsureSucceeded(initialize.Status, initialize.Error, "初始化资源包");
             }
-            else if (Package.InitializeStatus != EOperationStatus.Succeed)
+            else if (Package.InitializeStatus == EOperationStatus.Processing)
+            {
+                await UniTask.WaitUntil(() => Package.InitializeStatus != EOperationStatus.Processing);
+            }
+
+            if (Package.InitializeStatus != EOperationStatus.Succeed)
             {
                 throw new InvalidOperationException(
                     $"资源包 '{_options.PackageName}' 当前状态为 {Package.InitializeStatus}。");
@@ -214,7 +247,8 @@ namespace July.Resource.YooAsset
         public async UniTask<bool> DownloadByTagAsync(string tag,
             CancellationToken ct = default)
         {
-            if (string.IsNullOrWhiteSpace(tag)) throw new ArgumentException("Tag 不能为空。", nameof(tag));
+            if (string.IsNullOrWhiteSpace(tag))
+                throw new ArgumentException("Tag 不能为空。", nameof(tag));
             EnsurePackage();
             var downloader = Package.CreateResourceDownloader(tag,
                 _options.MaxConcurrentDownloads, _options.DownloadRetryCount);
@@ -266,7 +300,8 @@ namespace July.Resource.YooAsset
             {
                 handle = Package.LoadSceneAsync(sceneName, mode);
                 await UniTask.WaitUntil(() => handle.IsDone, cancellationToken: ct);
-                if (!handle.IsValid) throw new InvalidOperationException($"场景加载失败: {sceneName}");
+                if (!handle.IsValid)
+                    throw new InvalidOperationException($"场景加载失败：{sceneName}");
                 _sceneHandles[sceneName] = handle;
                 return handle.SceneObject;
             }
@@ -280,11 +315,19 @@ namespace July.Resource.YooAsset
         public async UniTask<bool> UnloadSceneAsync(string sceneName,
             CancellationToken ct = default)
         {
-            if (!_sceneHandles.Remove(sceneName, out var handle) || handle == null || !handle.IsValid)
-                return false;
-            var operation = handle.UnloadAsync();
-            await UniTask.WaitUntil(() => operation.IsDone, cancellationToken: ct);
-            handle.Release();
+            if (_sceneHandles.Remove(sceneName, out var handle) && handle != null && handle.IsValid)
+            {
+                var operation = handle.UnloadAsync();
+                await UniTask.WaitUntil(() => operation.IsDone, cancellationToken: ct);
+                handle.Release();
+                return true;
+            }
+
+            var scene = SceneManager.GetSceneByName(sceneName);
+            if (!scene.IsValid() || !scene.isLoaded) return false;
+            var fallback = SceneManager.UnloadSceneAsync(scene);
+            if (fallback == null) return false;
+            await UniTask.WaitUntil(() => fallback.isDone, cancellationToken: ct);
             return true;
         }
 
@@ -294,18 +337,20 @@ namespace July.Resource.YooAsset
                 if (handle != null && handle.IsValid) handle.Release();
             _sceneHandles.Clear();
             Package = null;
+            _initializationStarted = false;
+            _initializationTask = default;
         }
 
         private void EnsurePackage()
         {
-            if (Package == null || Package.InitializeStatus != EOperationStatus.Succeed)
+            if (!IsInitialized)
                 throw new InvalidOperationException("YooAsset 资源包尚未成功初始化。");
         }
 
         private static void EnsureSucceeded(EOperationStatus status, string error, string operation)
         {
             if (status != EOperationStatus.Succeed)
-                throw new InvalidOperationException($"{operation}失败: {error}");
+                throw new InvalidOperationException($"{operation}失败：{error}");
         }
 
         private sealed class RemoteServices : IRemoteServices

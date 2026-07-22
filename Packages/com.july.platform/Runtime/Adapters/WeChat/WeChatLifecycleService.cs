@@ -34,7 +34,12 @@ namespace July.Platform
         {
             _coldLaunchCompleted = true;
         }
+
+        public void Restart() =>
+            WX.RestartMiniProgram(new RestartMiniProgramOption());
+
+        public void Exit() =>
+            WX.ExitMiniProgram(new ExitMiniProgramOption());
     }
 }
 #endif
-

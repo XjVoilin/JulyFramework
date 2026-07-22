@@ -2,23 +2,46 @@ using System.Collections.Generic;
 
 namespace July.Platform
 {
+    public enum LaunchSource
+    {
+        Normal,
+        Live,
+        Feed,
+    }
+
+    public enum FeedLaunchChannel
+    {
+        None,
+        Revisit,
+        Acquisition,
+    }
+
     public class LaunchOptions
     {
         public bool IsColdStart { get; }
         public string SceneId { get; }
         public IReadOnlyDictionary<string, string> Query { get; }
         public IReadOnlyDictionary<string, string> ExtraData { get; }
+        public LaunchSource Source { get; }
+        public FeedLaunchChannel FeedChannel { get; }
+        public string ContentId { get; }
 
         public LaunchOptions(
             bool isColdStart,
             string sceneId,
             IReadOnlyDictionary<string, string> query,
-            IReadOnlyDictionary<string, string> extraData = null)
+            IReadOnlyDictionary<string, string> extraData = null,
+            LaunchSource source = LaunchSource.Normal,
+            FeedLaunchChannel feedChannel = FeedLaunchChannel.None,
+            string contentId = null)
         {
             IsColdStart = isColdStart;
             SceneId = sceneId ?? "";
             Query = query ?? EmptyDict;
             ExtraData = extraData ?? EmptyDict;
+            Source = source;
+            FeedChannel = feedChannel;
+            ContentId = contentId ?? string.Empty;
         }
 
         private static readonly IReadOnlyDictionary<string, string> EmptyDict =

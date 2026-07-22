@@ -18,13 +18,20 @@ namespace July.Build
             if (steps == null) throw new ArgumentNullException(nameof(steps));
 
             var pipeline = steps.ToArray();
-            if (pipeline.Any(step => step == null))
-                throw new ArgumentException("构建步骤不能包含 null。", nameof(steps));
-
             var watch = Stopwatch.StartNew();
+            if (pipeline.Length == 0)
+                return Finish(BuildOutcome.Failed, "Pipeline",
+                    "No build steps were selected.", watch);
+            if (pipeline.Any(step => step == null))
+                throw new ArgumentException("Build steps cannot contain null.", nameof(steps));
+
             string activeStep = null;
             try
             {
+                var contextError = context.Validate();
+                if (!string.IsNullOrWhiteSpace(contextError))
+                    return Finish(BuildOutcome.Failed, "Context", contextError, watch);
+
                 foreach (var step in pipeline)
                 {
                     var error = step.Validate(context);
@@ -36,12 +43,13 @@ namespace July.Build
                     return Finish(BuildOutcome.Cancelled, null, null, watch);
 
                 _host.SaveAssets();
-                for (var i = 0; i < pipeline.Length; i++)
+                _host.RefreshAssets();
+                for (var index = 0; index < pipeline.Length; index++)
                 {
-                    var step = pipeline[i];
+                    var step = pipeline[index];
                     activeStep = step.Name;
-                    _host.ShowProgress(step.Name, i + 1, pipeline.Length);
-                    _host.Log($"[Build] [{i + 1}/{pipeline.Length}] {step.Name}");
+                    _host.ShowProgress(step.Name, index + 1, pipeline.Length);
+                    _host.Log($"[Build] [{index + 1}/{pipeline.Length}] {step.Name}");
                     var result = step.Execute(context);
                     if (!result.Succeeded)
                         return Finish(BuildOutcome.Failed, step.Name, result.Error, watch);
@@ -57,6 +65,7 @@ namespace July.Build
             finally
             {
                 _host.ClearProgress();
+                _host.RefreshAssets();
             }
         }
 

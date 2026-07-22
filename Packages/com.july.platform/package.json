@@ -1,8 +1,8 @@
 ﻿{
     "name":  "com.july.platform",
-    "version":  "0.2.2",
+    "version":  "0.3.0",
     "displayName":  "July Platform",
-    "description":  "July Platform package for the July Unity seed framework.",
+    "description":  "Cross-platform services with normalized launch metadata and lifecycle control.",
     "unity":  "2022.3",
     "dependencies":  {
                          "com.july.arch":  "0.1.0",

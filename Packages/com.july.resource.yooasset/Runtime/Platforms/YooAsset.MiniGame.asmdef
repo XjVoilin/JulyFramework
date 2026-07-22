@@ -1,0 +1,21 @@
+{
+    "name": "YooAsset.MiniGame",
+    "rootNamespace": "July.Resource.YooAsset",
+    "references": [
+        "YooAsset",
+        "Wx",
+        "TTWebGL"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "UNITY_WEBGL",
+        "JULYGF_YOOASSET_MINIGAME"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

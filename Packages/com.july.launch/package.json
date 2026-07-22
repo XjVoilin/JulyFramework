@@ -1,6 +1,6 @@
 ﻿{
     "name":  "com.july.launch",
-    "version":  "0.1.0",
+    "version":  "0.1.1",
     "displayName":  "July Launch",
     "description":  "July Launch package for the July Unity seed framework.",
     "unity":  "2022.3",

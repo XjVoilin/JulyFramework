@@ -72,6 +72,7 @@ namespace July.Build.Tests
             public int ClearCount;
             public bool Confirm(BuildContext context, int stepCount) => ConfirmResult;
             public void SaveAssets() => SaveCount++;
+            public void RefreshAssets() { }
             public void ShowProgress(string stepName, int stepIndex, int stepCount) { }
             public void ClearProgress() => ClearCount++;
             public void Log(string message) { }

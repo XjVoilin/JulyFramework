@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<linker>
+  <!-- UI components can be referenced only by remote AssetBundle prefabs. -->
+  <assembly fullname="July.UI" preserve="all" />
+</linker>

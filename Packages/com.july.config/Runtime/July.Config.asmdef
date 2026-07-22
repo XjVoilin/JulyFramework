@@ -3,7 +3,9 @@
     "rootNamespace":  "July.Config",
     "references":  [
                        "July.Arch",
-                       "July.Logging"
+                       "July.Logging",
+                       "UniTask",
+                       "UnityEngine.UnityWebRequestModule"
                    ],
     "includePlatforms":  [
 

@@ -14,6 +14,6 @@ namespace July.Build
         public static BuildStepResult Success() => new(true, null);
 
         public static BuildStepResult Failure(string error) =>
-            new(false, string.IsNullOrWhiteSpace(error) ? "构建步骤失败。" : error);
+            new(false, string.IsNullOrWhiteSpace(error) ? "Build step failed." : error);
     }
 }

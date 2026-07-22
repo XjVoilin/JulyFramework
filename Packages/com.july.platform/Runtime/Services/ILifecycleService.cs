@@ -5,6 +5,7 @@ namespace July.Platform
     {
         LaunchOptions ColdContext { get; }
         LaunchOptions LatestContext { get; }
+        void Restart();
+        void Exit();
     }
 }
-

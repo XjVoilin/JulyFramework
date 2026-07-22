@@ -4,15 +4,23 @@ using UnityEditor;
 
 namespace July.Build
 {
-    public sealed class BuildContext
+    /// <summary>
+    /// Shared build state passed through a pipeline. Projects can derive from this type to add
+    /// domain-specific inputs and outputs while still using the framework runner.
+    /// </summary>
+    public class BuildContext
     {
         private readonly Dictionary<string, object> _values = new();
 
-        public BuildTarget Target { get; }
-        public string Platform { get; }
-        public string Environment { get; }
-        public string Version { get; }
-        public bool Interactive { get; }
+        public BuildTarget Target { get; set; }
+        public string Platform { get; set; } = string.Empty;
+        public string Environment { get; set; } = string.Empty;
+        public string Version { get; set; } = string.Empty;
+        public bool Interactive { get; set; } = true;
+
+        public BuildContext()
+        {
+        }
 
         public BuildContext(BuildTarget target, string platform, string environment,
             string version, bool interactive = true)
@@ -24,10 +32,13 @@ namespace July.Build
             Interactive = interactive;
         }
 
+        /// <summary>Returns null when the shared context is valid.</summary>
+        public virtual string Validate() => null;
+
         public BuildContext Set<T>(string key, T value)
         {
             if (string.IsNullOrWhiteSpace(key))
-                throw new ArgumentException("构建上下文键不能为空。", nameof(key));
+                throw new ArgumentException("Build context key cannot be empty.", nameof(key));
 
             _values[key] = value;
             return this;
@@ -50,7 +61,8 @@ namespace July.Build
             if (TryGet<T>(key, out var value))
                 return value;
 
-            throw new KeyNotFoundException($"构建上下文缺少键 '{key}' 或值类型不匹配。");
+            throw new KeyNotFoundException(
+                $"Build context does not contain key '{key}' with value type {typeof(T).Name}.");
         }
     }
 }

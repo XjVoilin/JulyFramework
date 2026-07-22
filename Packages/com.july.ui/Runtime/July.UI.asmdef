@@ -3,6 +3,7 @@
     "rootNamespace":  "July.UI",
     "references":  [
                        "July.Arch",
+                       "July.Input",
                        "July.Logging",
                        "July.Resource",
                        "July.Audio",
