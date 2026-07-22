@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1 - 2026-07-22
+
+- Validate complete collector definitions instead of checking group names only.
+- Repair stale group metadata, rules, collector paths and GUIDs idempotently.
+
 ## 0.2.0 - 2026-07-22
 
 - Added idempotent early initialization for pre-Arch hot-update flows.

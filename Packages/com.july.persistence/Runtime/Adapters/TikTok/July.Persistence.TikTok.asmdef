@@ -1,0 +1,19 @@
+{
+  "name": "July.Persistence.TikTok",
+  "rootNamespace": "July.Persistence",
+  "references": [
+    "July.Persistence",
+    "TTWebGL"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [
+    "JULYGF_DY_MINIGAME"
+  ],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

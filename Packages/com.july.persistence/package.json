@@ -1,6 +1,6 @@
 ﻿{
     "name":  "com.july.persistence",
-    "version":  "0.2.0",
+    "version":  "0.3.0",
     "displayName":  "July Persistence",
     "description":  "Save systems, platform-aware preferences and reusable savable store lifecycle.",
     "unity":  "2022.3",

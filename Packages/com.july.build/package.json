@@ -1,6 +1,6 @@
 ﻿{
     "name":  "com.july.build",
-    "version":  "0.2.0",
+    "version":  "0.2.1",
     "displayName":  "July Build",
     "description":  "Reusable Unity build pipeline, HybridCLR build operations and deterministic AOT source fingerprinting.",
     "unity":  "2022.3",

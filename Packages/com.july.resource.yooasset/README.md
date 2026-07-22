@@ -43,6 +43,10 @@ Both adapters stay in the public namespace `July.Resource.YooAsset`. YooAsset ex
 its mini-game internals only to the friend assembly named `YooAsset.MiniGame`, so the
 two source-level platform branches share that single conditional assembly. Enable it
 with `JULYGF_YOOASSET_MINIGAME`; ordinary Unity projects do not compile the adapters.
+Because that friend assembly references both vendor assemblies, a mini-game project
+must contain the `Wx` and `TTWebGL` assembly definitions even when it builds only one
+of the two platforms. This is a YooAsset 2.3.12 friend-assembly limitation; projects
+that cannot embed both SDK definitions should leave the mini-game adapter disabled.
 
 Use `WeChatYooAssetFileSystem.CreateInitializeParameters(...)` or
 `TikTokYooAssetFileSystem.CreateInitializeParameters(...)` as the

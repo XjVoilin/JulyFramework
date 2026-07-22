@@ -4,16 +4,16 @@ namespace July.Platform
 {
     public enum LaunchSource
     {
-        Normal,
-        Live,
-        Feed,
+        Normal = 0,
+        Live = 1,
+        Feed = 2,
     }
 
     public enum FeedLaunchChannel
     {
-        None,
-        Revisit,
-        Acquisition,
+        None = 0,
+        Revisit = 1,
+        Acquisition = 2,
     }
 
     public class LaunchOptions

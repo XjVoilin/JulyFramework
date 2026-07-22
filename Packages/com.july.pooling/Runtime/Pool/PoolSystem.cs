@@ -3,13 +3,12 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using July.Arch;
 using July.Logging;
-using UnityEngine;
 
 namespace July.Pooling
 {
     public class PoolSystem : SystemBase, IPoolSystem
     {
-        private readonly ConcurrentDictionary<string, object> _pools = new();
+        private readonly ConcurrentDictionary<Type, IManagedPool> _pools = new();
 
         protected override void OnShutdown()
         {
@@ -24,26 +23,29 @@ namespace July.Pooling
             int initialSize = 0,
             int maxSize = 0) where T : class
         {
-            var key = typeof(T).FullName;
+            var key = typeof(T);
 
-            if (_pools.ContainsKey(key))
+            if (_pools.TryGetValue(key, out var existing))
             {
-                JLogger.LogWarning($"[PoolSystem] 对象池已存在: {key}，将返回现有池");
-                return GetPool<T>();
+                JLogger.LogWarning($"[PoolSystem] 对象池已存在: {key.FullName}，将返回现有池");
+                return (IObjectPool<T>)existing;
             }
 
-            var pool = new ObjectPool<T>(createFunc, onGet, onReturn, onDestroy, maxSize);
+            var pool = new ObjectPool<T>(createFunc ?? CreateDefault<T>,
+                onGet, onReturn, onDestroy, maxSize);
 
             if (initialSize > 0)
                 pool.Warmup(initialSize);
 
-            _pools[key] = pool;
-            return pool;
+            if (_pools.TryAdd(key, pool)) return pool;
+
+            pool.Clear();
+            return GetPool<T>();
         }
 
         public IObjectPool<T> GetPool<T>() where T : class
         {
-            var key = typeof(T).FullName;
+            var key = typeof(T);
             if (_pools.TryGetValue(key, out var pool))
                 return pool as IObjectPool<T>;
             return null;
@@ -62,11 +64,10 @@ namespace July.Pooling
 
         public bool DestroyPool<T>() where T : class
         {
-            var key = typeof(T).FullName;
+            var key = typeof(T);
             if (_pools.TryRemove(key, out var pool))
             {
-                if (pool is IObjectPool<T> typedPool)
-                    typedPool.Clear();
+                pool.Clear();
                 return true;
             }
             return false;
@@ -74,14 +75,11 @@ namespace July.Pooling
 
         public void DestroyAllPools()
         {
-            var pools = new List<object>(_pools.Values);
+            var pools = new List<IManagedPool>(_pools.Values);
             _pools.Clear();
 
             foreach (var pool in pools)
-            {
-                if (pool is IObjectPool<object> objPool)
-                    objPool.Clear();
-            }
+                pool.Clear();
         }
 
         public Dictionary<string, object> GetPoolStatistics()
@@ -89,20 +87,40 @@ namespace July.Pooling
             var stats = new Dictionary<string, object>();
             foreach (var kvp in _pools)
             {
-                if (kvp.Value is IObjectPool<object> objPool)
+                var pool = kvp.Value;
+                stats[kvp.Key.FullName ?? kvp.Key.Name] = new
                 {
-                    stats[kvp.Key] = new
-                    {
-                        objPool.AvailableCount,
-                        objPool.ActiveCount,
-                        objPool.TotalCount
-                    };
-                }
+                    pool.AvailableCount,
+                    pool.ActiveCount,
+                    pool.TotalCount
+                };
             }
             return stats;
         }
 
-        private sealed class ObjectPool<T> : IObjectPool<T> where T : class
+        private static T CreateDefault<T>() where T : class
+        {
+            try
+            {
+                return Activator.CreateInstance<T>();
+            }
+            catch (Exception exception)
+            {
+                throw new InvalidOperationException(
+                    $"[PoolSystem] {typeof(T).FullName} has no usable parameterless constructor. " +
+                    "Provide createFunc when creating the pool.", exception);
+            }
+        }
+
+        private interface IManagedPool
+        {
+            void Clear();
+            int AvailableCount { get; }
+            int ActiveCount { get; }
+            int TotalCount { get; }
+        }
+
+        private sealed class ObjectPool<T> : IObjectPool<T>, IManagedPool where T : class
         {
             private readonly Queue<T> _pool = new();
             private readonly HashSet<T> _activeObjects = new();
@@ -132,7 +150,7 @@ namespace July.Pooling
                 T obj;
                 lock (_lock)
                 {
-                    obj = _pool.Count > 0 ? _pool.Dequeue() : _createFunc();
+                    obj = _pool.Count > 0 ? _pool.Dequeue() : Create();
                     _activeObjects.Add(obj);
                 }
                 _onGet?.Invoke(obj);
@@ -184,9 +202,18 @@ namespace July.Pooling
                     for (int i = 0; i < count; i++)
                     {
                         if (_maxSize > 0 && _pool.Count >= _maxSize) break;
-                        _pool.Enqueue(_createFunc());
+                        _pool.Enqueue(Create());
                     }
                 }
+            }
+
+            private T Create()
+            {
+                var instance = _createFunc();
+                if (instance == null)
+                    throw new InvalidOperationException(
+                        $"[PoolSystem] Factory for {typeof(T).FullName} returned null.");
+                return instance;
             }
         }
     }

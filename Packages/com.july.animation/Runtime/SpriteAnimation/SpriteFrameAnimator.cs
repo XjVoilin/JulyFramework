@@ -95,11 +95,13 @@ namespace July.Animation
             var interval = 1f / clip.fps;
             if (_timer < interval) return;
 
-            _timer -= interval;
-            _frameIndex++;
-
-            if (_frameIndex >= clip.frames.Length)
+            while (_timer >= interval && _playing)
             {
+                _timer -= interval;
+                _frameIndex++;
+
+                if (_frameIndex < clip.frames.Length) continue;
+
                 if (clip.loop)
                 {
                     _frameIndex = 0;
@@ -108,6 +110,7 @@ namespace July.Animation
                 {
                     _frameIndex = clip.frames.Length - 1;
                     _playing = false;
+                    _applySpriteFunc?.Invoke(clip.frames[_frameIndex]);
                     OnClipComplete?.Invoke(clip.name);
                     return;
                 }
@@ -197,6 +200,8 @@ namespace July.Animation
         private void ResolveRenderer()
         {
             var sr = GetComponent<SpriteRenderer>();
+            if (sr == null)
+                sr = GetComponentInChildren<SpriteRenderer>(true);
             if (sr != null)
             {
                 _applySpriteFunc = s => sr.sprite = s;
@@ -204,6 +209,8 @@ namespace July.Animation
             }
 
             var img = GetComponent<Image>();
+            if (img == null)
+                img = GetComponentInChildren<Image>(true);
             if (img != null)
             {
                 _applySpriteFunc = s => img.sprite = s;

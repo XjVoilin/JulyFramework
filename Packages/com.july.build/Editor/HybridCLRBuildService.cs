@@ -66,6 +66,67 @@ namespace July.Build
             }
         }
 
+        /// <summary>Installs HybridCLR when its local libil2cpp environment is absent.</summary>
+        public static bool EnsureInstalled()
+        {
+            try
+            {
+                var controllerType =
+                    RequireType("HybridCLR.Editor.Installer.InstallerController");
+                var controller = Activator.CreateInstance(controllerType);
+                if ((bool)InvokeInstance(controllerType, controller,
+                        "HasInstalledHybridCLR"))
+                {
+                    var version = GetInstanceMember(controllerType, controller,
+                        "InstalledLibil2cppVersion");
+                    Debug.Log($"[HybridCLR] Already installed (version: {version}).");
+                    return true;
+                }
+
+                Debug.Log("[HybridCLR] Installing the default libil2cpp environment...");
+                InvokeInstance(controllerType, controller, "InstallDefaultHybridCLR");
+                if (!(bool)InvokeInstance(controllerType, controller,
+                        "HasInstalledHybridCLR"))
+                {
+                    Debug.LogError("[HybridCLR] Installation validation failed. Check git and network access.");
+                    return false;
+                }
+
+                var installedVersion = GetInstanceMember(controllerType, controller,
+                    "InstalledLibil2cppVersion");
+                Debug.Log($"[HybridCLR] Installation completed (version: {installedVersion}).");
+                return true;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError($"[HybridCLR] Installation failed: {exception.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>Runs HybridCLR Generate All without project-specific copy policy.</summary>
+        public static bool GenerateAll()
+        {
+            if (!ValidateSettings()) return false;
+            try
+            {
+                EditorUtility.DisplayProgressBar("HybridCLR", "Generate All...", 0.1f);
+                InvokeStatic(RequireType("HybridCLR.Editor.Commands.PrebuildCommand"),
+                    "GenerateAll");
+                AssetDatabase.Refresh();
+                return true;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError($"[HybridCLR] Generate All failed: {exception.Message}");
+                return false;
+            }
+            finally
+            {
+                EditorUtility.ClearProgressBar();
+            }
+        }
+
         public static bool GenerateAllAndCopyDlls(HybridCLRBuildProfile profile,
             BuildTarget target)
         {
@@ -365,6 +426,30 @@ namespace July.Build
             var field = type.GetField(name, StaticFlags);
             if (field != null) return field.GetValue(null);
             throw new MissingMemberException(type.FullName, name);
+        }
+
+        private static object GetInstanceMember(Type type, object instance, string name)
+        {
+            const BindingFlags flags =
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
+            var property = type.GetProperty(name, flags);
+            if (property != null) return property.GetValue(instance);
+            var field = type.GetField(name, flags);
+            if (field != null) return field.GetValue(instance);
+            throw new MissingMemberException(type.FullName, name);
+        }
+
+        private static object InvokeInstance(Type type, object instance,
+            string methodName, params object[] arguments)
+        {
+            const BindingFlags flags =
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
+            var method = type.GetMethods(flags).FirstOrDefault(candidate =>
+                candidate.Name == methodName &&
+                candidate.GetParameters().Length == arguments.Length);
+            if (method == null)
+                throw new MissingMethodException(type.FullName, methodName);
+            return method.Invoke(instance, arguments);
         }
 
         private static object InvokeStatic(Type type, string methodName, params object[] arguments)

@@ -37,6 +37,15 @@ namespace July.Resource.YooAsset
                 package.Groups.Any(group => group.GroupName == name));
         }
 
+        public static bool HasGroups(string settingPath, string packageName,
+            IReadOnlyList<YooAssetCollectorGroupDefinition> definitions)
+        {
+            if (definitions == null) throw new ArgumentNullException(nameof(definitions));
+            var package = FindPackage(settingPath, packageName);
+            return package != null && definitions.All(definition =>
+                package.Groups.Any(group => Matches(group, definition)));
+        }
+
         public static bool EnsureGroups(string settingPath, string packageName,
             IReadOnlyList<YooAssetCollectorGroupDefinition> definitions)
         {
@@ -71,11 +80,17 @@ namespace July.Resource.YooAsset
             var settingChanged = false;
             foreach (var definition in definitions)
             {
-                if (package.Groups.Any(group => group.GroupName == definition.Name))
-                    continue;
-
-                package.Groups.Add(CreateGroup(definition));
-                settingChanged = true;
+                var group = package.Groups.FirstOrDefault(item =>
+                    item.GroupName == definition.Name);
+                if (group == null)
+                {
+                    package.Groups.Add(CreateGroup(definition));
+                    settingChanged = true;
+                }
+                else
+                {
+                    settingChanged |= UpdateGroup(group, definition);
+                }
             }
 
             if (settingChanged)
@@ -102,17 +117,86 @@ namespace July.Resource.YooAsset
             ActiveRuleName = nameof(EnableGroup),
             Collectors =
             {
-                new AssetBundleCollector
-                {
-                    CollectPath = definition.CollectDirectory,
-                    CollectorGUID = AssetDatabase.AssetPathToGUID(definition.CollectDirectory),
-                    CollectorType = ECollectorType.MainAssetCollector,
-                    AddressRuleName = nameof(AddressByFileName),
-                    PackRuleName = nameof(PackDirectory),
-                    FilterRuleName = nameof(CollectAll),
-                    AssetTags = definition.Tag,
-                }
+                CreateCollector(definition)
             }
         };
+
+        private static bool UpdateGroup(AssetBundleCollectorGroup group,
+            YooAssetCollectorGroupDefinition definition)
+        {
+            var changed = false;
+            changed |= Set(ref group.GroupDesc, definition.Description);
+            changed |= Set(ref group.AssetTags, definition.Tag);
+            changed |= Set(ref group.ActiveRuleName, nameof(EnableGroup));
+
+            var collectPath = NormalizePath(definition.CollectDirectory);
+            var collector = group.Collectors.FirstOrDefault(item =>
+                NormalizePath(item.CollectPath) == collectPath);
+            if (collector == null && group.Collectors.Count == 1)
+                collector = group.Collectors[0];
+            if (collector == null)
+            {
+                collector = CreateCollector(definition);
+                group.Collectors.Add(collector);
+                return true;
+            }
+
+            changed |= Set(ref collector.CollectPath, collectPath);
+            changed |= Set(ref collector.CollectorGUID,
+                AssetDatabase.AssetPathToGUID(collectPath));
+            changed |= Set(ref collector.CollectorType, ECollectorType.MainAssetCollector);
+            changed |= Set(ref collector.AddressRuleName, nameof(AddressByFileName));
+            changed |= Set(ref collector.PackRuleName, nameof(PackDirectory));
+            changed |= Set(ref collector.FilterRuleName, nameof(CollectAll));
+            changed |= Set(ref collector.AssetTags, definition.Tag);
+            return changed;
+        }
+
+        private static bool Matches(AssetBundleCollectorGroup group,
+            YooAssetCollectorGroupDefinition definition)
+        {
+            if (group.GroupName != definition.Name ||
+                group.GroupDesc != definition.Description ||
+                group.AssetTags != definition.Tag ||
+                group.ActiveRuleName != nameof(EnableGroup))
+                return false;
+
+            var expectedPath = NormalizePath(definition.CollectDirectory);
+            var expectedGuid = AssetDatabase.AssetPathToGUID(expectedPath);
+            return group.Collectors.Any(collector =>
+                NormalizePath(collector.CollectPath) == expectedPath &&
+                collector.CollectorGUID == expectedGuid &&
+                collector.CollectorType == ECollectorType.MainAssetCollector &&
+                collector.AddressRuleName == nameof(AddressByFileName) &&
+                collector.PackRuleName == nameof(PackDirectory) &&
+                collector.FilterRuleName == nameof(CollectAll) &&
+                collector.AssetTags == definition.Tag);
+        }
+
+        private static AssetBundleCollector CreateCollector(
+            YooAssetCollectorGroupDefinition definition)
+        {
+            var collectPath = NormalizePath(definition.CollectDirectory);
+            return new AssetBundleCollector
+            {
+                CollectPath = collectPath,
+                CollectorGUID = AssetDatabase.AssetPathToGUID(collectPath),
+                CollectorType = ECollectorType.MainAssetCollector,
+                AddressRuleName = nameof(AddressByFileName),
+                PackRuleName = nameof(PackDirectory),
+                FilterRuleName = nameof(CollectAll),
+                AssetTags = definition.Tag,
+            };
+        }
+
+        private static string NormalizePath(string path) =>
+            path.Replace('\\', '/').TrimEnd('/');
+
+        private static bool Set<T>(ref T target, T value)
+        {
+            if (EqualityComparer<T>.Default.Equals(target, value)) return false;
+            target = value;
+            return true;
+        }
     }
 }
