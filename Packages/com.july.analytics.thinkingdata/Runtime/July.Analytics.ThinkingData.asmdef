@@ -1,0 +1,17 @@
+{
+  "name": "July.Analytics.ThinkingData",
+  "rootNamespace": "July.Analytics",
+  "references": [
+    "July.Analytics",
+    "ThinkingAnalytics"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

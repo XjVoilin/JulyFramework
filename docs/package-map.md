@@ -28,7 +28,8 @@ July uses package seams only where a capability has an independent installation 
 | `com.july.scene` | Scene lifecycle and navigation. |
 | `com.july.audio` | Audio playback, pooling, and configuration. |
 | `com.july.platform` | Platform capability registration and adapters. |
-| `com.july.analytics` | Analytics dispatch and optional SDK channels. |
+| `com.july.analytics` | Vendor-neutral analytics contracts and channel dispatch. |
+| `com.july.analytics.thinkingdata` | Strongly typed ThinkingData default channel and bundled SDK 3.4.2. |
 | `com.july.diagnostics` | Runtime diagnostics and developer tools. |
 
 ## Presentation and gameplay

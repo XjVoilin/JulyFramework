@@ -1,8 +1,8 @@
 ﻿{
     "name":  "com.july.analytics",
-    "version":  "0.2.0",
+    "version":  "0.3.0",
     "displayName":  "July Analytics",
-    "description":  "Multi-channel analytics dispatch with an optional ThinkingData SDK adapter.",
+    "description":  "Vendor-neutral analytics contracts and multi-channel dispatch.",
     "unity":  "2022.3",
     "dependencies":  {
                          "com.july.arch":  "0.1.0",
