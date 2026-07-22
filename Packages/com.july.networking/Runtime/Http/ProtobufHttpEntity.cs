@@ -24,7 +24,8 @@ namespace July.Networking
     {
         public override TRequest RqtData { get; } = new();
 
-        protected override string BuildBody() => ProtobufJsonCodec.Serialize(RqtData);
+        protected internal override string BuildBody() =>
+            ProtobufJsonCodec.Serialize(RqtData);
 
         protected override void SetResponseData(string dataJson) =>
             RespData = ProtobufJsonCodec.Deserialize<TResponse>(dataJson);
@@ -37,7 +38,8 @@ namespace July.Networking
     {
         public override TRequest RqtData { get; } = new();
 
-        protected override string BuildBody() => ProtobufJsonCodec.Serialize(RqtData);
+        protected internal override string BuildBody() =>
+            ProtobufJsonCodec.Serialize(RqtData);
 
         protected override void SetResponseData(string dataJson) =>
             RespData = ProtobufJsonCodec.Deserialize<TResponse>(dataJson);

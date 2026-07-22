@@ -1,6 +1,6 @@
 ﻿{
     "name":  "com.july.networking",
-    "version":  "0.2.0",
+    "version":  "0.2.1",
     "displayName":  "July Networking",
     "description":  "HTTP runtime with optional Protobuf JSON entities and forward-compatible response parsing.",
     "unity":  "2022.3",
