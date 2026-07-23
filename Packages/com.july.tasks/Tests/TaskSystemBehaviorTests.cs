@@ -285,6 +285,88 @@ namespace July.Tasks.Tests.Task
         }
 
         [Test]
+        public void ReplaceTasks_ReplacesOnlySpecifiedTasks_BeforePublishingMarkers()
+        {
+            var replacedTaskIds = new List<int>();
+            var allTasksReplacedWhenPublishing = true;
+            var valueCount = 0;
+            var stateCount = 0;
+            var collectionCount = 0;
+            _context.Event.Subscribe<TaskReplacedEvent>(evt =>
+            {
+                replacedTaskIds.Add(evt.TaskId);
+                allTasksReplacedWhenPublishing &=
+                    _tasks.TryGetTask(1, out var first) && first.CurrentValue == 15 &&
+                    _tasks.TryGetTask(2, out var second) && second.CurrentValue == 25;
+            }, this);
+            _context.Event.Subscribe<TaskValueChangedEvent>(_ => valueCount++, this);
+            _context.Event.Subscribe<TaskStageStateChangedEvent>(_ => stateCount++, this);
+            _context.Event.Subscribe<TaskCollectionReplacedEvent>(_ => collectionCount++, this);
+            _tasks.RegisterTask(Task(1, 0, Stage(10, TaskState.Active)));
+            _tasks.RegisterTask(Task(2, 0, Stage(20, TaskState.Active)));
+            _tasks.RegisterTask(Task(3, 3, Stage(30, TaskState.Active)));
+
+            Assert.That(_tasks.ReplaceTasks(new[]
+            {
+                Task(1, 15, Stage(10, TaskState.Active)),
+                Task(2, 25, Stage(20, TaskState.Completed))
+            }), Is.True);
+
+            Assert.That(allTasksReplacedWhenPublishing, Is.True);
+            Assert.That(replacedTaskIds, Is.EqualTo(new[] { 1, 2 }));
+            Assert.That(valueCount, Is.Zero);
+            Assert.That(stateCount, Is.Zero);
+            Assert.That(collectionCount, Is.Zero);
+            Assert.That(_tasks.TryGetTask(3, out var untouched), Is.True);
+            Assert.That(untouched.CurrentValue, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void ReplaceTasks_InvalidUnknownOrDuplicateItem_IsAtomic()
+        {
+            var replacedCount = 0;
+            _context.Event.Subscribe<TaskReplacedEvent>(_ => replacedCount++, this);
+            _tasks.RegisterTask(Task(1, 1, Stage(10, TaskState.Active)));
+            _tasks.RegisterTask(Task(2, 2, Stage(20, TaskState.Active)));
+
+            Assert.That(_tasks.ReplaceTasks(new[]
+            {
+                Task(1, 10, Stage(10, TaskState.Completed)),
+                Task(3, 30, Stage(30, TaskState.Completed))
+            }), Is.False);
+            Assert.That(_tasks.ReplaceTasks(new[]
+            {
+                Task(1, 10, Stage(10, TaskState.Completed)),
+                Task(1, 11, Stage(10, TaskState.Completed))
+            }), Is.False);
+            Assert.That(_tasks.ReplaceTasks(new[]
+            {
+                Task(1, 10, Stage(10, TaskState.Completed)),
+                Task(2, -1, Stage(20, TaskState.Active))
+            }), Is.False);
+
+            Assert.That(replacedCount, Is.Zero);
+            Assert.That(_tasks.TryGetTask(1, out var first), Is.True);
+            Assert.That(_tasks.TryGetTask(2, out var second), Is.True);
+            Assert.That(first.CurrentValue, Is.EqualTo(1));
+            Assert.That(second.CurrentValue, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void ReplaceTasks_Empty_IsSuccessfulNoOp()
+        {
+            var replacedCount = 0;
+            _context.Event.Subscribe<TaskReplacedEvent>(_ => replacedCount++, this);
+            _tasks.RegisterTask(Task(1, 1, Stage(10, TaskState.Active)));
+
+            Assert.That(_tasks.ReplaceTasks(Array.Empty<TaskData>()), Is.True);
+
+            Assert.That(replacedCount, Is.Zero);
+            Assert.That(_tasks.TryGetTask(1, out var task), Is.True);
+            Assert.That(task.CurrentValue, Is.EqualTo(1));
+        }
+
+        [Test]
         public void ListenerException_IsLoggedAndDoesNotStopFollowingEvents()
         {
             var stateEventCount = 0;

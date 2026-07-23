@@ -57,6 +57,14 @@ taskSystem.ReplaceAllTasks(serverTasks);
 
 替换会先验证全部数据；任意一项非法或 TaskId 重复时返回 `false`，旧集合保持不变。成功后整个集合被覆盖，并只发布一次 `TaskCollectionReplacedEvent`。空集合是合法输入，会清空全部任务。
 
+服务器只下发发生变化的已有任务时调用：
+
+```csharp
+taskSystem.ReplaceTasks(changedTasks);
+```
+
+局部替换同样会先验证全部数据；任意一项非法、TaskId 重复或任务尚未注册时返回 `false`，原集合保持不变。成功后不改变集合成员，并按输入顺序为每条任务发布一次 `TaskReplacedEvent`。空集合是合法的无变化请求。
+
 ## 本地状态迁移
 
 - `SetCurrentValue` 只接受绝对累计值；存在 Active 阶段时数值只能单调增加。
@@ -82,10 +90,11 @@ taskSystem.ReplaceAllTasks(serverTasks);
 
 - `TaskValueChangedEvent`：TaskId、前值和当前值。
 - `TaskStageStateChangedEvent`：TaskId、StageIndex、前状态和当前状态。
+- `TaskReplacedEvent`：被权威数据局部替换的 TaskId。
 
 一次累计值更新先发布数值事件，再按 StageIndex 从小到大发布阶段状态事件。事件进入同步 FIFO 队列；监听期间再次调用任务命令时，新事件追加到队尾，根命令在队列派发完毕后返回。监听异常由 Task 记录并隔离，不向命令调用方传播。
 
-注册和移除任务保持静默。成功的完整集合替换只发布集合标记事件，不逐任务发布变化事件。
+注册和移除任务保持静默。成功的完整集合替换只发布集合标记事件；成功的局部替换逐任务发布替换事件。两种权威替换都不会推断或逐项发布数值、阶段状态变化事件。
 
 ## 返回值与线程
 

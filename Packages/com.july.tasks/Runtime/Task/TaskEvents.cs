@@ -43,4 +43,18 @@ namespace July.Tasks
     public readonly struct TaskCollectionReplacedEvent
     {
     }
+
+    /// <summary>
+    /// 一条已有任务被权威数据替换后发送。
+    /// 局部替换不会推断或逐项发送数值与阶段状态变化事件。
+    /// </summary>
+    public readonly struct TaskReplacedEvent
+    {
+        public int TaskId { get; }
+
+        public TaskReplacedEvent(int taskId)
+        {
+            TaskId = taskId;
+        }
+    }
 }

@@ -85,6 +85,34 @@ namespace July.Tasks
             return true;
         }
 
+        public bool ReplaceTasks(IReadOnlyList<TaskData> tasks)
+        {
+            if (tasks == null)
+                return false;
+
+            var taskIds = new HashSet<int>();
+            for (var index = 0; index < tasks.Count; index++)
+            {
+                var task = tasks[index];
+                if (!IsValidTask(task) ||
+                    !_tasks.ContainsKey(task.TaskId) ||
+                    !taskIds.Add(task.TaskId))
+                {
+                    return false;
+                }
+            }
+
+            for (var index = 0; index < tasks.Count; index++)
+            {
+                var task = tasks[index];
+                _tasks[task.TaskId] = task;
+                _eventQueue.Enqueue(PendingTaskEvent.TaskReplaced(task.TaskId));
+            }
+
+            DrainEvents();
+            return true;
+        }
+
         public bool SetCurrentValue(int taskId, long currentValue)
         {
             if (currentValue < 0 || !_tasks.TryGetValue(taskId, out var task))
@@ -353,6 +381,9 @@ namespace July.Tasks
                 case PendingTaskEventKind.CollectionReplaced:
                     Publish(new TaskCollectionReplacedEvent());
                     break;
+                case PendingTaskEventKind.TaskReplaced:
+                    Publish(new TaskReplacedEvent(pendingEvent.TaskId));
+                    break;
                 default:
                     throw new ArgumentOutOfRangeException(
                         nameof(pendingEvent),
@@ -366,7 +397,8 @@ namespace July.Tasks
     {
         ValueChanged,
         StageStateChanged,
-        CollectionReplaced
+        CollectionReplaced,
+        TaskReplaced
     }
 
     internal readonly struct PendingTaskEvent
@@ -433,6 +465,18 @@ namespace July.Tasks
             return new PendingTaskEvent(
                 PendingTaskEventKind.CollectionReplaced,
                 0,
+                0,
+                0,
+                0,
+                default,
+                default);
+        }
+
+        public static PendingTaskEvent TaskReplaced(int taskId)
+        {
+            return new PendingTaskEvent(
+                PendingTaskEventKind.TaskReplaced,
+                taskId,
                 0,
                 0,
                 0,

@@ -18,6 +18,11 @@ namespace July.Tasks
         /// <summary>原子替换完整任务集合，成功后发送一次集合替换标记事件。</summary>
         bool ReplaceAllTasks(IReadOnlyList<TaskData> tasks);
 
+        /// <summary>
+        /// 使用权威数据原子替换指定的已有任务；成功后按输入顺序逐条发送任务替换事件。
+        /// </summary>
+        bool ReplaceTasks(IReadOnlyList<TaskData> tasks);
+
         /// <summary>设置绝对累计值；存在 Active 阶段时数值只能单调增加。</summary>
         bool SetCurrentValue(int taskId, long currentValue);
 

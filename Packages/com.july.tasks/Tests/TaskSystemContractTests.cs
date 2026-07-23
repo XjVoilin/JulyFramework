@@ -113,6 +113,30 @@ namespace July.Tasks.Tests.Task
         }
 
         [Test]
+        public void PartialReplacement_IsAvailableThroughInterface_AndPublishesTaskMarkers()
+        {
+            var taskSystem = _context.GetSystem<ITaskSystem>();
+            var replacedTaskIds = new List<int>();
+            _context.Event.Subscribe<TaskReplacedEvent>(
+                evt => replacedTaskIds.Add(evt.TaskId),
+                this);
+            taskSystem.RegisterTask(Task(1, 0, Stage(10, TaskState.Active)));
+            taskSystem.RegisterTask(Task(2, 0, Stage(20, TaskState.Active)));
+
+            Assert.That(taskSystem.ReplaceTasks(new[]
+            {
+                Task(2, 20, Stage(20, TaskState.Completed)),
+                Task(1, 10, Stage(10, TaskState.Completed))
+            }), Is.True);
+
+            Assert.That(replacedTaskIds, Is.EqualTo(new[] { 2, 1 }));
+            Assert.That(taskSystem.TryGetTask(1, out var first), Is.True);
+            Assert.That(taskSystem.TryGetTask(2, out var second), Is.True);
+            Assert.That(first.CurrentValue, Is.EqualTo(10));
+            Assert.That(second.CurrentValue, Is.EqualTo(20));
+        }
+
+        [Test]
         public void ResetAllTasks_IsAvailableThroughTaskInterface()
         {
             var taskSystem = _context.GetSystem<ITaskSystem>();
