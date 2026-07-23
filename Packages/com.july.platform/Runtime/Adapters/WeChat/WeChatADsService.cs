@@ -23,7 +23,7 @@ namespace July.Platform
             _videoAd.OnLoad(OnAdLoaded);
             _videoAd.OnError(OnAdError);
             _videoAd.OnClose(OnAdClose);
-            Debug.Log("[WeChatADsService] 骞垮憡瀹炰緥寤惰繜鍒涘缓瀹屾垚");
+            Debug.Log("[WeChatADsService] 广告实例延迟创建完成");
         }
 
         public bool HasRewardedAd() => _isLoaded && !_isPlaying;
@@ -50,7 +50,7 @@ namespace July.Platform
 
         private void OnShowSuccess(WXTextResponse res)
         {
-            // 灞曠ず鎴愬姛锛岀瓑寰?OnAdClose 鍥炶皟
+            // 展示成功，等待 OnAdClose 回调
         }
 
         private void OnShowFail(WXTextResponse res)
@@ -88,4 +88,3 @@ namespace July.Platform
     }
 }
 #endif
-

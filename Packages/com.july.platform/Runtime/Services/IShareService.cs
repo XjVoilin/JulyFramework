@@ -3,7 +3,7 @@ using UnityEngine;
 namespace July.Platform
 {
     /// <summary>
-    /// 分享结果事件（成�?失败�?
+    /// 分享结果事件（成功/失败）。
     /// </summary>
     public readonly struct ShareResultEvent
     {
@@ -26,4 +26,3 @@ namespace July.Platform
         void ShareCaptureArea(Rect rect, int shareId, string title, string query);
     }
 }
-

@@ -1,6 +1,6 @@
 ﻿{
     "name":  "com.july.platform",
-    "version":  "0.3.2",
+    "version":  "0.3.3",
     "displayName":  "July Platform",
     "description":  "Cross-platform services with normalized launch metadata and lifecycle control.",
     "unity":  "2022.3",

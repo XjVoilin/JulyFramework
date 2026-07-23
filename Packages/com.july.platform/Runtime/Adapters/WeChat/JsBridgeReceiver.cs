@@ -3,7 +3,8 @@ using UnityEngine;
 namespace July.Platform
 {
     /// <summary>
-    /// JS鈫扖# 娑堟伅鎺ユ敹鍣ㄣ€傜敱 JsBridge.Init 鑷姩鍒涘缓骞舵寕杞藉埌 "JulyJsBridge" GameObject 涓娿€?    /// </summary>
+    /// JS→C# 消息接收器。由 JsBridge.Init 自动创建并挂载到 "JulyJsBridge" GameObject 上。
+    /// </summary>
     public class JsBridgeReceiver : MonoBehaviour
     {
         [System.Serializable]
@@ -21,4 +22,3 @@ namespace July.Platform
         }
     }
 }
-

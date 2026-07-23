@@ -39,13 +39,13 @@ namespace July.Platform
                     var isSuccess = res.ContainsKey("success")
                                    && res["success"].IsBoolean
                                    && (bool)res["success"];
-                    Debug.Log($"[TikTokSubscribe] 鎺ㄨ崘娴佽闃? success={isSuccess}");
+                    Debug.Log($"[TikTokSubscribe] 推荐流订阅: success={isSuccess}");
                     this.Publish(new FeedSubscribeResultEvent(isSuccess));
                 },
                 (errNo, errMsg) =>
                 {
                     _isFeedSubscribing = false;
-                    Debug.LogWarning($"[TikTokSubscribe] 鎺ㄨ崘娴佽闃呭け璐? errNo={errNo}, errMsg={errMsg}");
+                    Debug.LogWarning($"[TikTokSubscribe] 推荐流订阅失败: errNo={errNo}, errMsg={errMsg}");
                     this.Publish(new FeedSubscribeResultEvent(false));
                 },
                 null
@@ -66,12 +66,12 @@ namespace July.Platform
                     var subscribed = res.ContainsKey("success")
                                     && res["success"].IsBoolean
                                     && (bool)res["success"];
-                    Debug.Log($"[TikTokSubscribe] 鑾峰緱鎺ㄨ崘娴佽闃呯姸鎬? subscribed={subscribed}");
+                    Debug.Log($"[TikTokSubscribe] 获得推荐流订阅状态: subscribed={subscribed}");
                     this.Publish(new FeedSubscribeResultEvent(subscribed));
                 },
                 (errNo, errMsg) =>
                 {
-                    Debug.LogWarning($"[TikTokSubscribe] 鑾峰緱鎺ㄨ崘娴佽闃呯姸鎬佸け璐? errNo={errNo}, errMsg={errMsg}");
+                    Debug.LogWarning($"[TikTokSubscribe] 获得推荐流订阅状态失败: errNo={errNo}, errMsg={errMsg}");
                 },
                 null
             );
