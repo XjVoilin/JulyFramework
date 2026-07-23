@@ -11,6 +11,7 @@ namespace July.Analytics
         public string AppId { get; }
         public string ServerUrl { get; }
         public bool IsProduction { get; set; }
+        public bool EnableLog { get; set; }
         public bool EnableAutoTrack { get; set; } = true;
         public bool ForwardUnityErrors { get; set; }
         public string UnityErrorEventName { get; set; } = "UnityLogInfo";
@@ -58,7 +59,7 @@ namespace July.Analytics
                     TDAutoTrackEventType.AppEnd);
             }
 
-            TDAnalytics.EnableLog(false);
+            TDAnalytics.EnableLog(_options.EnableLog);
 #if !UNITY_EDITOR
             if (_options.ForwardUnityErrors)
                 Application.logMessageReceived += OnLogMessageReceived;
