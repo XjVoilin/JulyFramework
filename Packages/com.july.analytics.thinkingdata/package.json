@@ -1,6 +1,6 @@
 {
   "name": "com.july.analytics.thinkingdata",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "July Analytics ThinkingData",
   "description": "Strongly typed ThinkingData SDK channel for July Analytics.",
   "unity": "2022.3",
