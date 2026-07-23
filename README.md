@@ -12,9 +12,9 @@ See [docs/installation.md](docs/installation.md) for copyable Git URLs and insta
 
 ## Deterministic development
 
-One immutable framework revision identifies a compatible version of every July package. Package-level tests live beside their owning package under `Tests~`.
+Each July Package has its own semantic version in `package.json` and an immutable Git tag named `com.july.<name>@<version>`. Package-level tests live beside their owning package under `Tests`.
 
-For distribution, publish the `Packages/com.july.*` directories to a scoped registry at one shared version, or list every required package with a Git URL pinned to the same immutable commit and `?path=/Packages/<package-id>`. Do not use unqualified branches such as `main` in a game manifest.
+Git consumers list every required package and its July dependency closure explicitly, with each URL pinned to that package's release tag and `?path=/Packages/<package-id>`. A package update does not force unrelated packages to change version. Interface changes that affect dependants must release those dependant packages together. Do not use unqualified branches such as `main` in a game manifest.
 
 ## Verification
 

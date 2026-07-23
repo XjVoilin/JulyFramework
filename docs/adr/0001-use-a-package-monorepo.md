@@ -4,12 +4,11 @@ July Framework is maintained in one Git repository with flat, independently inst
 
 ## Status
 
-Accepted, 2026-07-21.
+Accepted, 2026-07-21. The original shared-revision distribution consequence is superseded by ADR 0003.
 
 ## Consequences
 
-- One commit identifies a compatible version of the complete July family.
 - Packages can still be selected independently through UPM.
 - Cross-package changes are reviewed atomically and package tests stay with their owning packages.
 - Game-specific policy and integration verification remain in the separate template repository.
-- External distribution requires a scoped registry or Git URLs pinned to one immutable commit.
+- External distribution uses the independent package release policy in ADR 0003.
