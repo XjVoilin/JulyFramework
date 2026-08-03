@@ -43,7 +43,7 @@ namespace July.RedDot.Editor
         private TextField _newModuleField;
         private EnumField _newTypeField;
 
-        [MenuItem("July/Red Dot/红点树编辑器", false, 100)]
+        [MenuItem("JulyGF/RedDot/红点树编辑器", false, 100)]
         public static void ShowWindow()
         {
             var window = GetWindow<RedDotTreeEditorWindow>();
