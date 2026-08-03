@@ -13,9 +13,9 @@ namespace July.RedDot
 
     public class RedDotStore : StoreBase<RedDotStoreData>
     {
-        #region Node registration
+        #region Node installation
 
-        public bool RegisterNode(string key, string parentKey = null, RedDotType type = RedDotType.Normal)
+        internal bool InstallNode(string key, string parentKey, RedDotType type)
         {
             if (string.IsNullOrEmpty(key))
                 return false;
@@ -48,39 +48,6 @@ namespace July.RedDot
 
             return true;
         }
-
-        public void RegisterNodes(IEnumerable<(string Key, string ParentKey, RedDotType Type)> nodes)
-        {
-            if (nodes == null) return;
-
-            var nodeList = nodes.ToList();
-            var rootNodes = nodeList.Where(n => string.IsNullOrEmpty(n.ParentKey)).ToList();
-            var childNodes = nodeList.Where(n => !string.IsNullOrEmpty(n.ParentKey)).ToList();
-
-            foreach (var node in rootNodes)
-                RegisterNode(node.Key, node.ParentKey, node.Type);
-
-            var maxIterations = 100;
-            var iteration = 0;
-            while (childNodes.Count > 0 && iteration < maxIterations)
-            {
-                var registered = new List<(string Key, string ParentKey, RedDotType Type)>();
-                foreach (var node in childNodes)
-                {
-                    if (Exists(node.ParentKey))
-                    {
-                        RegisterNode(node.Key, node.ParentKey, node.Type);
-                        registered.Add(node);
-                    }
-                }
-
-                foreach (var node in registered)
-                    childNodes.Remove(node);
-
-                iteration++;
-            }
-        }
-
 
         #endregion
 

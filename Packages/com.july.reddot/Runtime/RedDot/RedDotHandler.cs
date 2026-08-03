@@ -11,6 +11,7 @@ namespace July.RedDot
         private RedDotSystemBase _system;
 
         protected abstract string Key { get; }
+        internal string BindingKey => Key;
         protected abstract int ComputeCount();
         protected virtual void OnSubscribeEvents() { }
 

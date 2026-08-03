@@ -10,7 +10,7 @@ namespace July.RedDot
     /// 使用方式：将红点 Prefab 拖到目标节点下 → Inspector 选 Key → 完成。
     /// </summary>
     [DisallowMultipleComponent]
-    public class UIRedDot : ArchBehaviour, ICanGetSystem
+    public class UIRedDot : ArchBehaviour
     {
         private const string NumberOverflow = "99+";
 
@@ -33,11 +33,7 @@ namespace July.RedDot
 
         private void OnEnable()
         {
-            if (string.IsNullOrEmpty(_key)) return;
-
-            var system = this.GetSystem<RedDotSystemBase>();
-            system?.OnKeyChanged(_key, OnRedDotChanged, this);
-            Refresh();
+            Rebind();
         }
 
         private void OnDisable()
@@ -47,19 +43,24 @@ namespace July.RedDot
 
         public void SetKey(string key)
         {
-            if (_key == key) return;
+            if (_key == key)
+            {
+                if (isActiveAndEnabled)
+                    Refresh();
+                return;
+            }
 
             _key = key;
 
-            if (!isActiveAndEnabled) return;
-
             if (string.IsNullOrEmpty(_key))
             {
+                this.UnsubscribeAll();
                 HideAll();
                 return;
             }
 
-            Refresh();
+            if (isActiveAndEnabled)
+                Rebind();
         }
 
         public void Refresh()
@@ -143,6 +144,21 @@ namespace July.RedDot
 
         private void OnRedDotChanged(RedDotChangedEvent evt)
         {
+            Refresh();
+        }
+
+        private void Rebind()
+        {
+            this.UnsubscribeAll();
+
+            if (string.IsNullOrEmpty(_key))
+            {
+                HideAll();
+                return;
+            }
+
+            var system = this.GetSystem<RedDotSystemBase>();
+            system?.OnKeyChanged(_key, OnRedDotChanged, this);
             Refresh();
         }
     }

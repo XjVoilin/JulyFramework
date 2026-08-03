@@ -19,45 +19,32 @@ namespace July.RedDot
 
         protected sealed override void OnPostInitialize()
         {
-            OnRegisterNodes();
-            _handlers = OnCreateHandlers();
-            if (_handlers != null)
-                foreach (var h in _handlers)
-                    h.Attach(this);
+            var builder = new RedDotBuilder();
+            OnConfigureRedDots(builder);
+
+            var definition = builder.Build();
+            Install(definition);
+            _handlers = definition.Handlers;
+
+            foreach (var handler in _handlers)
+                handler.Attach(this);
+
+            RefreshAll();
         }
 
         protected sealed override void OnShutdown()
         {
             if (_handlers != null)
-                foreach (var h in _handlers)
-                    h.Detach();
+                foreach (var handler in _handlers)
+                    handler.Detach();
             _handlers = null;
             _calculators.Clear();
         }
 
         /// <summary>
-        /// 注册红点节点树结构（由编辑器生成的 RegisterAll 或手动注册）
+        /// 声明完整的红点树结构和业务 Handler。
         /// </summary>
-        protected abstract void OnRegisterNodes();
-
-        /// <summary>
-        /// 创建并返回红点计算器绑定列表（可选）
-        /// </summary>
-        protected virtual RedDotHandler[] OnCreateHandlers() => null;
-
-        #region Node registration
-
-        public bool RegisterNode(string key, string parentKey = null, RedDotType type = RedDotType.Normal)
-        {
-            return _store.RegisterNode(key, parentKey, type);
-        }
-
-        public void RegisterNodes(IEnumerable<(string Key, string ParentKey, RedDotType Type)> nodes)
-        {
-            _store.RegisterNodes(nodes);
-        }
-
-        #endregion
+        protected abstract void OnConfigureRedDots(RedDotBuilder builder);
 
         #region Queries
 
@@ -178,6 +165,15 @@ namespace July.RedDot
 
         #region Private helpers
 
+        private void Install(RedDotDefinition definition)
+        {
+            foreach (var node in definition.Nodes)
+            {
+                if (!_store.InstallNode(node.Key, node.ParentKey, node.Type))
+                    throw new InvalidOperationException($"红点节点“{node.Key}”安装失败。");
+            }
+        }
+
         private List<RedDotChangeInfo> TriggerCalculator(string key)
         {
             if (!_calculators.TryGetValue(key, out var calculator))
@@ -207,7 +203,7 @@ namespace July.RedDot
                 }
                 catch
                 {
-                    // skip failed calculator
+                    // 单个计算器失败时跳过，继续刷新其他节点
                 }
             }
 

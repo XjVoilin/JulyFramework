@@ -1011,9 +1011,9 @@ namespace July.RedDot.Editor
             sb.AppendLine("        #region Registration");
             sb.AppendLine();
             sb.AppendLine("        /// <summary>");
-            sb.AppendLine("        /// 注册所有红点节点（在 RedDotSystemBase 子类的 OnConfigure 中调用）");
+            sb.AppendLine("        /// 将所有红点节点添加到构建器中（在 RedDotSystemBase 子类的 OnConfigureRedDots 中调用）");
             sb.AppendLine("        /// </summary>");
-            sb.AppendLine("        public static void RegisterAll(RedDotSystemBase system)");
+            sb.AppendLine("        public static void RegisterAll(RedDotBuilder builder)");
             sb.AppendLine("        {");
 
             var roots = _config.GetRootNodes();
@@ -1063,11 +1063,11 @@ namespace July.RedDot.Editor
 
             if (string.IsNullOrEmpty(node.parentKey))
             {
-                sb.AppendLine($"{indent}system.RegisterNode({keyConst}, null, {typeStr});");
+                sb.AppendLine($"{indent}builder.AddNode({keyConst}, null, {typeStr});");
             }
             else
             {
-                sb.AppendLine($"{indent}system.RegisterNode({keyConst}, {parentConst}, {typeStr});");
+                sb.AppendLine($"{indent}builder.AddNode({keyConst}, {parentConst}, {typeStr});");
             }
 
             var children = _config.GetChildren(node.key);
