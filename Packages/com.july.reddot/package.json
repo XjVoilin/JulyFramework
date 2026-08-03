@@ -1,6 +1,6 @@
 ﻿{
   "name": "com.july.reddot",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "displayName": "July Red Dot",
   "description": "July Red Dot package for the July Unity seed framework.",
   "unity": "2022.3",
