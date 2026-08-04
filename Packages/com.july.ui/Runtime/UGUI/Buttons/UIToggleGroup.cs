@@ -4,26 +4,27 @@ using UnityEngine;
 
 namespace July.UI
 {
+    public enum UIToggleSelectionMode
+    {
+        Immediate,
+        ManualCommit
+    }
+
     public class UIToggleGroup : MonoBehaviour
     {
         [SerializeField] private int m_SelectedIndex;
+        [SerializeField] private UIToggleSelectionMode m_SelectionMode;
         [SerializeField] private List<UIToggleItem> m_Items = new();
         [SerializeField] private List<GameObject> m_Contents = new();
 
+        public event Action<int> OnSelectionRequested;
         public event Action<int> OnValueChanged;
         public event Action<int> OnLockedItemClicked;
 
         public int SelectedIndex
         {
             get => m_SelectedIndex;
-            set
-            {
-                if (value < 0 || value >= m_Items.Count) return;
-                if (m_SelectedIndex == value) return;
-                if (m_Items[value] != null && m_Items[value].IsLocked) return;
-                ApplySelection(value);
-                OnValueChanged?.Invoke(m_SelectedIndex);
-            }
+            set => CommitSelection(value);
         }
 
         public int Count => m_Items.Count;
@@ -49,12 +50,24 @@ namespace July.UI
             ApplySelection(index);
         }
 
+        public bool CommitSelection(int index)
+        {
+            if (!CanCommitSelection(index)) return false;
+
+            ApplySelection(index);
+            OnValueChanged?.Invoke(m_SelectedIndex);
+            return true;
+        }
+
         internal void NotifyItemClicked(UIToggleItem item)
         {
             int index = m_Items.IndexOf(item);
-            if (index < 0 || m_SelectedIndex == index) return;
-            ApplySelection(index);
-            OnValueChanged?.Invoke(m_SelectedIndex);
+            if (!CanCommitSelection(index)) return;
+
+            OnSelectionRequested?.Invoke(index);
+
+            if (m_SelectionMode == UIToggleSelectionMode.Immediate && m_SelectedIndex != index)
+                CommitSelection(index);
         }
 
         internal void NotifyLockedItemClicked(UIToggleItem item)
@@ -75,6 +88,13 @@ namespace July.UI
                 m_Contents[i].SetActive(i == index);
 
             m_SelectedIndex = index;
+        }
+
+        private bool CanCommitSelection(int index)
+        {
+            if (index < 0 || index >= m_Items.Count) return false;
+            if (m_SelectedIndex == index) return false;
+            return m_Items[index] == null || !m_Items[index].IsLocked;
         }
 
         private void ValidateConfiguration()
