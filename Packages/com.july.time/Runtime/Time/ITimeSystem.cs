@@ -1,11 +1,9 @@
 using System;
-using System.Threading;
-using Cysharp.Threading.Tasks;
 
 namespace July.Time
 {
     /// <summary>
-    /// 时间系统接口 — 时间查询、定时器调度、服务器时间同步、格式化。
+    /// 时间系统接口——提供游戏时间查询、定时器调度和服务器时钟校准。
     /// 通过 Scope.GetSystem&lt;ITimeSystem&gt;() 获取。
     /// </summary>
     public interface ITimeSystem
@@ -24,13 +22,14 @@ namespace July.Time
         #region Server Time
 
         DateTime ServerTimeUtc { get; }
-        DateTime ServerTimeLocal { get; }
         long ServerTimeSeconds { get; }
         bool IsServerTimeSynced { get; }
-        double ServerTimeOffset { get; }
 
+        /// <summary>
+        /// 同步服务器 UTC 时间基准。
+        /// Local 类型会转换为 UTC；由于该接口约定传入 UTC，Unspecified 类型会按 UTC 解释。
+        /// </summary>
         void SyncServerTime(DateTime serverTimeUtc);
-        UniTask<bool> SyncServerTimeFromNetworkAsync(string ntpServer = null, CancellationToken cancellationToken = default);
 
         #endregion
 
@@ -45,11 +44,5 @@ namespace July.Time
 
         #endregion
 
-        #region Formatting
-
-        string FormatTime(float seconds, string format = null);
-        string FormatTimeSpan(TimeSpan timeSpan, string format = null);
-
-        #endregion
     }
 }

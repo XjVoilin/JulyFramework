@@ -1,14 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
-using System.Net;
-using System.Net.Sockets;
-using System.Threading;
-using Cysharp.Threading.Tasks;
+using System.Diagnostics;
 using July.Arch;
 using July.Logging;
 using UnityEngine;
-using UnityEngine.Networking;
 using UnityTime = UnityEngine.Time;
 
 namespace July.Time
@@ -21,24 +16,18 @@ namespace July.Time
         private readonly List<TimerInfo> _snapshot = new(16);
         private readonly List<int> _timersToRemove = new(8);
         private readonly object _timerLock = new();
+        private readonly ITimeSource _timeSource;
 
         private bool _isServerTimeSynced;
-        private double _serverTimeOffset;
+        private DateTime _serverTimeUtcAtSync;
+        private double _monotonicSecondsAtSync;
 
-        private static readonly string[] DefaultNtpServers =
-        {
-            "time.windows.com",
-            "pool.ntp.org",
-            "time.google.com",
-            "time.apple.com"
-        };
+        public TimeSystem() : this(SystemTimeSource.Instance) { }
 
-        private static readonly string[] DefaultHttpTimeUrls =
+        internal TimeSystem(ITimeSource timeSource)
         {
-            "https://www.baidu.com",
-            "https://www.qq.com",
-            "https://www.apple.com"
-        };
+            _timeSource = timeSource ?? throw new ArgumentNullException(nameof(timeSource));
+        }
 
         public void OnUpdate(float deltaTime)
         {
@@ -63,114 +52,36 @@ namespace July.Time
 
         #region Server Time
 
-        public DateTime ServerTimeUtc => _isServerTimeSynced
-            ? DateTime.UtcNow.AddSeconds(_serverTimeOffset)
-            : DateTime.UtcNow;
+        public DateTime ServerTimeUtc
+        {
+            get
+            {
+                if (!_isServerTimeSynced)
+                    return NormalizeUtc(_timeSource.UtcNow);
 
-        public DateTime ServerTimeLocal => ServerTimeUtc.ToLocalTime();
+                var elapsedSeconds = Math.Max(0d, _timeSource.MonotonicSeconds - _monotonicSecondsAtSync);
+                return _serverTimeUtcAtSync.AddSeconds(elapsedSeconds);
+            }
+        }
+
         public long ServerTimeSeconds => new DateTimeOffset(ServerTimeUtc).ToUnixTimeSeconds();
         public bool IsServerTimeSynced => _isServerTimeSynced;
-        public double ServerTimeOffset => _serverTimeOffset;
 
         public void SyncServerTime(DateTime serverTimeUtc)
         {
-            _serverTimeOffset = (serverTimeUtc - DateTime.UtcNow).TotalSeconds;
+            _serverTimeUtcAtSync = NormalizeUtc(serverTimeUtc);
+            _monotonicSecondsAtSync = _timeSource.MonotonicSeconds;
             _isServerTimeSynced = true;
         }
 
-        public async UniTask<bool> SyncServerTimeFromNetworkAsync(string ntpServer = null, CancellationToken ct = default)
+        private static DateTime NormalizeUtc(DateTime value)
         {
-            var urls = string.IsNullOrEmpty(ntpServer) ? DefaultHttpTimeUrls : new[] { ntpServer };
-            foreach (var url in urls)
+            return value.Kind switch
             {
-                if (ct.IsCancellationRequested) return false;
-                try
-                {
-                    var httpTime = await GetHttpTimeAsync(url, ct);
-                    if (httpTime.HasValue)
-                    {
-                        SyncServerTime(httpTime.Value);
-                        JLogger.Log($"[TimeSystem] Server time synced via {url}, offset={_serverTimeOffset:F1}s");
-                        return true;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    JLogger.LogWarning($"[TimeSystem] HTTP time sync failed from {url}: {ex.Message}");
-                }
-            }
-            JLogger.LogWarning("[TimeSystem] Server time sync failed, all sources exhausted. Falling back to local time.");
-            return false;
-        }
-
-        private static async UniTask<DateTime?> GetHttpTimeAsync(string url, CancellationToken ct = default)
-        {
-            using var request = UnityWebRequest.Head(url);
-            request.timeout = 5;
-
-            try
-            {
-                await request.SendWebRequest().WithCancellation(ct);
-            }
-            catch (OperationCanceledException)
-            {
-                return null;
-            }
-
-            if (request.result != UnityWebRequest.Result.Success)
-                return null;
-
-            var dateHeader = request.GetResponseHeader("Date");
-            if (string.IsNullOrEmpty(dateHeader))
-                return null;
-
-            if (DateTime.TryParseExact(dateHeader, "r", CultureInfo.InvariantCulture,
-                    DateTimeStyles.AdjustToUniversal, out var serverTime))
-                return serverTime;
-
-            return null;
-        }
-
-        private async UniTask<DateTime?> GetNtpTimeAsync(string ntpServer, CancellationToken ct = default)
-        {
-            if (string.IsNullOrEmpty(ntpServer)) return null;
-
-            try
-            {
-                var ntpData = new byte[48];
-                ntpData[0] = 0x1B;
-
-                var addresses = await Dns.GetHostAddressesAsync(ntpServer);
-                if (addresses.Length == 0) return null;
-
-                var ipEndPoint = new IPEndPoint(addresses[0], 123);
-
-                using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-                socket.ReceiveTimeout = 3000;
-                socket.SendTimeout = 3000;
-
-                await socket.ConnectAsync(ipEndPoint);
-                await socket.SendAsync(new ArraySegment<byte>(ntpData), SocketFlags.None);
-
-                var buffer = new byte[48];
-                await socket.ReceiveAsync(new ArraySegment<byte>(buffer), SocketFlags.None);
-
-                ulong intPart = (ulong)buffer[40] << 24 | (ulong)buffer[41] << 16 |
-                                (ulong)buffer[42] << 8 | buffer[43];
-                ulong fractPart = (ulong)buffer[44] << 24 | (ulong)buffer[45] << 16 |
-                                  (ulong)buffer[46] << 8 | buffer[47];
-
-                var milliseconds = (intPart * 1000) + ((fractPart * 1000) / 0x100000000L);
-                var ntpTime = new DateTime(1900, 1, 1, 0, 0, 0, DateTimeKind.Utc)
-                    .AddMilliseconds((long)milliseconds);
-
-                return ntpTime;
-            }
-            catch (Exception ex)
-            {
-                    JLogger.LogWarning($"[TimeSystem] NTP request failed ({ntpServer}): {ex.Message}");
-                return null;
-            }
+                DateTimeKind.Utc => value,
+                DateTimeKind.Local => value.ToUniversalTime(),
+                _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
+            };
         }
 
         #endregion
@@ -342,39 +253,6 @@ namespace July.Time
 
         #endregion
 
-        #region Formatting
-
-        public string FormatTime(float seconds, string format = null)
-        {
-            if (seconds < 0) seconds = 0;
-            return FormatTimeSpan(TimeSpan.FromSeconds(seconds), format);
-        }
-
-        public string FormatTimeSpan(TimeSpan timeSpan, string format = null)
-        {
-            if (string.IsNullOrEmpty(format))
-            {
-                if (timeSpan.TotalHours >= 1)
-                    return $"{(int)timeSpan.TotalHours:D2}:{timeSpan.Minutes:D2}:{timeSpan.Seconds:D2}";
-                if (timeSpan.TotalMinutes >= 1)
-                    return $"{timeSpan.Minutes:D2}:{timeSpan.Seconds:D2}";
-                return $"{timeSpan.Seconds:D2}";
-            }
-
-            return format
-                .Replace("HH", ((int)timeSpan.TotalHours).ToString("D2"))
-                .Replace("H", ((int)timeSpan.TotalHours).ToString())
-                .Replace("mm", timeSpan.Minutes.ToString("D2"))
-                .Replace("m", timeSpan.Minutes.ToString())
-                .Replace("ss", timeSpan.Seconds.ToString("D2"))
-                .Replace("s", timeSpan.Seconds.ToString())
-                .Replace("fff", timeSpan.Milliseconds.ToString("D3"))
-                .Replace("ff", (timeSpan.Milliseconds / 10).ToString("D2"))
-                .Replace("f", (timeSpan.Milliseconds / 100).ToString());
-        }
-
-        #endregion
-
         #region Internal
 
         private class TimerInfo
@@ -410,5 +288,21 @@ namespace July.Time
         }
 
         #endregion
+    }
+
+    internal interface ITimeSource
+    {
+        DateTime UtcNow { get; }
+        double MonotonicSeconds { get; }
+    }
+
+    internal sealed class SystemTimeSource : ITimeSource
+    {
+        public static readonly SystemTimeSource Instance = new();
+
+        private SystemTimeSource() { }
+
+        public DateTime UtcNow => DateTime.UtcNow;
+        public double MonotonicSeconds => (double)Stopwatch.GetTimestamp() / Stopwatch.Frequency;
     }
 }
