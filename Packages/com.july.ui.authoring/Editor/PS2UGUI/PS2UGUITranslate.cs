@@ -13,7 +13,6 @@ namespace July.UI.Authoring.Editor
     /// </summary>
     public static class PS2UGUITranslate
     {
-        private const float ContainmentThreshold = 0.55f;
         private const float ScaleEpsilon = 0.0001f;
 
         #region 输入数据模型
@@ -74,8 +73,6 @@ namespace July.UI.Authoring.Editor
             public bool IsSliderfill;
             public string FillSpritePath;
 
-            public LayerInfo Parent;
-            public List<LayerInfo> Children = new List<LayerInfo>();
             public bool Claimed;
             public bool UseNativeSize;
             public bool IsSliced;
@@ -84,8 +81,6 @@ namespace July.UI.Authoring.Editor
             public float AbsUnityX;
             public float AbsUnityY;
             public float AbsRotationZ;
-
-            public int PsArea => Source.width * Source.height;
         }
 
         #endregion
@@ -133,37 +128,13 @@ namespace July.UI.Authoring.Editor
             var layers = ClassifyLayers(psData.layers);
             PairSliders(layers);
             var activeLayers = FilterActiveLayers(layers);
-            GroupButtonChildren(activeLayers);
             AssignUnityNames(layers);
-            InferHierarchy(activeLayers);
             ConvertCoordinates(activeLayers, canvasW, canvasH);
-
-            // bg/mask/tile 排前面（先渲染在底层），其余按 order 排序
-            var bgNodes = new List<UnityNode>();
-            var contentNodes = new List<UnityNode>();
-
-            foreach (var layer in activeLayers)
-            {
-                if (layer.Parent != null) continue;
-
-                var node = BuildUnityNode(layer);
-                if (layer.Prefix == "bg" || layer.Prefix == "mask" || layer.Prefix == "tile")
-                    bgNodes.Add(node);
-                else
-                    contentNodes.Add(node);
-            }
-
-            bgNodes.Sort((a, b) => b.order.CompareTo(a.order));
-            contentNodes.Sort((a, b) => b.order.CompareTo(a.order));
-
-            var children = new List<UnityNode>(bgNodes.Count + contentNodes.Count);
-            children.AddRange(bgNodes);
-            children.AddRange(contentNodes);
 
             return new UnityData
             {
                 canvas = new UnityCanvas { width = canvasW, height = canvasH },
-                children = children
+                children = BuildFlatNodes(activeLayers)
             };
         }
 
@@ -322,12 +293,12 @@ namespace July.UI.Authoring.Editor
             foreach (var layer in layers)
             {
                 if (layer.IsSliderfill)
-                    fillDict[layer.ResourceName] = layer;
+                    fillDict[GetGroupScopedResourceKey(layer)] = layer;
             }
 
             foreach (var layer in layers)
             {
-                if (layer.Prefix == "slider" && fillDict.TryGetValue(layer.ResourceName, out var fill))
+                if (layer.Prefix == "slider" && fillDict.TryGetValue(GetGroupScopedResourceKey(layer), out var fill))
                 {
                     layer.FillSpritePath = fill.SpritePath;
                     fill.Claimed = true;
@@ -401,11 +372,7 @@ namespace July.UI.Authoring.Editor
             {
                 if (layer.Prefix != "text") continue;
 
-                string baseName;
-                if (layer.Parent != null && layer.Parent.Prefix == "btn")
-                    baseName = layer.Parent.UnityName + "Tx";
-                else
-                    baseName = "Tx";
+                const string baseName = "Tx";
 
                 string finalName = baseName;
                 int suffix = 1;
@@ -438,113 +405,17 @@ namespace July.UI.Authoring.Editor
 
         #endregion
 
-        #region Step 5: 层级推断
+        #region Step 5: 构建扁平节点列表
 
-        private static void InferHierarchy(List<LayerInfo> rootLayers)
+        private static List<UnityNode> BuildFlatNodes(List<LayerInfo> layers)
         {
-            AssignSpatialParents(rootLayers);
+            var children = new List<UnityNode>(layers.Count);
 
-            foreach (var layer in rootLayers)
-            {
-                if (layer.Children.Count > 0)
-                    layer.Children.Sort((a, b) => b.Source.order.CompareTo(a.Source.order));
-            }
-        }
+            foreach (var layer in layers)
+                children.Add(BuildUnityNode(layer));
 
-        private static void GroupButtonChildren(List<LayerInfo> rootLayers)
-        {
-            var buttons = new List<LayerInfo>();
-            foreach (var layer in rootLayers)
-            {
-                if (layer.Prefix == "btn")
-                    buttons.Add(layer);
-            }
-
-            foreach (var layer in rootLayers)
-            {
-                if (layer.Prefix != "text" && layer.Prefix != "icon") continue;
-
-                float cx = layer.Source.x + layer.Source.width / 2f;
-                float cy = layer.Source.y + layer.Source.height / 2f;
-
-                LayerInfo bestBtn = null;
-                int bestArea = int.MaxValue;
-
-                foreach (var btn in buttons)
-                {
-                    int bx = btn.Source.x;
-                    int by = btn.Source.y;
-                    int bw = btn.Source.width;
-                    int bh = btn.Source.height;
-
-                    if (cx >= bx && cx <= bx + bw && cy >= by && cy <= by + bh)
-                    {
-                        int area = btn.PsArea;
-                        if (area < bestArea)
-                        {
-                            bestArea = area;
-                            bestBtn = btn;
-                        }
-                    }
-                }
-
-                if (bestBtn != null)
-                {
-                    layer.Claimed = true;
-                    layer.Parent = bestBtn;
-                    bestBtn.Children.Add(layer);
-                }
-            }
-        }
-
-        private static void AssignSpatialParents(List<LayerInfo> rootLayers)
-        {
-            foreach (var layer in rootLayers)
-            {
-                if (layer.Claimed) continue;
-                if (layer.IsSliderfill) continue;
-
-                LayerInfo bestParent = null;
-                int bestArea = int.MaxValue;
-
-                foreach (var candidate in rootLayers)
-                {
-                    if (candidate == layer) continue;
-                    if (candidate.Claimed) continue;
-                    if (candidate.Prefix == "text") continue;
-                    if (candidate.IsSliderfill) continue;
-                    if (candidate.Source.order <= layer.Source.order) continue;
-
-                    float overlapRatio = ComputeOverlapRatio(layer.Source, candidate.Source);
-                    if (overlapRatio > ContainmentThreshold)
-                    {
-                        int area = candidate.PsArea;
-                        if (area < bestArea)
-                        {
-                            bestArea = area;
-                            bestParent = candidate;
-                        }
-                    }
-                }
-
-                if (bestParent != null)
-                {
-                    layer.Parent = bestParent;
-                    bestParent.Children.Add(layer);
-                }
-            }
-        }
-
-        private static float ComputeOverlapRatio(PSLayer child, PSLayer parent)
-        {
-            int childArea = child.width * child.height;
-            if (childArea <= 0) return 0;
-
-            int overlapX = Math.Max(0, Math.Min(child.x + child.width, parent.x + parent.width) - Math.Max(child.x, parent.x));
-            int overlapY = Math.Max(0, Math.Min(child.y + child.height, parent.y + parent.height) - Math.Max(child.y, parent.y));
-            int overlapArea = overlapX * overlapY;
-
-            return (float)overlapArea / childArea;
+            children.Sort((a, b) => b.order.CompareTo(a.order));
+            return children;
         }
 
         #endregion
@@ -561,32 +432,12 @@ namespace July.UI.Authoring.Editor
             }
         }
 
-        private static void GetRelativePosition(LayerInfo layer, out float relX, out float relY, out float w, out float h)
-        {
-            float parentAbsX = layer.Parent != null ? layer.Parent.AbsUnityX : 0;
-            float parentAbsY = layer.Parent != null ? layer.Parent.AbsUnityY : 0;
-            float parentScale = GetLayerScale(layer.Parent);
-            float offsetX = layer.AbsUnityX - parentAbsX;
-            float offsetY = layer.AbsUnityY - parentAbsY;
-
-            if (layer.Parent != null)
-            {
-                RotateVector(offsetX, offsetY, -GetLayerRotation(layer.Parent), out offsetX, out offsetY);
-            }
-
-            relX = offsetX / parentScale;
-            relY = offsetY / parentScale;
-            w = GetBaseWidth(layer);
-            h = GetBaseHeight(layer);
-        }
-
         #endregion
 
         #region Step 7: 构建输出
 
         private static UnityNode BuildUnityNode(LayerInfo layer)
         {
-            GetRelativePosition(layer, out float relX, out float relY, out float w, out float h);
             float nodeScale = GetLayerScale(layer);
             float desiredVisualRotationZ = layer.AbsRotationZ;
 
@@ -597,10 +448,10 @@ namespace July.UI.Authoring.Editor
                 spritePath = layer.SpritePath ?? "",
                 prefabPath = layer.PrefabPath ?? "",
                 fillSpritePath = layer.FillSpritePath ?? "",
-                x = relX,
-                y = relY,
-                width = w,
-                height = h,
+                x = layer.AbsUnityX,
+                y = layer.AbsUnityY,
+                width = GetBaseWidth(layer),
+                height = GetBaseHeight(layer),
                 anchorPreset = (layer.Prefix == "mask" || layer.Prefix == "tile") ? "stretch-all" : "middle-center",
                 active = layer.Source.visible,
                 order = layer.Source.order,
@@ -618,7 +469,7 @@ namespace July.UI.Authoring.Editor
 
             if (layer.Prefix == "slider")
             {
-                node.fillDirection = w >= h ? "horizontal" : "vertical";
+                node.fillDirection = node.width >= node.height ? "horizontal" : "vertical";
             }
 
             if (layer.Prefix == "text")
@@ -631,9 +482,6 @@ namespace July.UI.Authoring.Editor
             }
 
             node.colorHex = layer.Source.fontColor ?? "";
-
-            foreach (var child in layer.Children)
-                node.children.Add(BuildUnityNode(child));
 
             return node;
         }
@@ -695,11 +543,6 @@ namespace July.UI.Authoring.Editor
             return Mathf.Abs(layer.NameScale) <= ScaleEpsilon ? 1f : layer.NameScale;
         }
 
-        private static float GetLayerRotation(LayerInfo layer)
-        {
-            return layer == null ? 0f : layer.AbsRotationZ;
-        }
-
         private static float GetBaseWidth(LayerInfo layer)
         {
             return layer.Source.width / GetLayerScale(layer);
@@ -708,16 +551,6 @@ namespace July.UI.Authoring.Editor
         private static float GetBaseHeight(LayerInfo layer)
         {
             return layer.Source.height / GetLayerScale(layer);
-        }
-
-        private static void RotateVector(float x, float y, float degrees, out float rotatedX, out float rotatedY)
-        {
-            var radians = degrees * Mathf.Deg2Rad;
-            var cos = Mathf.Cos(radians);
-            var sin = Mathf.Sin(radians);
-
-            rotatedX = x * cos - y * sin;
-            rotatedY = x * sin + y * cos;
         }
 
         private static float NormalizeAngle(float degrees)
@@ -740,6 +573,11 @@ namespace July.UI.Authoring.Editor
             }
 
             return false;
+        }
+
+        private static string GetGroupScopedResourceKey(LayerInfo layer)
+        {
+            return $"{layer.Source.groupPath ?? ""}\n{layer.ResourceName}";
         }
 
         private static string MapTextAlignment(string psAlignment)

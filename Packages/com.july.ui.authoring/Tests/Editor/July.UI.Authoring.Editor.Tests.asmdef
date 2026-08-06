@@ -1,0 +1,14 @@
+{
+    "name": "July.UI.Authoring.Editor.Tests",
+    "rootNamespace": "July.UI.Authoring.Editor.Tests",
+    "references": [
+        "July.UI.Authoring.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ],
+    "autoReferenced": false
+}
