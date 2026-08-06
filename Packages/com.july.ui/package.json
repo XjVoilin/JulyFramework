@@ -1,6 +1,6 @@
 ﻿{
   "name": "com.july.ui",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "displayName": "July UI",
   "description": "July UI package for the July Unity seed framework.",
   "unity": "2022.3",
