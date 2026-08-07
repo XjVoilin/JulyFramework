@@ -96,6 +96,13 @@ namespace July.UI
             }
         }
 
+        /// <summary>清除当前模型并释放预览渲染纹理；组件之后仍可通过 ShowAsync 再次使用。</summary>
+        public void Release()
+        {
+            Clear();
+            ReleaseRenderTexture();
+        }
+
         protected override void OnViewAwake()
         {
             EnsureInitialized();
@@ -126,8 +133,7 @@ namespace July.UI
 
         protected override void OnViewDestroy()
         {
-            Clear();
-            ReleaseRenderTexture();
+            Release();
             if (_previewCamera!=null)
             {
                 Destroy(_previewCamera.gameObject);
