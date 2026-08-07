@@ -27,6 +27,7 @@ namespace July.RedDot
 
         private int _cachedCount = -1;
         private GameObject _activeVisual;
+        private string _lastMissingKey;
 
         public bool IsVisible => _activeVisual != null && _activeVisual.activeSelf;
         public string Key => _key;
@@ -79,7 +80,19 @@ namespace July.RedDot
             }
 
             var node = system.GetNode(_key);
-            var type = node?.Type ?? RedDotType.Normal;
+            if (node == null)
+            {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                if (_lastMissingKey != _key)
+                    JLogger.LogWarning($"[UIRedDot] Runtime key「{_key}」未注册。请从 Inspector 重新选择完整红点路径。", this);
+#endif
+                _lastMissingKey = _key;
+                HideAll();
+                return;
+            }
+
+            _lastMissingKey = null;
+            var type = node.Type;
             var count = system.GetCount(_key);
             Present(type, count);
         }

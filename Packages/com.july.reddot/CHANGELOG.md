@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0 - 2026-08-07
+
+- Breaking: runtime red-dot keys now use canonical slash-separated paths such as `Root/Child`.
+- Added one shared key-path policy for runtime keys, Inspector labels and generated C# identifiers.
+- Replaced the Inspector popup with a searchable full-path selector and compact selected labels.
+- Added development warnings for `UIRedDot` bindings that reference an unregistered runtime key.
+- Added validation and tests for path separators, ambiguous parents and generated identifier collisions.
+
 ## 0.2.0 - 2026-08-03
 
 - 使用 `RedDotBuilder` 统一构建节点与 Handler 定义，由 `RedDotSystemBase` 负责安装。

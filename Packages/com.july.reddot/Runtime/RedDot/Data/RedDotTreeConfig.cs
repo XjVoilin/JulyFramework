@@ -77,46 +77,15 @@ namespace July.RedDot
         /// <summary>
         /// 获取节点的完整路径（从根节点到当前节点的key列表）
         /// </summary>
-        private List<string> GetNodePathKeys(RedDotNodeDefinition node)
-        {
-            var path = new List<string>();
-            var current = node.key;
-            var currentParent = node.parentKey;
-            var visited = new HashSet<string>(); // 防止循环依赖导致无限循环
-
-            // 从当前节点向上追溯到根节点
-            while (!string.IsNullOrEmpty(current))
-            {
-                if (visited.Contains(current))
-                {
-                    // 检测到循环，停止遍历
-                    break;
-                }
-                visited.Add(current);
-                
-                path.Insert(0, current);
-                
-                if (string.IsNullOrEmpty(currentParent))
-                    break;
-
-                var parentNode = GetNode(currentParent);
-                if (parentNode == null)
-                    break; // 父节点不存在，停止遍历
-
-                current = currentParent;
-                currentParent = parentNode.parentKey;
-            }
-
-            return path;
-        }
+        public IReadOnlyList<string> GetNodePathKeys(RedDotNodeDefinition node)
+            => RedDotKeyPath.GetSegments(this, node);
 
         /// <summary>
         /// 获取节点的路径字符串（用于唯一性检查）
         /// </summary>
         private string GetNodePathString(RedDotNodeDefinition node)
         {
-            var pathKeys = GetNodePathKeys(node);
-            return string.Join("→", pathKeys);
+            return RedDotKeyPath.GetRuntimeKey(this, node);
         }
 
         /// <summary>
@@ -124,8 +93,7 @@ namespace July.RedDot
         /// </summary>
         private string GetNodePathString(string key, string parentKey)
         {
-            var tempNode = new RedDotNodeDefinition { key = key, parentKey = parentKey };
-            return GetNodePathString(tempNode);
+            return GetNodePathString(new RedDotNodeDefinition { key = key, parentKey = parentKey });
         }
 
         /// <summary>
@@ -155,6 +123,15 @@ namespace July.RedDot
             }
             return null;
         }
+
+        public string GetRuntimeKey(RedDotNodeDefinition node)
+            => RedDotKeyPath.GetRuntimeKey(this, node);
+
+        public string GetDisplayPath(RedDotNodeDefinition node)
+            => RedDotKeyPath.GetDisplayPath(this, node);
+
+        public string GetCodeIdentifier(RedDotNodeDefinition node)
+            => RedDotKeyPath.GetCodeIdentifier(this, node);
 
         /// <summary>
         /// 添加节点（检查路径唯一性，允许相同key但禁止路径重复）
@@ -274,7 +251,11 @@ namespace July.RedDot
                 errors.Add($"存在 {emptyKeys.Count} 个空 Key 的节点");
             }
 
-            // 不再检查重复 Key（允许相同key）
+            foreach (var node in nodes.Where(n => !string.IsNullOrEmpty(n?.key)))
+            {
+                if (node.key.Contains(RedDotKeyPath.RuntimeSeparator))
+                    errors.Add($"节点 Key '{node.key}' 不能包含运行时路径分隔符 '{RedDotKeyPath.RuntimeSeparator}'");
+            }
 
             // 检查父节点是否存在（需要考虑相同key的情况）
             foreach (var node in nodes)
@@ -282,10 +263,14 @@ namespace July.RedDot
                 if (!string.IsNullOrEmpty(node.parentKey))
                 {
                     // 检查是否存在匹配的父节点（key匹配即可，因为parentKey已经指定了父节点）
-                    var parentExists = nodes.Any(n => n.key == node.parentKey);
-                    if (!parentExists)
+                    var parentMatches = GetNodes(node.parentKey);
+                    if (parentMatches.Count == 0)
                     {
                         errors.Add($"节点 '{node.key}' (父节点: '{node.parentKey}') 的父节点不存在");
+                    }
+                    else if (parentMatches.Count > 1)
+                    {
+                        errors.Add($"节点 '{node.key}' 的父节点 Key '{node.parentKey}' 不唯一，无法确定完整路径");
                     }
                 }
             }
@@ -339,6 +324,21 @@ namespace July.RedDot
                 }
             }
 
+            var identifierSet = new Dictionary<string, List<RedDotNodeDefinition>>();
+            foreach (var node in nodes.Where(n => !string.IsNullOrEmpty(n?.key)))
+            {
+                var identifier = GetCodeIdentifier(node);
+                if (!identifierSet.TryGetValue(identifier, out var matches))
+                {
+                    matches = new List<RedDotNodeDefinition>();
+                    identifierSet.Add(identifier, matches);
+                }
+                matches.Add(node);
+            }
+
+            foreach (var kvp in identifierSet.Where(kvp => kvp.Value.Count > 1))
+                errors.Add($"多个节点会生成相同的 C# 标识符 '{kvp.Key}'");
+
             return errors;
         }
 
@@ -361,8 +361,8 @@ namespace July.RedDot
             {
                 table.Nodes.Add(new RedDotNodeConfig
                 {
-                    Key = node.key,
-                    ParentKey = node.parentKey,
+                    Key = RedDotKeyPath.GetRuntimeKey(this, node),
+                    ParentKey = RedDotKeyPath.GetParentRuntimeKey(this, node),
                     Type = node.type
                 });
             }

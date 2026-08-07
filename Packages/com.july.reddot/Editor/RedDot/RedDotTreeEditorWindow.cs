@@ -435,7 +435,9 @@ namespace July.RedDot.Editor
             // 标签
             var label = element.Q<Label>(className: "tree-item-label");
             label.text = node.key;
-            label.style.color = hasError ? Color.red : StyleKeyword.Null;
+            label.style.color = hasError
+                ? new StyleColor(Color.red)
+                : new StyleColor(StyleKeyword.Null);
 
             // 模块
             var module = element.Q<Label>(className: "tree-item-module");
@@ -445,7 +447,7 @@ namespace July.RedDot.Editor
             var deleteBtn = element.Q<Button>(className: "tree-item-delete");
             deleteBtn.clicked += () =>
             {
-                var path = GetNodePath(node.key, node.parentKey);
+                var path = _config.GetDisplayPath(node);
                 if (EditorUtility.DisplayDialog("删除节点", $"确定删除节点 '{node.key}' 及其所有子节点？\n路径: {path}", "删除", "取消"))
                 {
                     // 使用精确删除方法
@@ -597,7 +599,8 @@ namespace July.RedDot.Editor
                 else
                 {
                     // 计算新路径用于提示
-                    var newPath = GetNodePath(newKey, oldParentKey);
+                    var newPath = _config.GetDisplayPath(
+                        new RedDotNodeDefinition { key = newKey, parentKey = oldParentKey });
                     EditorUtility.DisplayDialog("重命名失败", $"链路重复或操作失败\n新路径: {newPath}", "确定");
                     keyField.SetValueWithoutNotify(oldKey);
                 }
@@ -613,14 +616,14 @@ namespace July.RedDot.Editor
                 
                 // 检查新路径是否重复
                 var tempNode = new RedDotNodeDefinition { key = node.key, parentKey = string.IsNullOrEmpty(newParentKey) ? null : newParentKey };
-                var newPath = GetNodePath(node.key, tempNode.parentKey);
+                var newPath = _config.GetRuntimeKey(tempNode);
                 
                 // 检查路径是否已存在（排除当前节点自身）
                 bool pathExists = false;
                 foreach (var n in _config.nodes)
                 {
                     if (n == node) continue; // 跳过当前节点
-                    var existingPath = GetNodePath(n.key, n.parentKey);
+                    var existingPath = _config.GetRuntimeKey(n);
                     if (existingPath == newPath)
                     {
                         pathExists = true;
@@ -672,7 +675,7 @@ namespace July.RedDot.Editor
             var pathLabel = new Label("路径");
             pathLabel.style.marginTop = 10;
             _detailPanel.Add(pathLabel);
-            var path = GetNodePath(node.key);
+            var path = _config.GetDisplayPath(node);
             var pathValue = new Label(path);
             pathValue.AddToClassList("path-label");
             _detailPanel.Add(pathValue);
@@ -825,7 +828,7 @@ namespace July.RedDot.Editor
             else
             {
                 // 计算路径用于提示
-                var path = GetNodePath(key, node.parentKey);
+                var path = _config.GetDisplayPath(node);
                 EditorUtility.DisplayDialog("添加失败", $"链路重复或 Key 无效\n路径: {path}", "确定");
             }
         }
@@ -857,52 +860,6 @@ namespace July.RedDot.Editor
             }
 
             _nodeCountLabel.text = $"节点总数: {_config?.nodes.Count ?? 0}";
-        }
-
-        private string GetNodePath(string key)
-        {
-            var path = new List<string>();
-            var current = key;
-            while (!string.IsNullOrEmpty(current))
-            {
-                path.Insert(0, current);
-                var node = _config.GetNode(current);
-                current = node?.parentKey;
-            }
-
-            return string.Join(" → ", path);
-        }
-
-        /// <summary>
-        /// 通过 key 和 parentKey 计算路径
-        /// </summary>
-        private string GetNodePath(string key, string parentKey)
-        {
-            var path = new List<string>();
-            var current = key;
-            var currentParent = parentKey;
-            var visited = new HashSet<string>(); // 防止循环依赖
-
-            while (!string.IsNullOrEmpty(current))
-            {
-                if (visited.Contains(current))
-                    break;
-                visited.Add(current);
-
-                path.Insert(0, current);
-
-                if (string.IsNullOrEmpty(currentParent))
-                    break;
-
-                var parentNode = _config.GetNode(currentParent);
-                if (parentNode == null)
-                    break;
-
-                current = currentParent;
-                currentParent = parentNode.parentKey;
-            }
-
-            return string.Join(" → ", path);
         }
 
         #endregion
@@ -982,8 +939,9 @@ namespace July.RedDot.Editor
                 foreach (var node in module.Value.OrderBy(n => n.key))
                 {
                     // 计算节点路径
-                    var path = GetNodePath(node.key, node.parentKey);
-                    var pathConstName = SanitizePath(path);
+                    var path = _config.GetDisplayPath(node);
+                    var pathConstName = _config.GetCodeIdentifier(node);
+                    var runtimeKey = _config.GetRuntimeKey(node);
                     nodeToConstMap[node] = pathConstName;
                     
                     if (!string.IsNullOrEmpty(node.description))
@@ -1000,7 +958,7 @@ namespace July.RedDot.Editor
                         sb.AppendLine($"        /// </summary>");
                     }
 
-                    sb.AppendLine($"        public const string {pathConstName} = \"{pathConstName}\";");
+                    sb.AppendLine($"        public const string {pathConstName} = \"{EscapeString(runtimeKey)}\";");
                 }
 
                 sb.AppendLine();
@@ -1035,29 +993,10 @@ namespace July.RedDot.Editor
         private void GenerateNodeRegistration(StringBuilder sb, RedDotNodeDefinition node, string indent, Dictionary<RedDotNodeDefinition, string> nodeToConstMap)
         {
             var keyConst = nodeToConstMap[node];
-            string parentConst = "null";
-            if (!string.IsNullOrEmpty(node.parentKey))
-            {
-                // 通过路径精确查找父节点
-                var nodePath = GetNodePath(node.key, node.parentKey);
-                var pathParts = nodePath.Split(new[] { " → " }, StringSplitOptions.None);
-                if (pathParts.Length >= 2)
-                {
-                    // 父节点的路径是当前路径去掉最后一个部分
-                    var parentPath = string.Join(" → ", pathParts.Take(pathParts.Length - 1));
-                    
-                    // 在所有节点中查找匹配父路径的节点
-                    foreach (var kvp in nodeToConstMap)
-                    {
-                        var candidatePath = GetNodePath(kvp.Key.key, kvp.Key.parentKey);
-                        if (candidatePath == parentPath)
-                        {
-                            parentConst = kvp.Value;
-                            break;
-                        }
-                    }
-                }
-            }
+            var parent = RedDotKeyPath.GetParent(_config, node);
+            var parentConst = parent != null && nodeToConstMap.TryGetValue(parent, out var constant)
+                ? constant
+                : "null";
             
             var typeStr = $"RedDotType.{node.type}";
 
@@ -1075,32 +1014,6 @@ namespace July.RedDot.Editor
             {
                 GenerateNodeRegistration(sb, child, indent, nodeToConstMap);
             }
-        }
-
-        /// <summary>
-        /// 将路径字符串转换为合法的 C# 标识符
-        /// </summary>
-        private string SanitizePath(string path)
-        {
-            if (string.IsNullOrEmpty(path))
-                return "";
-            
-            // 将路径分隔符 " → " 替换为 "_"
-            var sanitized = path.Replace(" → ", "_");
-            // 替换其他特殊字符
-            sanitized = sanitized.Replace(".", "_")
-                                 .Replace("-", "_")
-                                 .Replace(" ", "_")
-                                 .Replace("/", "_")
-                                 .Replace("\\", "_");
-            
-            // 确保以字母或下划线开头
-            if (sanitized.Length > 0 && !char.IsLetter(sanitized[0]) && sanitized[0] != '_')
-            {
-                sanitized = "_" + sanitized;
-            }
-            
-            return sanitized;
         }
 
         private string EscapeString(string str) =>
