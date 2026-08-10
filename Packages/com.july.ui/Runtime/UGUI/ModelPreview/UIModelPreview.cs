@@ -92,7 +92,10 @@ namespace July.UI
                 Destroy(_loadedModels[index].Model);
 
             _loadedModels.Clear();
-            _output.enabled = false;
+            if (_output != null)
+            {
+                _output.enabled = false;
+            }
             if (_previewCamera!=null)
             {
                 _previewCamera.enabled = false;
