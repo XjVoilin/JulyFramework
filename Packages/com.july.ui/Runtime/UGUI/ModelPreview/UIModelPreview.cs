@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using July.Arch;
 using July.Resource;
@@ -27,7 +28,7 @@ namespace July.UI
         private RawImage _output;
         private Camera _previewCamera;
         private RenderTexture _renderTexture;
-        private int _requestVersion;
+        private CancellationTokenSource _loadCts;
 
         /// <summary>清除当前内容并显示指定的模型。</summary>
         public async UniTask ShowAsync(IReadOnlyList<ModelPreviewTarget> targets)
@@ -36,18 +37,14 @@ namespace July.UI
             var assetNames = ValidateAndGetAssetNames(targets);
             Clear();
 
-            var requestVersion = _requestVersion;
-            var resourceSystem = GetSystem<IResourceSystem>()
-                ?? throw new InvalidOperationException("IResourceSystem 尚未注册。");
-            var destroyToken = this.GetCancellationTokenOnDestroy();
+            var resourceSystem = GetSystem<IResourceSystem>();
+            _loadCts = new CancellationTokenSource();
+            var ct = _loadCts.Token;
             ResourceHandle<GameObject>[] handles = null; 
 
             try
             {
-                handles = await resourceSystem.LoadBatchAsync<GameObject>(assetNames, destroyToken);
-                destroyToken.ThrowIfCancellationRequested();
-                if (requestVersion != _requestVersion)
-                    return;
+                handles = await resourceSystem.LoadBatchAsync<GameObject>(assetNames, ct);
                 if (handles == null || handles.Length != targets.Count)
                     throw new InvalidOperationException("批量加载返回的模型数量与请求不一致。");
 
@@ -69,10 +66,13 @@ namespace July.UI
 
                 RefreshPreview();
             }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                // 新请求、Clear、Release 或销毁触发的正常取消。
+            }
             catch
             {
-                if (requestVersion == _requestVersion)
-                    Clear();
+                Clear();
                 throw;
             }
             finally
@@ -84,7 +84,10 @@ namespace July.UI
         /// <summary>清除当前显示的全部模型。</summary>
         public void Clear()
         {
-            _requestVersion++;
+            _loadCts?.Cancel();
+            _loadCts?.Dispose();
+            _loadCts = null;
+
             for (var index = 0; index < _loadedModels.Count; index++)
                 Destroy(_loadedModels[index].Model);
 
