@@ -20,6 +20,7 @@ namespace July.UI
         private const float CameraDistance = 10f;
         private const float CameraOrthographicSize = 1f;
         private const float RuntimeSlotSpacing = 1000f;
+        private const int AntiAliasingSamples = 2;
 
         private static int _nextRuntimeSlot;
 
@@ -181,6 +182,7 @@ namespace July.UI
             _previewCamera.backgroundColor = Color.clear;
             _previewCamera.orthographic = true;
             _previewCamera.orthographicSize = CameraOrthographicSize;
+            _previewCamera.allowMSAA = true;
         }
 
         private static string[] ValidateAndGetAssetNames(IReadOnlyList<ModelPreviewTarget> targets)
@@ -257,26 +259,43 @@ namespace July.UI
             var requiredSize = GetRequiredTextureSize();
             if (requiredSize.x == 0 || requiredSize.y == 0)
                 return false;
+            var descriptor = CreateRenderTextureDescriptor(requiredSize);
 
             if (_renderTexture != null &&
                 _renderTexture.width == requiredSize.x &&
-                _renderTexture.height == requiredSize.y)
+                _renderTexture.height == requiredSize.y &&
+                _renderTexture.antiAliasing == descriptor.msaaSamples)
                 return true;
 
             ReleaseRenderTexture();
-            _renderTexture = new RenderTexture(
-                requiredSize.x,
-                requiredSize.y,
-                16,
-                RenderTextureFormat.ARGB32)
+            _renderTexture = new RenderTexture(descriptor)
             {
-                name = $"UIModelPreview_{GetInstanceID()}"
+                name = $"UIModelPreview_{GetInstanceID()}",
+                filterMode = FilterMode.Bilinear,
+                useMipMap = false,
+                autoGenerateMips = false
             };
             _renderTexture.Create();
 
             _previewCamera.targetTexture = _renderTexture;
             _output.texture = _renderTexture;
             return true;
+        }
+
+        private static RenderTextureDescriptor CreateRenderTextureDescriptor(Vector2Int size)
+        {
+            var descriptor = new RenderTextureDescriptor(
+                size.x,
+                size.y,
+                RenderTextureFormat.ARGB32,
+                16)
+            {
+                msaaSamples = AntiAliasingSamples
+            };
+            descriptor.msaaSamples = Mathf.Max(
+                1,
+                SystemInfo.GetRenderTextureSupportedMSAASampleCount(descriptor));
+            return descriptor;
         }
 
         private Vector2Int GetRequiredTextureSize()
