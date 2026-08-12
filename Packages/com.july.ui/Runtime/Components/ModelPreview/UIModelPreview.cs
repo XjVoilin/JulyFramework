@@ -304,11 +304,11 @@ namespace July.UI
             var scaleFactor = _output.canvas == null
                 ? 1f
                 : _output.canvas.scaleFactor;
-            var maxTextureSize = SystemInfo.maxTextureSize;
 
-            return new Vector2Int(
-                Mathf.Clamp(Mathf.CeilToInt(rect.width * scaleFactor), 0, maxTextureSize),
-                Mathf.Clamp(Mathf.CeilToInt(rect.height * scaleFactor), 0, maxTextureSize));
+            return UIModelPreviewTextureSizing.Calculate(
+                rect.size,
+                scaleFactor,
+                SystemInfo.maxTextureSize);
         }
 
         private void ReleaseRenderTexture()

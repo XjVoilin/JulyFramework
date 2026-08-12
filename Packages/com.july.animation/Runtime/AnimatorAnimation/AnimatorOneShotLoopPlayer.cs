@@ -1,0 +1,60 @@
+using UnityEngine;
+
+namespace July.Animation
+{
+    /// <summary>
+    /// 播放一个 Animator 状态一次，完成后切换到循环状态。
+    /// 循环状态使用的 AnimationClip 需要启用 Loop Time。
+    /// </summary>
+    [DisallowMultipleComponent]
+    [RequireComponent(typeof(Animator))]
+    public sealed class AnimatorOneShotLoopPlayer : MonoBehaviour
+    {
+        [Tooltip("先播放一次的状态名。")]
+        [SerializeField] private string _oneShotStateName;
+
+        [Tooltip("随后循环播放的状态名，对应的 AnimationClip 需要启用 Loop Time。")]
+        [SerializeField] private string _loopStateName;
+
+        [Tooltip("状态所在的 Animator Layer 索引。")]
+        [SerializeField, Min(0)] private int _layerIndex;
+
+        [Tooltip("OnEnable 时自动播放。")]
+        [SerializeField] private bool _playOnEnable = true;
+
+        private Animator _animator;
+        private bool _waitingForOneShot;
+
+        private void Awake()
+        {
+            _animator = GetComponent<Animator>();
+        }
+
+        private void OnEnable()
+        {
+            if (_playOnEnable)
+                Play();
+        }
+
+        private void Update()
+        {
+            if (!_waitingForOneShot)
+                return;
+
+            var stateInfo = _animator.GetCurrentAnimatorStateInfo(_layerIndex);
+            if (stateInfo.normalizedTime < 1f)
+                return;
+
+            _animator.Play(_loopStateName, _layerIndex, 0f);
+            _waitingForOneShot = false;
+        }
+
+        /// <summary>从头播放一次指定状态，完成后切换到循环状态。</summary>
+        public void Play()
+        {
+            _animator.Play(_oneShotStateName, _layerIndex, 0f);
+            _animator.Update(0f);
+            _waitingForOneShot = true;
+        }
+    }
+}

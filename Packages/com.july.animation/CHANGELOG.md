@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Added `AnimatorOneShotLoopPlayer` for playing one Animator state once before continuously looping another state.
+
 ## 0.2.0 - 2026-07-22
 
 - Catch up multiple sprite frames after a long or low-frame-rate update.
