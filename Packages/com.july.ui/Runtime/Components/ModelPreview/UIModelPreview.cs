@@ -32,15 +32,18 @@ namespace July.UI
         private CancellationTokenSource _loadCts;
 
         /// <summary>清除当前内容并显示指定的模型。</summary>
-        public async UniTask ShowAsync(IReadOnlyList<ModelPreviewTarget> targets)
+        public async UniTask ShowAsync(
+            IReadOnlyList<ModelPreviewTarget> targets,
+            CancellationToken cancellationToken = default)
         {
             EnsureInitialized();
             var assetNames = ValidateAndGetAssetNames(targets);
             Clear();
 
             var resourceSystem = GetSystem<IResourceSystem>();
-            _loadCts = new CancellationTokenSource();
-            var ct = _loadCts.Token;
+            var loadCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            _loadCts = loadCts;
+            var ct = loadCts.Token;
             ResourceHandle<GameObject>[] handles = null; 
 
             try
@@ -63,12 +66,15 @@ namespace July.UI
 
                     PrepareModel(model, target.DisplayScale);
                     _loadedModels.Add(new LoadedModel(model, target.Anchor));
+                    target.ConfigureInstance?.Invoke(model);
                 }
 
                 RefreshPreview();
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
+                if (cancellationToken.IsCancellationRequested)
+                    throw;
                 // 新请求、Clear、Release 或销毁触发的正常取消。
             }
             catch
@@ -79,6 +85,11 @@ namespace July.UI
             finally
             {
                 DisposeHandles(handles);
+                if (ReferenceEquals(_loadCts, loadCts))
+                {
+                    _loadCts.Dispose();
+                    _loadCts = null;
+                }
             }
         }
 

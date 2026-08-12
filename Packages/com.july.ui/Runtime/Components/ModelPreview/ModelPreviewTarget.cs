@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace July.UI
@@ -14,14 +15,19 @@ namespace July.UI
         /// <summary>相对于模型资源原始缩放的显示倍率。</summary>
         public float DisplayScale { get; }
 
+        /// <summary>Optional model instance configuration invoked after preview preparation.</summary>
+        public Action<GameObject> ConfigureInstance { get; }
+
         public ModelPreviewTarget(
             string modelAssetName,
             RectTransform anchor,
-            float displayScale = 1f)
+            float displayScale = 1f,
+            Action<GameObject> configureInstance = null)
         {
             ModelAssetName = modelAssetName;
             Anchor = anchor;
             DisplayScale = displayScale;
+            ConfigureInstance = configureInstance;
         }
     }
 }
