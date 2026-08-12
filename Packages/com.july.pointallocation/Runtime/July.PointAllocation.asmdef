@@ -1,0 +1,18 @@
+{
+  "name": "July.PointAllocation",
+  "rootNamespace": "July.PointAllocation",
+  "references": [
+    "July.Arch",
+    "July.Logging",
+    "UniTask"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

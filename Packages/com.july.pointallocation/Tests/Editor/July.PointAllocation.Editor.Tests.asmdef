@@ -1,0 +1,25 @@
+{
+  "name": "July.PointAllocation.Editor.Tests",
+  "rootNamespace": "July.PointAllocation.Editor.Tests",
+  "references": [
+    "July.PointAllocation",
+    "July.PointAllocation.Editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [
+    "UNITY_INCLUDE_TESTS"
+  ],
+  "versionDefines": [],
+  "noEngineReferences": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}
+
