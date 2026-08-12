@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace July.Animation
@@ -52,7 +53,16 @@ namespace July.Animation
         /// <summary>从头播放一次指定状态，完成后切换到循环状态。</summary>
         public void Play()
         {
-            _animator.Play(_oneShotStateName, _layerIndex, 0f);
+            Play(_oneShotStateName);
+        }
+
+        /// <summary>Plays the requested state once, then switches to the configured loop state.</summary>
+        public void Play(string oneShotStateName)
+        {
+            if (string.IsNullOrWhiteSpace(oneShotStateName))
+                throw new ArgumentException("One-shot state name cannot be empty.", nameof(oneShotStateName));
+
+            _animator.Play(oneShotStateName, _layerIndex, 0f);
             _animator.Update(0f);
             _waitingForOneShot = true;
         }
