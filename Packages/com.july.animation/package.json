@@ -1,15 +1,15 @@
 ﻿{
     "name":  "com.july.animation",
-    "version":  "0.2.0",
+    "version":  "0.2.1",
     "displayName":  "July Animation",
     "description":  "July Animation package for the July Unity seed framework.",
     "unity":  "2022.3",
     "dependencies":  {
-                         "com.unity.ugui":  "1.0.0",
-                         "com.demigiant.dotween":  "1.2.632"
-                     },
+        "com.unity.ugui":  "1.0.0",
+        "com.demigiant.dotween": "1.2.632"
+    },
     "author":  {
-                   "name":  "July"
-               }
+        "name":  "July"
+    }
 }
 
