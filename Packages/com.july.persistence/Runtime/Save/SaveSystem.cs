@@ -1,59 +1,41 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using July.Arch;
 using July.Logging;
-using UnityEngine;
 
 namespace July.Persistence
 {
     /// <summary>
-    /// SaveSystem 抽象基类 — 注册 / 脏标记 / 调度 / 序列化管线。
-    /// 子类只需实现 IO 层：WriteDataAsync / ReadDataAsync / DataExists / DeleteData / GetSavePath。
+    /// 本地持久化管线：恢复已声明的 Store、跟踪修改，并完成序列化、加密与存储。
+    /// Arch、Store 与 SaveSystem 统一遵循 Unity 主线程模型；异步存储操作由内部队列串行执行。
     /// </summary>
     public abstract class SaveSystem : SystemBase, ISaveSystem, IUpdatableSystem
     {
-        #region Constants
-
         private const float AutoSaveInterval = 30f;
-        private const int MediumDirtyCount = 3;
+        private const byte CurrentSaveVersion = 1;
 
-        #endregion
-
-        #region Fields
-
-        private ISaveStrategy _saveStrategy;
-        private float _lastAutoSaveTime;
-        private bool _isSaving;
-
-        private readonly Dictionary<string, ISaveData> _registered = new();
-        private readonly HashSet<string> _dirtyKeys = new();
-        private readonly object _lock = new();
+        private readonly List<ISaveEntry> _entries = new();
 
         private ISerializeSystem _serializeSystem;
         private IEncryptionSystem _encryptionSystem;
+        private UniTask _saveTail = UniTask.CompletedTask;
+        private float _lastAutoSaveTime;
+        private bool _autoSaveRunning;
+        private bool _acceptingDeclarations = true;
 
-        #endregion
+        protected abstract UniTask<bool> WriteDataAsync(
+            string key,
+            byte[] data,
+            CancellationToken ct);
 
-        #region Abstract IO — 子类实现
-
-        protected abstract UniTask<bool> WriteDataAsync(string key, byte[] data, CancellationToken ct);
         protected abstract UniTask<byte[]> ReadDataAsync(string key, CancellationToken ct);
         protected abstract bool DataExists(string key);
-        protected abstract bool DeleteData(string key);
 
-        /// <summary>
-        /// 返回存档的物理路径或逻辑键名（PlayerPrefs 可返回 key 本身）。
-        /// </summary>
-        public abstract string GetSavePath(string key);
-
-        #endregion
-
-        #region Virtual — 子类可选覆写
-
-        protected virtual UniTask<SaveResult> SaveWithRetryAsync(string key, byte[] processedData,
+        protected virtual UniTask<SaveResult> SaveWithRetryAsync(
+            string key,
+            byte[] processedData,
             CancellationToken ct)
         {
             return WriteDataAsync(key, processedData, ct)
@@ -62,380 +44,205 @@ namespace July.Persistence
                     : SaveResult.CreateFailure(SaveFailureReason.Unknown));
         }
 
-        #endregion
-
-        #region Save Format Constants
-
-        protected const byte CurrentSaveVersion = 1;
-
-        #endregion
-
-        #region Lifecycle
-
-        protected override UniTask OnInitializeAsync()
+        /// <summary>
+        /// 声明一个 Store 参与本地持久化。异步恢复发生在 SaveSystem 初始化时；
+        /// Critical Store 标脏后会立即进入串行写入队列。
+        /// </summary>
+        public StoreBase<TData> Persist<TData>(
+            StoreBase<TData> store,
+            string key,
+            SaveImportance importance) where TData : class, new()
         {
-            _saveStrategy = new ImportanceBasedSaveStrategy();
+            if (store == null) throw new ArgumentNullException(nameof(store));
+            ValidateKey(key);
+
+            if (!_acceptingDeclarations)
+                throw new InvalidOperationException("SaveSystem 初始化后不能再声明持久化 Store。");
+
+            foreach (var entry in _entries)
+            {
+                if (entry.Key == key)
+                    throw new InvalidOperationException($"存档 Key 已声明：{key}");
+                if (entry.Owns(store))
+                    throw new InvalidOperationException($"Store 已声明持久化：{store.GetType().Name}");
+            }
+
+            _entries.Add(new StoreSaveEntry<TData>(this, store, key, importance));
+            return store;
+        }
+
+        protected override async UniTask OnInitializeAsync()
+        {
+            _acceptingDeclarations = false;
+            _serializeSystem = TryGetSystem<ISerializeSystem>();
+            if (_serializeSystem == null)
+                throw new InvalidOperationException("SaveSystem 需要先注册并初始化 ISerializeSystem。");
+
+            _encryptionSystem = TryGetSystem<IEncryptionSystem>();
             _lastAutoSaveTime = 0f;
-            _isSaving = false;
-            return UniTask.CompletedTask;
+            _autoSaveRunning = false;
+
+            var restoreTasks = new UniTask[_entries.Count];
+            for (var i = 0; i < _entries.Count; i++)
+                restoreTasks[i] = _entries[i].RestoreAsync(CancellationToken.None);
+
+            await UniTask.WhenAll(restoreTasks);
+
+            foreach (var entry in _entries)
+                entry.Attach();
         }
 
         protected override void OnShutdown()
         {
-            lock (_lock)
-            {
-                _dirtyKeys.Clear();
-                _registered.Clear();
-            }
+            foreach (var entry in _entries)
+                entry.Detach();
+
+            _entries.Clear();
+            _serializeSystem = null;
+            _encryptionSystem = null;
+            _autoSaveRunning = false;
+            _acceptingDeclarations = true;
         }
 
         public void OnUpdate(float deltaTime)
         {
             _lastAutoSaveTime += deltaTime;
-            if (_lastAutoSaveTime >= AutoSaveInterval && !_isSaving)
-            {
-                int dirtyCount;
-                lock (_lock) { dirtyCount = _dirtyKeys.Count; }
+            if (_lastAutoSaveTime < AutoSaveInterval || _autoSaveRunning || !HasDirtyEntries())
+                return;
 
-                if (dirtyCount > 0)
-                {
-                    _lastAutoSaveTime = 0f;
-                    _isSaving = true;
-                    TriggerSaveAsync(SaveSignal.Low)
-                        .ContinueWith(_ => { _isSaving = false; })
-                        .Forget();
-                }
-            }
+            _lastAutoSaveTime = 0f;
+            _autoSaveRunning = true;
+            AutoSaveAsync().Forget();
         }
 
-        protected ISerializeSystem GetSerializeSystem()
+        private async UniTask AutoSaveAsync()
         {
-            return _serializeSystem ??= this.TryGetSystem<ISerializeSystem>();
-        }
-
-        protected IEncryptionSystem GetEncryptionSystem()
-        {
-            return _encryptionSystem ??= this.TryGetSystem<IEncryptionSystem>();
-        }
-
-        #endregion
-
-        #region Strategy
-
-        public void SetPolicy(ISaveStrategy strategy)
-        {
-            if (strategy != null) _saveStrategy = strategy;
-        }
-
-        public ISaveStrategy GetPolicy() => _saveStrategy;
-
-        #endregion
-
-        #region Registration
-
-        public void Register(string key, ISaveData data)
-        {
-            if (string.IsNullOrEmpty(key))
-                throw new ArgumentNullException(nameof(key), "存档键不能为空");
-            if (data == null)
-                throw new ArgumentNullException(nameof(data), "存档数据不能为空");
-
-            lock (_lock)
-            {
-                if (_registered.ContainsKey(key))
-                    JLogger.LogWarning($"[SaveSystem] 存档数据已注册，将覆盖: {key}");
-
-                _registered[key] = data;
-            }
-        }
-
-        public bool Unregister(string key)
-        {
-            if (string.IsNullOrEmpty(key)) return false;
-
-            lock (_lock)
-            {
-                _dirtyKeys.Remove(key);
-                return _registered.Remove(key);
-            }
-        }
-
-        public bool IsRegistered(string key)
-        {
-            if (string.IsNullOrEmpty(key)) return false;
-
-            lock (_lock)
-            {
-                return _registered.ContainsKey(key);
-            }
-        }
-
-        public T GetRegisteredData<T>(string key) where T : class, ISaveData
-        {
-            if (string.IsNullOrEmpty(key)) return null;
-
-            lock (_lock)
-            {
-                return _registered.TryGetValue(key, out var data) ? data as T : null;
-            }
-        }
-
-        public IEnumerable<string> GetAllRegisteredKeys()
-        {
-            lock (_lock)
-            {
-                return _registered.Keys.ToList();
-            }
-        }
-
-        #endregion
-
-        #region Dirty Tracking
-
-        public bool MarkDirty(string key)
-        {
-            if (string.IsNullOrEmpty(key)) return false;
-
-            lock (_lock)
-            {
-                if (!_registered.ContainsKey(key))
-                {
-                    JLogger.LogWarning($"[SaveSystem] 无法标记脏数据，数据未注册: {key}");
-                    return false;
-                }
-
-                _dirtyKeys.Add(key);
-                return true;
-            }
-        }
-
-        public bool IsDirty(string key)
-        {
-            if (string.IsNullOrEmpty(key)) return false;
-
-            lock (_lock)
-            {
-                return _dirtyKeys.Contains(key);
-            }
-        }
-
-        public int DirtyCount
-        {
-            get
-            {
-                lock (_lock) { return _dirtyKeys.Count; }
-            }
-        }
-
-        public IEnumerable<string> GetDirtyKeys()
-        {
-            lock (_lock)
-            {
-                return _dirtyKeys.ToList();
-            }
-        }
-
-        public void ClearDirty(string key)
-        {
-            if (string.IsNullOrEmpty(key)) return;
-
-            lock (_lock)
-            {
-                _dirtyKeys.Remove(key);
-            }
-        }
-
-        public void ClearAllDirty()
-        {
-            lock (_lock)
-            {
-                _dirtyKeys.Clear();
-            }
-        }
-
-        #endregion
-
-        #region Save Trigger
-
-        public async UniTask<Dictionary<string, SaveResult>> TriggerSaveAsync(SaveSignal signal)
-        {
-            var keysToSave = GetKeysToSave(signal);
-            if (keysToSave.Count == 0)
-                return new Dictionary<string, SaveResult>();
-
-            var results = new Dictionary<string, SaveResult>();
-            foreach (var key in keysToSave)
-            {
-                ISaveData data;
-                lock (_lock)
-                {
-                    if (!_registered.TryGetValue(key, out data)) continue;
-                }
-
-                var result = await SaveInternalAsync(key, data, default);
-                results[key] = result;
-
-                if (result.Success)
-                    ClearDirty(key);
-            }
-
-            return results;
-        }
-
-        public async UniTask<bool> MarkDirtyAndSaveAsync(string key, SaveSignal signal)
-        {
-            if (!MarkDirty(key)) return false;
-
-            switch (signal)
-            {
-                case SaveSignal.Low:
-                    return true;
-
-                case SaveSignal.Medium:
-                    if (DirtyCount < MediumDirtyCount)
-                        return true;
-                    var results = await TriggerSaveAsync(signal);
-                    return results.TryGetValue(key, out var result) && result.Success;
-
-                case SaveSignal.High:
-                case SaveSignal.Immediate:
-                    var saveResults = await TriggerSaveAsync(signal);
-                    return saveResults.TryGetValue(key, out var saveResult) && saveResult.Success;
-
-                default:
-                    return true;
-            }
-        }
-
-        private List<string> GetKeysToSave(SaveSignal signal)
-        {
-            var result = new List<string>();
-            lock (_lock)
-            {
-                foreach (var key in _dirtyKeys)
-                {
-                    if (!_registered.TryGetValue(key, out var data)) continue;
-                    var context = new SaveContext(signal, key, data);
-                    if (_saveStrategy.ShouldSave(context))
-                        result.Add(key);
-                }
-            }
-            return result;
-        }
-
-        #endregion
-
-        #region Save / Load (Public API)
-
-        public async UniTask<SaveResult> SaveAsync<T>(string key, T data, CancellationToken ct = default)
-            where T : ISaveData
-        {
-            if (string.IsNullOrEmpty(key))
-                return SaveResult.CreateFailure(SaveFailureReason.InvalidData, "存档key不能为空");
-
-            return await SaveInternalAsync(key, data, ct);
-        }
-
-        public async UniTask<T> LoadAsync<T>(string key, CancellationToken ct = default)
-            where T : ISaveData, new()
-        {
-            return await LoadInternalAsync<T>(key, ct);
-        }
-
-        public async UniTask<T> LoadAndRegisterAsync<T>(string key, CancellationToken ct = default)
-            where T : ISaveData, new()
-        {
-            T data;
-            if (HasSave(key))
-            {
-                data = await LoadInternalAsync<T>(key, ct);
-                if (data == null)
-                    data = new T();
-            }
-            else
-            {
-                data = new T();
-            }
-
-            Register(key, data);
-            return data;
-        }
-
-        public async UniTask<Dictionary<string, T>> LoadAndRegisterBatchAsync<T>(
-            string[] keys, CancellationToken ct = default) where T : ISaveData, new()
-        {
-            var results = new Dictionary<string, T>(keys.Length);
-            foreach (var key in keys)
-            {
-                if (ct.IsCancellationRequested) break;
-                var data = await LoadAndRegisterAsync<T>(key, ct);
-                results[key] = data;
-            }
-            return results;
-        }
-
-        public async UniTask<Dictionary<string, SaveResult>> SaveBatchAsync<T>(
-            Dictionary<string, T> dataMap, CancellationToken ct = default) where T : ISaveData
-        {
-            var results = new Dictionary<string, SaveResult>(dataMap.Count);
-            foreach (var kvp in dataMap)
-            {
-                if (ct.IsCancellationRequested)
-                {
-                    results[kvp.Key] = SaveResult.CreateFailure(SaveFailureReason.Cancelled);
-                    continue;
-                }
-
-                results[kvp.Key] = await SaveAsync(kvp.Key, kvp.Value, ct);
-            }
-            return results;
-        }
-
-        public async UniTask<Dictionary<string, T>> LoadBatchAsync<T>(
-            string[] keys, CancellationToken ct = default) where T : ISaveData, new()
-        {
-            var results = new Dictionary<string, T>(keys.Length);
-            foreach (var key in keys)
-            {
-                if (ct.IsCancellationRequested) break;
-                var data = await LoadInternalAsync<T>(key, ct);
-                if (data != null)
-                    results[key] = data;
-            }
-            return results;
-        }
-
-        #endregion
-
-        #region Delete / HasSave
-
-        public bool Delete(string key)
-        {
-            Unregister(key);
-
             try
             {
-                if (string.IsNullOrEmpty(key)) return false;
-                return DeleteData(key);
+                await FlushAsync(SaveSignal.Low);
             }
-            catch (Exception ex)
+            finally
             {
-                JLogger.LogError($"[SaveSystem] 删除失败: {key}, 错误: {ex.Message}");
-                return false;
+                _autoSaveRunning = false;
             }
         }
 
-        public bool HasSave(string key)
+        public UniTask<IReadOnlyDictionary<string, SaveResult>> FlushAsync(
+            SaveSignal signal,
+            CancellationToken ct = default)
         {
-            if (string.IsNullOrEmpty(key)) return false;
-            return DataExists(key);
+            return EnqueueSave(() => FlushCoreAsync(signal, ct));
         }
 
-        #endregion
+        public UniTask<SaveResult> SaveNowAsync(
+            StoreBase store,
+            CancellationToken ct = default)
+        {
+            return EnqueueSave(() => SaveNowCoreAsync(store, ct));
+        }
 
-        #region Internal Save / Load Pipeline
+        private async UniTask<IReadOnlyDictionary<string, SaveResult>> FlushCoreAsync(
+            SaveSignal signal,
+            CancellationToken ct)
+        {
+            var results = new Dictionary<string, SaveResult>();
+            foreach (var entry in _entries)
+            {
+                if (!entry.IsDirty || !ShouldSave(entry.Importance, signal)) continue;
 
-        private async UniTask<SaveResult> SaveInternalAsync(string key, ISaveData data, CancellationToken ct)
+                ct.ThrowIfCancellationRequested();
+                results[entry.Key] = await entry.SaveAsync(ct);
+            }
+
+            return results;
+        }
+
+        private async UniTask<SaveResult> SaveNowCoreAsync(
+            StoreBase store,
+            CancellationToken ct)
+        {
+            if (store == null)
+                return SaveResult.CreateFailure(
+                    SaveFailureReason.InvalidData,
+                    "Store 不能为空。");
+
+            foreach (var entry in _entries)
+            {
+                if (entry.Owns(store))
+                    return await entry.SaveAsync(ct);
+            }
+
+            return SaveResult.CreateFailure(
+                SaveFailureReason.InvalidData,
+                $"Store 未声明持久化：{store.GetType().Name}");
+        }
+
+        /// <summary>
+        /// 将所有写操作排成单一异步序列，避免同一主线程上的 await 重入造成存档覆盖乱序。
+        /// </summary>
+        private async UniTask<T> EnqueueSave<T>(Func<UniTask<T>> operation)
+        {
+            var previous = _saveTail;
+            var completion = new UniTaskCompletionSource();
+            _saveTail = completion.Task;
+
+            await previous;
+            try
+            {
+                return await operation();
+            }
+            finally
+            {
+                completion.TrySetResult();
+            }
+        }
+
+        private void RequestCriticalSave(ISaveEntry entry)
+        {
+            SaveCriticalEntryAsync(entry).Forget();
+        }
+
+        private async UniTask SaveCriticalEntryAsync(ISaveEntry entry)
+        {
+            try
+            {
+                var result = await EnqueueSave(
+                    () => entry.SaveAsync(CancellationToken.None));
+                if (!result.Success)
+                {
+                    JLogger.LogWarning(
+                        $"[SaveSystem] Critical Store 即时保存失败：{entry.Key}，{result.FailureMessage}");
+                }
+            }
+            catch (Exception exception)
+            {
+                JLogger.LogException(exception);
+            }
+        }
+
+        private bool HasDirtyEntries()
+        {
+            foreach (var entry in _entries)
+                if (entry.IsDirty) return true;
+            return false;
+        }
+
+        private static bool ShouldSave(SaveImportance importance, SaveSignal signal)
+        {
+            return signal switch
+            {
+                SaveSignal.Low => importance == SaveImportance.Critical,
+                SaveSignal.Medium => importance <= SaveImportance.Important,
+                SaveSignal.High => importance <= SaveImportance.Normal,
+                SaveSignal.Immediate => true,
+                _ => false
+            };
+        }
+
+        private async UniTask<SaveResult> SaveInternalAsync<T>(
+            string key,
+            T data,
+            CancellationToken ct) where T : class
         {
             var (processedData, failureReason) = ProcessBeforeSave(data, key);
             if (processedData == null)
@@ -444,64 +251,48 @@ namespace July.Persistence
             return await SaveWithRetryAsync(key, processedData, ct);
         }
 
-        private async UniTask<T> LoadInternalAsync<T>(string key, CancellationToken ct) where T : ISaveData
+        private async UniTask<T> LoadInternalAsync<T>(
+            string key,
+            CancellationToken ct) where T : class
         {
             try
             {
-                if (string.IsNullOrEmpty(key))
-                {
-                    JLogger.LogWarning("[SaveSystem] 存档key不能为空");
-                    return default;
-                }
-
-                if (!DataExists(key))
-                    return default;
+                if (!DataExists(key)) return null;
 
                 var rawBytes = await ReadDataAsync(key, ct);
                 if (rawBytes == null || rawBytes.Length == 0)
                 {
-                    JLogger.LogWarning($"[SaveSystem] 存档数据为空: {key}");
-                    return default;
+                    JLogger.LogWarning($"[SaveSystem] 存档数据为空：{key}");
+                    return null;
                 }
 
                 return ProcessAfterLoad<T>(rawBytes, key);
             }
             catch (OperationCanceledException)
             {
-                JLogger.LogWarning($"[SaveSystem] 加载操作已取消: {key}");
-                return default;
+                throw;
             }
             catch (Exception ex)
             {
-                JLogger.LogError($"[SaveSystem] 加载失败: {key}, 错误: {ex.Message}");
-                return default;
+                JLogger.LogError($"[SaveSystem] 加载失败：{key}，错误：{ex.Message}");
+                return null;
             }
         }
 
-        #endregion
-
-        #region Serialize + Encrypt Pipeline
-
-        private (byte[] data, SaveFailureReason? failureReason) ProcessBeforeSave<T>(T data, string key)
-            where T : ISaveData
+        private (byte[] data, SaveFailureReason? failureReason) ProcessBeforeSave<T>(
+            T data,
+            string key) where T : class
         {
             if (data == null)
                 return (null, SaveFailureReason.InvalidData);
 
-            var serializeSystem = GetSerializeSystem();
-            if (serializeSystem == null)
-            {
-                JLogger.LogError("[SaveSystem] ISerializeSystem 未注册，无法保存");
-                return (null, SaveFailureReason.SerializationFailed);
-            }
-
             byte[] bytes;
             try
             {
-                bytes = serializeSystem.Serialize(data);
+                bytes = _serializeSystem.Serialize(data);
                 if (bytes == null || bytes.Length == 0)
                 {
-                    JLogger.LogWarning($"[SaveSystem] 序列化数据为空: {key}");
+                    JLogger.LogWarning($"[SaveSystem] 序列化结果为空：{key}");
                     return (null, SaveFailureReason.SerializationFailed);
                 }
             }
@@ -511,15 +302,14 @@ namespace July.Persistence
                 return (null, SaveFailureReason.SerializationFailed);
             }
 
-            var encryptionSystem = GetEncryptionSystem();
-            if (encryptionSystem != null)
+            if (_encryptionSystem != null)
             {
                 try
                 {
-                    var encryptedBytes = encryptionSystem.Encrypt(bytes);
+                    var encryptedBytes = _encryptionSystem.Encrypt(bytes);
                     if (encryptedBytes == null || encryptedBytes.Length == 0)
                     {
-                        JLogger.LogError($"[SaveSystem] 加密失败: {key}");
+                        JLogger.LogError($"[SaveSystem] 加密失败：{key}");
                         return (null, SaveFailureReason.EncryptionFailed);
                     }
 
@@ -535,86 +325,145 @@ namespace July.Persistence
             return (CreateSaveData(bytes), null);
         }
 
-        protected T ProcessAfterLoad<T>(byte[] rawBytes, string key) where T : ISaveData
+        private T ProcessAfterLoad<T>(byte[] rawBytes, string key) where T : class
         {
-            if (rawBytes == null || rawBytes.Length == 0)
-                return default;
-
             var bytes = ParseSaveData(rawBytes, key);
-            if (bytes == null || bytes.Length == 0)
-                return default;
+            if (bytes == null || bytes.Length == 0) return null;
 
-            var encryptionSystem = GetEncryptionSystem();
-            if (encryptionSystem != null)
+            if (_encryptionSystem != null)
             {
-                var decryptedBytes = encryptionSystem.Decrypt(bytes);
+                var decryptedBytes = _encryptionSystem.Decrypt(bytes);
                 if (decryptedBytes == null || decryptedBytes.Length == 0)
                 {
-                    JLogger.LogError($"[SaveSystem] 解密失败: {key}");
-                    return default;
+                    JLogger.LogError($"[SaveSystem] 解密失败：{key}");
+                    return null;
                 }
 
                 bytes = decryptedBytes;
             }
 
-            var serializeSystem = GetSerializeSystem();
-            if (serializeSystem == null)
-            {
-                JLogger.LogError("[SaveSystem] ISerializeSystem 未注册，无法加载");
-                return default;
-            }
-
-            return serializeSystem.Deserialize<T>(bytes);
+            return _serializeSystem.Deserialize<T>(bytes);
         }
 
-        protected static byte[] CreateSaveData(byte[] encryptedData)
+        private static byte[] CreateSaveData(byte[] data)
         {
             const int headerSize = 5;
-            var result = new byte[headerSize + encryptedData.Length];
-            var offset = 0;
-
-            result[offset++] = CurrentSaveVersion;
-
-            var lengthBytes = BitConverter.GetBytes(encryptedData.Length);
-            Array.Copy(lengthBytes, 0, result, offset, 4);
-            offset += 4;
-
-            Array.Copy(encryptedData, 0, result, offset, encryptedData.Length);
+            var result = new byte[headerSize + data.Length];
+            result[0] = CurrentSaveVersion;
+            Array.Copy(BitConverter.GetBytes(data.Length), 0, result, 1, 4);
+            Array.Copy(data, 0, result, headerSize, data.Length);
             return result;
         }
 
-        protected byte[] ParseSaveData(byte[] rawData, string key)
+        private static byte[] ParseSaveData(byte[] rawData, string key)
         {
-            if (rawData.Length < 5)
+            if (rawData == null || rawData.Length < 5)
             {
-                JLogger.LogError($"[SaveSystem] 存档数据格式无效（长度不足）: {key}");
+                JLogger.LogError($"[SaveSystem] 存档格式无效（长度不足）：{key}");
                 return null;
             }
 
-            var offset = 0;
-            var version = rawData[offset++];
-
+            var version = rawData[0];
             if (version != CurrentSaveVersion)
             {
                 JLogger.LogError(
-                    $"[SaveSystem] 存档版本 {version} 不受支持（当前: {CurrentSaveVersion}）, key: {key}");
+                    $"[SaveSystem] 不支持存档版本 {version}（当前版本 {CurrentSaveVersion}）：{key}");
                 return null;
             }
 
-            var dataLength = BitConverter.ToInt32(rawData, offset);
-            offset += 4;
-
-            if (dataLength < 0 || offset + dataLength > rawData.Length)
+            var dataLength = BitConverter.ToInt32(rawData, 1);
+            const int dataOffset = 5;
+            if (dataLength < 0 || dataOffset + dataLength > rawData.Length)
             {
-                JLogger.LogError($"[SaveSystem] 存档数据长度无效: {dataLength}, key: {key}");
+                JLogger.LogError($"[SaveSystem] 存档数据长度无效：{dataLength}，Key：{key}");
                 return null;
             }
 
             var data = new byte[dataLength];
-            Array.Copy(rawData, offset, data, 0, dataLength);
+            Array.Copy(rawData, dataOffset, data, 0, dataLength);
             return data;
         }
 
-        #endregion
+        private static void ValidateKey(string key)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+                throw new ArgumentException("存档 Key 不能为空。", nameof(key));
+        }
+
+        private interface ISaveEntry
+        {
+            string Key { get; }
+            SaveImportance Importance { get; }
+            bool IsDirty { get; }
+            UniTask RestoreAsync(CancellationToken ct);
+            UniTask<SaveResult> SaveAsync(CancellationToken ct);
+            void Attach();
+            void Detach();
+            bool Owns(StoreBase store);
+        }
+
+        private sealed class StoreSaveEntry<TData> : ISaveEntry where TData : class, new()
+        {
+            private readonly SaveSystem _owner;
+            private readonly StoreBase<TData> _store;
+            private long _revision;
+            private long _savedRevision;
+            private bool _attached;
+
+            public StoreSaveEntry(
+                SaveSystem owner,
+                StoreBase<TData> store,
+                string key,
+                SaveImportance importance)
+            {
+                _owner = owner;
+                _store = store;
+                Key = key;
+                Importance = importance;
+            }
+
+            public string Key { get; }
+            public SaveImportance Importance { get; }
+            public bool IsDirty => _revision != _savedRevision;
+
+            public async UniTask RestoreAsync(CancellationToken ct)
+            {
+                var loaded = await _owner.LoadInternalAsync<TData>(Key, ct);
+                if (loaded != null)
+                    _store.ReplaceData(loaded);
+            }
+
+            public async UniTask<SaveResult> SaveAsync(CancellationToken ct)
+            {
+                var savingRevision = _revision;
+                var result = await _owner.SaveInternalAsync(Key, _store.GetData(), ct);
+                if (result.Success)
+                    _savedRevision = savingRevision;
+                return result;
+            }
+
+            public void Attach()
+            {
+                if (_attached) return;
+                _store.DirtyMarked += OnDirty;
+                _attached = true;
+            }
+
+            public void Detach()
+            {
+                if (!_attached) return;
+                _store.DirtyMarked -= OnDirty;
+                _attached = false;
+            }
+
+            public bool Owns(StoreBase store) => ReferenceEquals(_store, store);
+
+            private void OnDirty()
+            {
+                _revision++;
+                if (Importance == SaveImportance.Critical)
+                    _owner.RequestCriticalSave(this);
+            }
+        }
     }
 }

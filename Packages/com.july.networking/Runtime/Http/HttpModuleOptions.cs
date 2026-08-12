@@ -15,8 +15,6 @@ namespace July.Networking
         public float RetryBackoffMultiplier = 2f;
         public int RetryMaxDelayMs = 10000;
 
-        public string PendingQueueSaveKey;
-
         internal int CalculateRetryDelay(int attempt)
         {
             return (int)Math.Min(

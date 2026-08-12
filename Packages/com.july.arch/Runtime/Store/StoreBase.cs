@@ -1,60 +1,61 @@
-using System.Runtime.CompilerServices;
-using Cysharp.Threading.Tasks;
+using System;
 
 namespace July.Arch
 {
     /// <summary>
-    /// Store 非泛型基类 — 作为 GetStore 泛型约束和 ArchContext 内部管理的公共类型。
-    /// 生命周期方法全部 internal，仅 ArchContext 可调用。
+    /// Store 的非泛型基类，由 ArchContext 按具体类型管理。
+    /// Store 只负责持有领域状态，不参与异步生命周期，也不知道数据来自本地还是服务器。
     /// </summary>
     public abstract class StoreBase
     {
         private ArchContext _architecture;
-        private bool _initialized;
 
-        internal bool IsInitialized => _initialized;
+        internal void SetContext(ArchContext context) => _architecture = context;
 
-        internal void SetContext(ArchContext ctx) => _architecture = ctx;
-
-        internal async UniTask InitializeAsync()
-        {
-            if (_initialized) return;
-            await OnInitializeAsync();
-            _initialized = true;
-        }
-
-        internal void Shutdown()
-        {
-            if (!_initialized) return;
-            OnShutdown();
-            _initialized = false;
-        }
-
-        protected virtual UniTask OnInitializeAsync() => UniTask.CompletedTask;
-        protected virtual void OnShutdown() { }
-
-        /// <summary>
-        /// 预留的 Store 写操作追踪钩子。
-        /// 当前为空方法，保留签名以便未来接入 debug 追踪。
-        /// </summary>
-        protected void TraceModify([CallerMemberName] string method = null) { }
+        protected void Publish<T>(T eventData)
+            => _architecture.Event.Publish(eventData);
     }
 
     /// <summary>
-    /// Store 泛型基类 — 所有业务数据的唯一所有者。
-    /// 只要有第二个类需要读这份数据，它就进 Store；System 私有的内部数据除外。
+    /// 领域状态的统一所有者。完整数据可以由外部替换，局部修改由具体 Store 封装。
     /// </summary>
     public abstract class StoreBase<TData> : StoreBase where TData : class, new()
     {
-        protected TData Data { get; set; }
+        private TData _data = new TData();
 
-        protected override UniTask OnInitializeAsync()
+        /// <summary>
+        /// 当前领域数据。
+        /// </summary>
+        protected TData Data => _data;
+
+        /// <summary>
+        /// 获取当前完整数据，供数据传输和持久化模块读取。
+        /// </summary>
+        public TData GetData() => Data;
+
+        /// <summary>
+        /// 使用同类型数据整体覆盖当前状态，不附带服务器或存档语义。
+        /// </summary>
+        public void ReplaceData(TData data)
         {
-            Data = new TData();
-            return UniTask.CompletedTask;
+            _data = data ?? throw new ArgumentNullException(nameof(data));
+            OnDataReplaced();
+            MarkDirty();
         }
 
-        protected void Publish<T>(T eventData)
-            => ArchContext.Current.Event.Publish(eventData);
+        /// <summary>
+        /// 完整数据被替换后的扩展点，用于重建 Store 自己维护的派生状态。
+        /// </summary>
+        protected virtual void OnDataReplaced() { }
+
+        /// <summary>
+        /// Store 确认数据已修改时发送信号。没有外部监听时不会产生额外行为。
+        /// </summary>
+        protected void MarkDirty() => DirtyMarked?.Invoke();
+
+        /// <summary>
+        /// 数据修改信号。持久化模块只监听项目明确声明需要持久化的 Store。
+        /// </summary>
+        public event Action DirtyMarked;
     }
 }

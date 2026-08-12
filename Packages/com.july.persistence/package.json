@@ -2,7 +2,7 @@
     "name":  "com.july.persistence",
     "version":  "0.3.0",
     "displayName":  "July Persistence",
-    "description":  "Save systems, platform-aware preferences and reusable savable store lifecycle.",
+    "description":  "Local persistence systems, platform-aware preferences and composition-time Store persistence.",
     "unity":  "2022.3",
     "dependencies":  {
                          "com.july.logging":  "0.1.0",

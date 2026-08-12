@@ -10,8 +10,6 @@ namespace July.Arch
     public sealed class ArchContext
     {
         private readonly Dictionary<Type, StoreBase> _stores = new();
-        private readonly List<StoreBase> _storeList = new();
-
         private readonly List<SystemBase> _systems = new();
         private readonly List<IUpdatableSystem> _updateSystems = new();
         private readonly Dictionary<Type, SystemBase> _systemLookup = new();
@@ -47,7 +45,6 @@ namespace July.Arch
             }
 
             store.SetContext(this);
-            _storeList.Add(store);
         }
 
         public void UnregisterStore(StoreBase store)
@@ -56,11 +53,8 @@ namespace July.Arch
             var type = store.GetType();
             if (!_stores.TryGetValue(type, out var existing) || existing != store) return;
 
-            try { store.Shutdown(); }
-            catch (Exception ex) { JLogger.LogException(ex); }
-
             _stores.Remove(type);
-            _storeList.Remove(store);
+            store.SetContext(null);
         }
 
         public void RegisterSystem(SystemBase system)
@@ -153,23 +147,11 @@ namespace July.Arch
 
         public async UniTask InitializeAsync(CancellationToken ct = default)
         {
-            var storeTasks = new List<UniTask>();
-            foreach (var store in _storeList)
-            {
-                ct.ThrowIfCancellationRequested();
-                storeTasks.Add(store.InitializeAsync());
-            }
-            if (storeTasks.Count > 0)
-                await UniTask.WhenAll(storeTasks);
-
             foreach (var system in _systems)
             {
                 ct.ThrowIfCancellationRequested();
                 await system.InitializeAsync();
             }
-
-            foreach (var system in _systems)
-                system.PostInitialize();
 
             _initialized = true;
         }
@@ -250,14 +232,10 @@ namespace July.Arch
                 catch (Exception ex) { JLogger.LogException(ex); }
             }
 
-            for (var i = _storeList.Count - 1; i >= 0; i--)
-            {
-                try { _storeList[i].Shutdown(); }
-                catch (Exception ex) { JLogger.LogException(ex); }
-            }
+            foreach (var store in _stores.Values)
+                store.SetContext(null);
 
             _stores.Clear();
-            _storeList.Clear();
             _systems.Clear();
             _updateSystems.Clear();
             _systemLookup.Clear();

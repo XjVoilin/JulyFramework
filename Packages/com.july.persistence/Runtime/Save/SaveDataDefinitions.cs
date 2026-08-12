@@ -1,5 +1,3 @@
-using System;
-
 namespace July.Persistence
 {
     public enum SaveFailureReason
@@ -16,11 +14,22 @@ namespace July.Persistence
         Cancelled = 9
     }
 
+    /// <summary>
+    /// 存档数据的重要程度，同时决定自动保存的时效。
+    /// Critical 在 Store 标脏时立即进入写入队列；其余级别等待对应的保存信号。
+    /// </summary>
     public enum SaveImportance
     {
+        /// <summary>标脏后立即排队保存，失败后仍保持脏状态并参与后续重试。</summary>
         Critical = 0,
+
+        /// <summary>响应 Medium、High 或 Immediate 保存信号。</summary>
         Important = 1,
+
+        /// <summary>响应 High 或 Immediate 保存信号。</summary>
         Normal = 2,
+
+        /// <summary>仅响应 Immediate 保存信号。</summary>
         Trivial = 3
     }
 
@@ -75,22 +84,4 @@ namespace July.Persistence
         }
     }
 
-    public readonly struct SaveContext
-    {
-        public SaveSignal Signal { get; }
-        public string Key { get; }
-        public ISaveData Data { get; }
-
-        public SaveContext(SaveSignal signal, string key, ISaveData data)
-        {
-            Signal = signal;
-            Key = key;
-            Data = data;
-        }
-    }
-
-    public interface ISaveData
-    {
-        SaveImportance Importance { get; }
-    }
 }

@@ -3,276 +3,426 @@ using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using July.Arch;
-using July.Persistence;
 using NUnit.Framework;
 
 namespace July.Persistence.Tests.Save
 {
-    /// <summary>
-    /// SaveSystem 单元测试。
-    ///
-    /// 用一个内存版子类 <see cref="InMemorySaveSystem"/> 实现 IO 抽象层，
-    /// 配合一个纯字节 <see cref="BytesSerializeSystem"/>（不依赖 LitJson），
-    /// 验证：注册/脏标记、SaveSignal 优先级调度、保存-加载往返、空 key 校验。
-    /// 不触发真实的文件/PlayerPrefs IO，纯逻辑。
-    /// </summary>
     [TestFixture]
     public class SaveSystemTests
     {
-        private ArchContext _ctx;
-        private InMemorySaveSystem _save;
-        private BytesSerializeSystem _serializer;
+        private ArchContext _context;
+        private InMemorySaveSystem _saveSystem;
+        private BytesSerializeSystem _serializeSystem;
 
         [SetUp]
         public void SetUp()
         {
-            _ctx = new ArchContext();
-            _save = new InMemorySaveSystem();
-            _serializer = new BytesSerializeSystem();
-            _ctx.RegisterSystem(_save);
-            _ctx.RegisterSystem(_serializer);
-            _ctx.InitializeAsync().GetAwaiter().GetResult();
+            _context = new ArchContext();
+            _saveSystem = new InMemorySaveSystem();
+            _serializeSystem = new BytesSerializeSystem();
+            RegisterPersistenceSystems();
         }
 
         [TearDown]
         public void TearDown()
         {
-            _ctx?.Shutdown();
-            _ctx = null;
-        }
-
-        #region 注册与脏标记
-
-        [Test]
-        public void Register_MakesKeyDirtyWhenMarked()
-        {
-            _save.Register("k", new SavePayload());
-
-            Assert.IsFalse(_save.IsDirty("k"), "注册后默认非脏");
-            Assert.IsTrue(_save.MarkDirty("k"), "已注册 key 可标记脏");
-            Assert.IsTrue(_save.IsDirty("k"));
-            Assert.AreEqual(1, _save.DirtyCount);
+            _context?.Shutdown();
+            _context = null;
         }
 
         [Test]
-        public void MarkDirty_UnregisteredKey_ReturnsFalse()
+        public void Persist_ReturnsSameStoreAndRestoresDefaultWhenSaveMissing()
         {
-            Assert.IsFalse(_save.MarkDirty("missing"), "未注册 key 标记脏应失败");
-            Assert.AreEqual(0, _save.DirtyCount);
+            var store = new TestStore();
+
+            var returned = _saveSystem.Persist(store, "settings", SaveImportance.Important);
+            _context.RegisterStore(store);
+            _context.InitializeAsync().GetAwaiter().GetResult();
+
+            Assert.AreSame(store, returned);
+            Assert.AreEqual(0, store.Id);
+            Assert.AreEqual(0, FlushAll().Count);
         }
 
         [Test]
-        public void MarkDirty_EmptyKey_ReturnsFalse()
-            => Assert.IsFalse(_save.MarkDirty(""));
-
-        [Test]
-        public void ClearAllDirty_ResetsDirtySet()
+        public void Persist_RestoresSavedDataBeforeLaterSystemInitializes()
         {
-            _save.Register("a", new SavePayload { Id = 1 });
-            _save.Register("b", new SavePayload { Id = 2 });
-            _save.MarkDirty("a");
-            _save.MarkDirty("b");
+            var source = new TestStore();
+            _saveSystem.Persist(source, "account", SaveImportance.Important);
+            _context.RegisterStore(source);
+            _context.InitializeAsync().GetAwaiter().GetResult();
+            source.SetId(42);
+            _saveSystem.SaveNowAsync(source).GetAwaiter().GetResult();
 
-            _save.ClearAllDirty();
+            RestartContext();
 
-            Assert.AreEqual(0, _save.DirtyCount);
+            var restored = new TestStore();
+            var dependant = new StoreReadingSystem();
+            _saveSystem.Persist(restored, "account", SaveImportance.Important);
+            _context.RegisterStore(restored);
+            _context.RegisterSystem(dependant);
+            _context.InitializeAsync().GetAwaiter().GetResult();
+
+            Assert.AreEqual(42, restored.Id);
+            Assert.AreEqual(42, dependant.InitialId);
         }
 
         [Test]
-        public void Unregister_RemovesKey()
+        public void StoreMutation_OnlyFlushesDeclaredStore()
         {
-            _save.Register("k", new SavePayload { Id = 1 });
-            Assert.IsTrue(_save.IsRegistered("k"));
+            var persistentStore = new TestStore();
+            var transientStore = new OtherTestStore();
+            _saveSystem.Persist(persistentStore, "persistent", SaveImportance.Normal);
+            _context.RegisterStore(persistentStore);
+            _context.RegisterStore(transientStore);
+            _context.InitializeAsync().GetAwaiter().GetResult();
 
-            Assert.IsTrue(_save.Unregister("k"));
-            Assert.IsFalse(_save.IsRegistered("k"));
-        }
+            persistentStore.SetId(1);
+            transientStore.SetId(2);
+            var results = FlushAll();
 
-        #endregion
-
-        #region SaveSignal 优先级调度（ImportanceBasedSaveStrategy）
-
-        [Test]
-        public void TriggerSave_LowSignal_OnlySavesCritical()
-        {
-            var critical = new SavePayload { Id = 1, Importance = SaveImportance.Critical };
-            var normal = new SavePayload { Id = 2, Importance = SaveImportance.Normal };
-            _save.Register("crit", critical);
-            _save.Register("norm", normal);
-            _save.MarkDirty("crit");
-            _save.MarkDirty("norm");
-
-            var results = _save.TriggerSaveAsync(SaveSignal.Low).GetAwaiter().GetResult();
-
-            Assert.IsTrue(results.ContainsKey("crit"), "Low 信号应保存 Critical");
-            Assert.IsFalse(results.ContainsKey("norm"), "Low 信号不应保存 Normal");
+            Assert.AreEqual(1, results.Count);
+            Assert.IsTrue(results.ContainsKey("persistent"));
         }
 
         [Test]
-        public void TriggerSave_ImmediateSignal_SavesAll()
+        public void ReplaceData_MarksDeclaredStoreForFlush()
         {
-            var critical = new SavePayload { Id = 1, Importance = SaveImportance.Critical };
-            var trivial = new SavePayload { Id = 2, Importance = SaveImportance.Trivial };
-            _save.Register("crit", critical);
-            _save.Register("triv", trivial);
-            _save.MarkDirty("crit");
-            _save.MarkDirty("triv");
+            var store = new TestStore();
+            _saveSystem.Persist(store, "store", SaveImportance.Normal);
+            _context.RegisterStore(store);
+            _context.InitializeAsync().GetAwaiter().GetResult();
 
-            var results = _save.TriggerSaveAsync(SaveSignal.Immediate).GetAwaiter().GetResult();
+            store.ReplaceData(new SavePayload { Id = 7 });
+            var results = FlushAll();
 
-            Assert.IsTrue(results.ContainsKey("crit"));
-            Assert.IsTrue(results.ContainsKey("triv"), "Immediate 信号应保存所有 importance");
+            Assert.IsTrue(results.ContainsKey("store"));
         }
 
         [Test]
-        public void TriggerSave_SuccessClearsDirty()
+        public void Flush_UsesDeclaredImportance()
         {
-            _save.Register("k", new SavePayload { Id = 1, Importance = SaveImportance.Critical });
-            _save.MarkDirty("k");
+            var critical = new TestStore();
+            var normal = new OtherTestStore();
+            _saveSystem.Persist(critical, "critical", SaveImportance.Critical);
+            _saveSystem.Persist(normal, "normal", SaveImportance.Normal);
+            _context.RegisterStore(critical);
+            _context.RegisterStore(normal);
+            _context.InitializeAsync().GetAwaiter().GetResult();
+            _saveSystem.FailNextWrite();
+            critical.SetId(1);
+            normal.SetId(2);
 
-            _save.TriggerSaveAsync(SaveSignal.Immediate).GetAwaiter().GetResult();
+            var lowResults = _saveSystem.FlushAsync(SaveSignal.Low)
+                .GetAwaiter().GetResult();
+            var highResults = _saveSystem.FlushAsync(SaveSignal.High)
+                .GetAwaiter().GetResult();
 
-            Assert.IsFalse(_save.IsDirty("k"), "保存成功后应清除脏标记");
+            Assert.IsTrue(lowResults.ContainsKey("critical"));
+            Assert.IsFalse(lowResults.ContainsKey("normal"));
+            Assert.IsTrue(highResults.ContainsKey("normal"));
         }
 
         [Test]
-        public void TriggerSave_NoDirtyKeys_ReturnsEmpty()
+        public void CriticalStore_MutationSavesWithoutExplicitFlush()
         {
-            _save.Register("k", new SavePayload { Id = 1, Importance = SaveImportance.Critical });
+            var store = new TestStore();
+            _saveSystem.Persist(store, "critical", SaveImportance.Critical);
+            _context.RegisterStore(store);
+            _context.InitializeAsync().GetAwaiter().GetResult();
 
-            var results = _save.TriggerSaveAsync(SaveSignal.Immediate).GetAwaiter().GetResult();
+            store.SetId(7);
 
-            Assert.AreEqual(0, results.Count, "无脏 key 时不触发任何保存");
+            RestartContext();
+            var restored = new TestStore();
+            _saveSystem.Persist(restored, "critical", SaveImportance.Critical);
+            _context.RegisterStore(restored);
+            _context.InitializeAsync().GetAwaiter().GetResult();
+
+            Assert.AreEqual(7, restored.Id);
         }
 
         [Test]
-        public void MarkDirtyAndSave_LowSignal_DoesNotSaveButMarksDirty()
+        public void NonCriticalStore_MutationWaitsForFlush()
         {
-            // Low 信号只标记脏不实际保存（交给定时自动保存），返回 true。
-            _save.Register("k", new SavePayload { Id = 1, Importance = SaveImportance.Critical });
+            var store = new TestStore();
+            _saveSystem.Persist(store, "normal", SaveImportance.Normal);
+            _context.RegisterStore(store);
+            _context.InitializeAsync().GetAwaiter().GetResult();
 
-            bool ok = _save.MarkDirtyAndSaveAsync("k", SaveSignal.Low).GetAwaiter().GetResult();
+            store.SetId(7);
 
-            Assert.IsTrue(ok);
-            Assert.IsTrue(_save.IsDirty("k"), "Low 信号标记脏后应保持脏状态");
-            Assert.AreEqual(0, _save.WriteCount, "Low 信号不应触发实际写盘");
+            RestartContext();
+            var restored = new TestStore();
+            _saveSystem.Persist(restored, "normal", SaveImportance.Normal);
+            _context.RegisterStore(restored);
+            _context.InitializeAsync().GetAwaiter().GetResult();
+
+            Assert.AreEqual(0, restored.Id);
         }
 
         [Test]
-        public void MarkDirtyAndSave_HighSignal_SavesAndClearsDirty()
+        public void FailedCriticalSave_RemainsDirtyForRetry()
         {
-            _save.Register("k", new SavePayload { Id = 1, Importance = SaveImportance.Normal });
+            var store = new TestStore();
+            _saveSystem.Persist(store, "critical", SaveImportance.Critical);
+            _context.RegisterStore(store);
+            _context.InitializeAsync().GetAwaiter().GetResult();
+            _saveSystem.FailNextWrite();
 
-            bool ok = _save.MarkDirtyAndSaveAsync("k", SaveSignal.High).GetAwaiter().GetResult();
+            store.SetId(9);
+            var retryResults = FlushAll();
 
-            Assert.IsTrue(ok);
-            Assert.IsFalse(_save.IsDirty("k"));
-            Assert.AreEqual(1, _save.WriteCount, "High 信号应触发实际写盘");
-        }
-
-        #endregion
-
-        #region 保存-加载往返
-
-        [Test]
-        public void SaveThenLoad_RoundTripsData()
-        {
-            var payload = new SavePayload { Id = 42, Importance = SaveImportance.Normal };
-
-            _save.SaveAsync("slot", payload).GetAwaiter().GetResult();
-            var loaded = _save.LoadAsync<SavePayload>("slot").GetAwaiter().GetResult();
-
-            Assert.IsNotNull(loaded);
-            Assert.AreEqual(42, loaded.Id);
+            Assert.IsTrue(retryResults.TryGetValue("critical", out var result));
+            Assert.IsTrue(result.Success);
         }
 
         [Test]
-        public void SaveAsync_EmptyKey_ReturnsInvalidData()
+        public void SaveNow_SavesCurrentStoreAndAcceptsStoreInsteadOfKey()
         {
-            var result = _save.SaveAsync("", new SavePayload { Id = 1 }).GetAwaiter().GetResult();
+            var store = new TestStore();
+            _saveSystem.Persist(store, "store", SaveImportance.Trivial);
+            _context.RegisterStore(store);
+            _context.InitializeAsync().GetAwaiter().GetResult();
+            store.SetId(99);
+
+            var result = _saveSystem.SaveNowAsync(store).GetAwaiter().GetResult();
+
+            Assert.IsTrue(result.Success);
+            Assert.AreEqual(0, FlushAll().Count);
+
+            RestartContext();
+            var restored = new TestStore();
+            _saveSystem.Persist(restored, "store", SaveImportance.Trivial);
+            _context.RegisterStore(restored);
+            _context.InitializeAsync().GetAwaiter().GetResult();
+            Assert.AreEqual(99, restored.Id);
+        }
+
+        [Test]
+        public void SaveNow_UndeclaredStoreReturnsFailure()
+        {
+            _context.InitializeAsync().GetAwaiter().GetResult();
+
+            var result = _saveSystem.SaveNowAsync(new TestStore())
+                .GetAwaiter().GetResult();
 
             Assert.IsFalse(result.Success);
             Assert.AreEqual(SaveFailureReason.InvalidData, result.FailureReason);
         }
 
         [Test]
-        public void LoadAsync_MissingKey_ReturnsDefault()
+        public void Persist_DuplicateKeyThrows()
         {
-            var loaded = _save.LoadAsync<SavePayload>("never-saved").GetAwaiter().GetResult();
+            _saveSystem.Persist(new TestStore(), "same", SaveImportance.Normal);
 
-            Assert.IsNull(loaded, "不存在的 key 应返回 default");
+            Assert.Throws<InvalidOperationException>(() =>
+                _saveSystem.Persist(new OtherTestStore(), "same", SaveImportance.Normal));
         }
 
         [Test]
-        public void HasSave_ReflectsExistence()
+        public void Shutdown_DetachesStoreDirtySignalAndClearsDeclarations()
         {
-            Assert.IsFalse(_save.HasSave("slot"));
+            var store = new TestStore();
+            _saveSystem.Persist(store, "store", SaveImportance.Normal);
+            _context.RegisterStore(store);
+            _context.InitializeAsync().GetAwaiter().GetResult();
 
-            _save.SaveAsync("slot", new SavePayload { Id = 1 }).GetAwaiter().GetResult();
+            _context.Shutdown();
+            store.SetId(1);
 
-            Assert.IsTrue(_save.HasSave("slot"));
+            Assert.AreEqual(0, FlushAll().Count);
         }
 
         [Test]
-        public void Delete_RemovesKeyAndData()
+        public void MutationDuringWrite_RemainsPendingAfterCompletedSave()
         {
-            _save.SaveAsync("slot", new SavePayload { Id = 1 }).GetAwaiter().GetResult();
-            Assert.IsTrue(_save.HasSave("slot"));
+            var store = new TestStore();
+            _saveSystem.Persist(store, "store", SaveImportance.Normal);
+            _context.RegisterStore(store);
+            _context.InitializeAsync().GetAwaiter().GetResult();
+            store.SetId(1);
+            _saveSystem.PauseNextWrite();
 
-            bool deleted = _save.Delete("slot");
+            var firstSave = _saveSystem.SaveNowAsync(store);
+            store.SetId(2);
+            _saveSystem.ResumeWrite();
+            firstSave.GetAwaiter().GetResult();
 
-            Assert.IsTrue(deleted);
-            Assert.IsFalse(_save.HasSave("slot"));
-            Assert.IsFalse(_save.IsRegistered("slot"));
+            var pendingResults = FlushAll();
+            Assert.IsTrue(pendingResults.ContainsKey("store"));
+
+            RestartContext();
+            var restored = new TestStore();
+            _saveSystem.Persist(restored, "store", SaveImportance.Normal);
+            _context.RegisterStore(restored);
+            _context.InitializeAsync().GetAwaiter().GetResult();
+            Assert.AreEqual(2, restored.Id);
         }
 
         [Test]
-        public void Save_OverwritesPreviousValue()
+        public void ConcurrentSaveRequests_AreSerialized()
         {
-            _save.SaveAsync("slot", new SavePayload { Id = 1 }).GetAwaiter().GetResult();
-            _save.SaveAsync("slot", new SavePayload { Id = 99 }).GetAwaiter().GetResult();
+            var store = new TestStore();
+            _saveSystem.Persist(store, "store", SaveImportance.Normal);
+            _context.RegisterStore(store);
+            _context.InitializeAsync().GetAwaiter().GetResult();
+            store.SetId(1);
+            _saveSystem.PauseNextWrite();
 
-            var loaded = _save.LoadAsync<SavePayload>("slot").GetAwaiter().GetResult();
+            var firstSave = _saveSystem.SaveNowAsync(store);
+            store.SetId(2);
+            var secondSave = _saveSystem.SaveNowAsync(store);
 
-            Assert.AreEqual(99, loaded.Id, "二次保存应覆盖旧值");
+            Assert.AreEqual(1, _saveSystem.ActiveWrites);
+            _saveSystem.ResumeWrite();
+            firstSave.GetAwaiter().GetResult();
+            secondSave.GetAwaiter().GetResult();
+
+            Assert.AreEqual(1, _saveSystem.MaxConcurrentWrites);
         }
 
-        #endregion
+        [Test]
+        public void CriticalStore_ContinuousMutationsRemainSerializedAndSaveLatestData()
+        {
+            var store = new TestStore();
+            _saveSystem.Persist(store, "critical", SaveImportance.Critical);
+            _context.RegisterStore(store);
+            _context.InitializeAsync().GetAwaiter().GetResult();
+            _saveSystem.PauseNextWrite();
 
-        #region Stubs
+            store.SetId(1);
+            store.SetId(2);
+            store.SetId(3);
 
-        /// <summary>
-        /// 内存版 SaveSystem：把序列化后的字节存在字典里，模拟读写盘。
-        /// </summary>
+            Assert.AreEqual(1, _saveSystem.ActiveWrites);
+            _saveSystem.ResumeWrite();
+            FlushAll();
+            Assert.AreEqual(1, _saveSystem.MaxConcurrentWrites);
+
+            RestartContext();
+            var restored = new TestStore();
+            _saveSystem.Persist(restored, "critical", SaveImportance.Critical);
+            _context.RegisterStore(restored);
+            _context.InitializeAsync().GetAwaiter().GetResult();
+            Assert.AreEqual(3, restored.Id);
+        }
+
+        private IReadOnlyDictionary<string, SaveResult> FlushAll()
+            => _saveSystem.FlushAsync(SaveSignal.Immediate).GetAwaiter().GetResult();
+
+        private void RegisterPersistenceSystems()
+        {
+            _context.RegisterSystem(_serializeSystem);
+            _context.RegisterSystem(_saveSystem);
+        }
+
+        private void RestartContext()
+        {
+            _context.Shutdown();
+            _context = new ArchContext();
+            RegisterPersistenceSystems();
+        }
+
+        private sealed class TestStore : StoreBase<SavePayload>
+        {
+            public int Id => Data.Id;
+
+            public void SetId(int id)
+            {
+                Data.Id = id;
+                MarkDirty();
+            }
+        }
+
+        private sealed class OtherTestStore : StoreBase<SavePayload>
+        {
+            public void SetId(int id)
+            {
+                Data.Id = id;
+                MarkDirty();
+            }
+        }
+
+        private sealed class StoreReadingSystem : SystemBase
+        {
+            public int InitialId { get; private set; }
+
+            protected override UniTask OnInitializeAsync()
+            {
+                InitialId = GetStore<TestStore>().Id;
+                return UniTask.CompletedTask;
+            }
+        }
+
+        private sealed class SavePayload
+        {
+            public int Id;
+        }
+
         private sealed class InMemorySaveSystem : SaveSystem
         {
-            private readonly Dictionary<string, byte[]> _store = new();
-            public int WriteCount;
+            private readonly Dictionary<string, byte[]> _storage = new();
+            private UniTaskCompletionSource _nextWriteGate;
+            private UniTaskCompletionSource _activeWriteGate;
+            private bool _failNextWrite;
 
-            protected override UniTask<bool> WriteDataAsync(string key, byte[] data, CancellationToken ct)
+            public int ActiveWrites { get; private set; }
+            public int MaxConcurrentWrites { get; private set; }
+
+            public void PauseNextWrite() => _nextWriteGate = new UniTaskCompletionSource();
+
+            public void FailNextWrite() => _failNextWrite = true;
+
+            public void ResumeWrite()
             {
-                _store[key] = data;
-                WriteCount++;
-                return UniTask.FromResult(true);
+                (_activeWriteGate ?? _nextWriteGate)?.TrySetResult();
+            }
+
+            protected override async UniTask<bool> WriteDataAsync(
+                string key,
+                byte[] data,
+                CancellationToken ct)
+            {
+                ct.ThrowIfCancellationRequested();
+                ActiveWrites++;
+                if (ActiveWrites > MaxConcurrentWrites)
+                    MaxConcurrentWrites = ActiveWrites;
+
+                try
+                {
+                    _activeWriteGate = _nextWriteGate;
+                    _nextWriteGate = null;
+                    if (_activeWriteGate != null)
+                        await _activeWriteGate.Task;
+
+                    if (_failNextWrite)
+                    {
+                        _failNextWrite = false;
+                        return false;
+                    }
+
+                    _storage[key] = data;
+                    return true;
+                }
+                finally
+                {
+                    _activeWriteGate = null;
+                    ActiveWrites--;
+                }
             }
 
             protected override UniTask<byte[]> ReadDataAsync(string key, CancellationToken ct)
-                => UniTask.FromResult(_store.TryGetValue(key, out var data) ? data : null);
+            {
+                ct.ThrowIfCancellationRequested();
+                return UniTask.FromResult(_storage.TryGetValue(key, out var data) ? data : null);
+            }
 
-            protected override bool DataExists(string key) => _store.ContainsKey(key);
-
-            protected override bool DeleteData(string key) => _store.Remove(key);
-
-            public override string GetSavePath(string key) => key;
+            protected override bool DataExists(string key) => _storage.ContainsKey(key);
         }
 
-        /// <summary>
-        /// 极简字节序列化器：把对象装箱为 byte[] 再还原。
-        /// 不依赖 LitJson，仅用于测试 SaveSystem 的管线编排，不验证真实序列化正确性。
-        /// </summary>
         private sealed class BytesSerializeSystem : SystemBase, ISerializeSystem
         {
-            // 用一个简单的"装箱+类型标记"方案，保证 Save/Load 往返自洽。
             private readonly Dictionary<int, object> _registry = new();
             private int _counter;
 
@@ -280,7 +430,9 @@ namespace July.Persistence.Tests.Save
             {
                 if (data == null) return Array.Empty<byte>();
                 var id = ++_counter;
-                _registry[id] = data;
+                _registry[id] = data is SavePayload payload
+                    ? new SavePayload { Id = payload.Id }
+                    : (object)data;
                 return BitConverter.GetBytes(id);
             }
 
@@ -288,20 +440,11 @@ namespace July.Persistence.Tests.Save
             {
                 if (bytes == null || bytes.Length == 0) return default;
                 var id = BitConverter.ToInt32(bytes, 0);
-                return _registry.TryGetValue(id, out var obj) ? (T)obj : default;
+                return _registry.TryGetValue(id, out var value) ? (T)value : default;
             }
 
             public string SerializeToJson(object data) => throw new NotImplementedException();
             public object DeserializeFromJson(string json, Type type) => throw new NotImplementedException();
         }
-
-        /// <summary>测试用可保存数据：带 Id 与 Importance。</summary>
-        private sealed class SavePayload : ISaveData
-        {
-            public int Id;
-            public SaveImportance Importance { get; set; } = SaveImportance.Normal;
-        }
-
-        #endregion
     }
 }

@@ -14,11 +14,6 @@ namespace July.RedDot
         protected sealed override UniTask OnInitializeAsync()
         {
             _store = GetStore<RedDotStore>();
-            return UniTask.CompletedTask;
-        }
-
-        protected sealed override void OnPostInitialize()
-        {
             var builder = new RedDotBuilder();
             OnConfigureRedDots(builder);
 
@@ -30,6 +25,7 @@ namespace July.RedDot
                 handler.Attach(this);
 
             RefreshAll();
+            return UniTask.CompletedTask;
         }
 
         protected sealed override void OnShutdown()

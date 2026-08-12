@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using July.Persistence;
 
 namespace July.Activity
 {
@@ -74,13 +73,8 @@ namespace July.Activity
     /// <summary>
     /// 活动运行时数据
     /// </summary>
-    public class ActivityRuntimeData : ISaveData
+    public class ActivityRuntimeData
     {
-        /// <summary>
-        /// 数据重要性
-        /// </summary>
-        public SaveImportance Importance => SaveImportance.Important;
-
         /// <summary>
         /// 各活动的运行时记录
         /// </summary>

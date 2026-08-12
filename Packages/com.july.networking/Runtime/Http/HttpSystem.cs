@@ -5,7 +5,6 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using July.Arch;
 using July.Logging;
-using July.Persistence;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -22,21 +21,14 @@ namespace July.Networking
         private bool _isPessimistic;
         private bool _blockingShown;
 
-        private HttpPendingQueueData _pendingData;
-        private string _pendingQueueSaveKey;
+        private HttpPendingQueueStore _pendingStore;
 
-        public async UniTask ConfigureAsync(HttpModuleOptions options, IHttpHandler handler)
+        public void Configure(HttpModuleOptions options, IHttpHandler handler)
         {
-            _options = options;
+            _options = options ?? throw new ArgumentNullException(nameof(options));
             _handler = handler;
-
-            if (!string.IsNullOrEmpty(options.PendingQueueSaveKey))
-            {
-                _pendingQueueSaveKey = options.PendingQueueSaveKey;
-                var saveSystem = GetSystem<ISaveSystem>();
-                if (saveSystem != null)
-                    _pendingData = await saveSystem.LoadAndRegisterAsync<HttpPendingQueueData>(_pendingQueueSaveKey);
-            }
+            _pendingStore = GetStore<HttpPendingQueueStore>()
+                ?? throw new InvalidOperationException("HttpSystem 需要先注册 HttpPendingQueueStore。");
         }
 
         public void SetDefaultHeader(string key, string value)
@@ -96,7 +88,7 @@ namespace July.Networking
                 }
             }
 
-            if (_pendingData != null) PersistPendingEntry(entity);
+            _pendingStore.Enqueue(entity.Path, entity.BuildBody());
 
             if (!entity.IsOptimistic && !_isPessimistic)
             {
@@ -137,8 +129,8 @@ namespace July.Networking
                     catch (OperationCanceledException) { removePending = false; return; }
                     finally
                     {
-                        if (_pendingData != null && removePending)
-                            await RemovePendingEntryAsync();
+                        if (removePending)
+                            _pendingStore.Dequeue();
                         entity.SetCompleted();
                     }
                 }
@@ -185,7 +177,7 @@ namespace July.Networking
         #endregion
 
         public bool HasPendingEntries()
-            => _pendingData != null && _pendingData.Entries.Count > 0;
+            => _pendingStore != null && _pendingStore.HasEntries;
 
         #region Replay
 
@@ -200,17 +192,15 @@ namespace July.Networking
 
         public UniTask ReplayPendingAsync()
         {
-            if (_pendingData == null || _pendingData.Entries.Count == 0)
+            if (_pendingStore == null || !_pendingStore.HasEntries)
                 return UniTask.CompletedTask;
             return ReplayPendingCoreAsync();
         }
 
         private async UniTask ReplayPendingCoreAsync()
         {
-            var saveSystem = GetSystem<ISaveSystem>();
-            while (_pendingData.Entries.Count > 0)
+            while (_pendingStore.TryPeek(out var entry))
             {
-                var entry = _pendingData.Entries[0];
                 var entity = new ReplayEntry(entry.Path, entry.Body);
                 var retryCount = 0;
 
@@ -223,9 +213,7 @@ namespace July.Networking
                     retryCount++;
                 }
 
-                _pendingData.Entries.RemoveAt(0);
-                if (saveSystem != null)
-                    await saveSystem.SaveAsync(_pendingQueueSaveKey, _pendingData);
+                _pendingStore.Dequeue();
             }
         }
 
@@ -343,22 +331,6 @@ namespace July.Networking
             if (string.IsNullOrEmpty(_options.BaseUrl) || path.StartsWith("http"))
                 return path;
             return _options.BaseUrl.TrimEnd('/') + "/" + path.TrimStart('/');
-        }
-
-        private void PersistPendingEntry(HttpQueueEntity entity)
-        {
-            _pendingData.Entries.Add(new HttpPendingEntry { Path = entity.Path, Body = entity.BuildBody() });
-            var saveSystem = GetSystem<ISaveSystem>();
-            saveSystem?.SaveAsync(_pendingQueueSaveKey, _pendingData).Forget();
-        }
-
-        private async UniTask RemovePendingEntryAsync()
-        {
-            if (_pendingData.Entries.Count == 0) return;
-            _pendingData.Entries.RemoveAt(0);
-            var saveSystem = GetSystem<ISaveSystem>();
-            if (saveSystem != null)
-                await saveSystem.SaveAsync(_pendingQueueSaveKey, _pendingData);
         }
 
         #endregion

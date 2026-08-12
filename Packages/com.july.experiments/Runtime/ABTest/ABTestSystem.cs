@@ -20,12 +20,8 @@ namespace July.Experiments
         {
             _repo = ResolveRepository();
             RegisterDefaultConditionCheckers();
-            return UniTask.CompletedTask;
-        }
-
-        protected sealed override void OnPostInitialize()
-        {
             OnConfigure();
+            return UniTask.CompletedTask;
         }
 
         protected abstract ABTestRepository ResolveRepository();

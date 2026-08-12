@@ -4,15 +4,17 @@ using Cysharp.Threading.Tasks;
 
 namespace July.Arch
 {
+    /// <summary>
+    /// 长期运行能力的统一基类。初始化完成表示该 System 已可供后续 System 使用。
+    /// </summary>
     public abstract class SystemBase : ICanGetStore, ICanEvent, ICanGetSystem, ICanGetView, ICanRunProcedure
     {
         private ArchContext _architecture;
         private bool _initialized;
-        private bool _postInitialized;
 
         internal bool IsInitialized => _initialized;
 
-        internal void SetContext(ArchContext ctx) => _architecture = ctx;
+        internal void SetContext(ArchContext context) => _architecture = context;
 
         internal async UniTask InitializeAsync()
         {
@@ -21,26 +23,18 @@ namespace July.Arch
             _initialized = true;
         }
 
-        internal void PostInitialize()
-        {
-            if (!_initialized) return;
-            if (_postInitialized) return;
-            OnPostInitialize();
-            _postInitialized = true;
-        }
-
         internal void Shutdown()
         {
             if (!_initialized) return;
+
             try { _architecture?.Event?.UnsubscribeAll(this); }
             catch { }
+
             OnShutdown();
             _initialized = false;
-            _postInitialized = false;
         }
 
         protected virtual UniTask OnInitializeAsync() => UniTask.CompletedTask;
-        protected virtual void OnPostInitialize() { }
         protected virtual void OnShutdown() { }
 
         protected T GetStore<T>() where T : StoreBase

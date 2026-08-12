@@ -38,7 +38,7 @@ namespace July.RedDot
             };
 
             Data.Nodes[key] = node;
-            TraceModify();
+            MarkDirty();
 
             if (!string.IsNullOrEmpty(parentKey) && Data.Nodes.TryGetValue(parentKey, out var parentNode))
             {
@@ -105,7 +105,7 @@ namespace July.RedDot
 
             node.Count = count;
             node.IsCacheValid = false;
-            TraceModify();
+            MarkDirty();
 
             changes.Add(new RedDotChangeInfo
             {
@@ -149,7 +149,7 @@ namespace July.RedDot
             }
 
             if (changeDict.Count > 0)
-                TraceModify();
+                MarkDirty();
 
             var affectedParents = new Dictionary<string, int>();
             foreach (var key in counts.Keys)
@@ -214,7 +214,7 @@ namespace July.RedDot
             if (Data.Nodes.TryGetValue(key, out var node))
             {
                 node.IsEnabled = enabled;
-                TraceModify();
+                MarkDirty();
             }
         }
 
@@ -229,7 +229,7 @@ namespace July.RedDot
         public void SetGlobalEnabled(bool enabled)
         {
             Data.GlobalEnabled = enabled;
-            TraceModify();
+            MarkDirty();
         }
 
         public bool GetGlobalEnabled() => Data.GlobalEnabled;

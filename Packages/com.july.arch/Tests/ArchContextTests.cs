@@ -53,36 +53,32 @@ namespace July.Arch.Tests
         #region 注册 + 初始化顺序
 
         [Test]
-        public void InitializeAsync_StoreBeforeSystem()
+        public void InitializeAsync_SystemsFollowRegistrationOrder()
         {
-            var store = new TestStore();
-            var system = new TestSystem();
-            _ctx.RegisterStore(store);
-            _ctx.RegisterSystem(system);
+            var first = new TestSystem();
+            var second = new TestSystem2();
+            _ctx.RegisterSystem(first);
+            _ctx.RegisterSystem(second);
 
             _ctx.InitializeAsync().GetAwaiter().GetResult();
 
-            Assert.IsTrue(store.InitCalled, "Store.OnInitializeAsync 应在初始化时被调用");
-            Assert.IsTrue(system.InitCalled, "System.OnInitializeAsync 应在初始化时被调用");
-            Assert.IsTrue(system.PostInitCalled, "System.OnPostInitialize 应在初始化时被调用");
-            Assert.Less(store.InitTick, system.InitTick,
-                "Store 应在 System 之前初始化");
-            Assert.Less(system.InitTick, system.PostInitTick,
-                "PostInitialize 必须晚于 InitializeAsync");
+            Assert.IsTrue(first.InitCalled);
+            Assert.IsTrue(second.InitCalled);
+            Assert.Less(first.InitTick, second.InitTick, "System 必须按注册顺序初始化");
             Assert.IsTrue(_ctx.Initialized);
         }
 
         [Test]
         public void InitializeAsync_Idempotent_SkipsAlreadyInitialized()
         {
-            var store = new TestStore();
-            _ctx.RegisterStore(store);
+            var system = new TestSystem();
+            _ctx.RegisterSystem(system);
             _ctx.InitializeAsync().GetAwaiter().GetResult();
 
-            var firstTick = store.InitTick;
+            var firstTick = system.InitTick;
             _ctx.InitializeAsync().GetAwaiter().GetResult();
 
-            Assert.AreEqual(firstTick, store.InitTick, "幂等：重复初始化不应再次调用 OnInitializeAsync");
+            Assert.AreEqual(firstTick, system.InitTick, "重复初始化不应再次调用 OnInitializeAsync");
             Assert.IsTrue(_ctx.Initialized);
         }
 
@@ -105,17 +101,17 @@ namespace July.Arch.Tests
         }
 
         [Test]
-        public void InitializeAsync_PostInitialize_AllSystemsReady()
+        public void InitializeAsync_LaterSystemSeesEarlierSystemReady()
         {
-            var sysA = new PostInitCheckSystem();
-            var sysB = new TestSystem();
-            _ctx.RegisterSystem(sysA);
-            _ctx.RegisterSystem(sysB);
+            var dependency = new TestSystem();
+            var dependant = new DependencyCheckSystem();
+            _ctx.RegisterSystem(dependency);
+            _ctx.RegisterSystem(dependant);
 
             _ctx.InitializeAsync().GetAwaiter().GetResult();
 
-            Assert.IsTrue(sysA.FoundSysBInPostInit,
-                "OnPostInitialize 时应能访问后注册的 System");
+            Assert.IsTrue(dependant.FoundDependencyReady,
+                "后注册的 System 初始化时，前置 System 必须已经就绪");
         }
 
         [Test]
@@ -130,14 +126,14 @@ namespace July.Arch.Tests
         }
 
         [Test]
-        public void RegisterStore_AfterInitialize_DoesNotAutoInit()
+        public void RegisterStore_AfterInitialize_IsImmediatelyUsable()
         {
             _ctx.InitializeAsync().GetAwaiter().GetResult();
 
             var store = new TestStore();
             _ctx.RegisterStore(store);
 
-            Assert.IsFalse(store.InitCalled, "Register 只注册，不自动初始化");
+            Assert.IsNotNull(store.GetData(), "Store 没有生命周期，注册后应能立即读取默认数据");
         }
 
         [Test]
@@ -186,20 +182,15 @@ namespace July.Arch.Tests
         #region Shutdown 顺序 + System 事件兜底注销
 
         [Test]
-        public void Shutdown_SystemsBeforeStores()
+        public void Shutdown_StopsInitializedSystems()
         {
-            var store = new TestStore();
             var system = new TestSystem();
-            _ctx.RegisterStore(store);
             _ctx.RegisterSystem(system);
             _ctx.InitializeAsync().GetAwaiter().GetResult();
 
             _ctx.Shutdown();
 
             Assert.GreaterOrEqual(system.ShutdownTick, 0);
-            Assert.GreaterOrEqual(store.ShutdownTick, 0);
-            Assert.Less(system.ShutdownTick, store.ShutdownTick,
-                "System 应在 Store 之前 Shutdown（逆序注销）");
         }
 
         [Test]
@@ -331,16 +322,20 @@ namespace July.Arch.Tests
 
         #endregion
 
-        #region Store 异步初始化
+        #region Store 数据与修改信号
 
         [Test]
-        public void InitializeAsync_AsyncStore_InitializedViaOnInitializeAsync()
+        public void Store_ReplaceData_ReplacesCompleteStateAndMarksDirty()
         {
-            var store = new TestAsyncStore();
-            _ctx.RegisterStore(store);
-            _ctx.InitializeAsync().GetAwaiter().GetResult();
+            var store = new TestStore();
+            var dirtyCount = 0;
+            store.DirtyMarked += () => dirtyCount++;
+            var replacement = new TestStoreData();
 
-            Assert.IsTrue(store.InitCalled, "Store 应通过 OnInitializeAsync 初始化");
+            store.ReplaceData(replacement);
+
+            Assert.AreSame(replacement, store.GetData());
+            Assert.AreEqual(1, dirtyCount);
         }
 
         #endregion
@@ -383,8 +378,8 @@ namespace July.Arch.Tests
 
         private sealed class TestSystem : TestSystemBase, IUpdatableSystem, ITickSystem
         {
-            public bool InitCalled, PostInitCalled, ShutdownCalled;
-            public int InitTick = -1, PostInitTick = -1, ShutdownTick = -1;
+            public bool InitCalled, ShutdownCalled;
+            public int InitTick = -1, ShutdownTick = -1;
             public int UpdateCount;
             public float TotalDelta;
 
@@ -395,12 +390,6 @@ namespace July.Arch.Tests
                 InitCalled = true;
                 InitTick = s_clock++;
                 return UniTask.CompletedTask;
-            }
-
-            protected override void OnPostInitialize()
-            {
-                PostInitCalled = true;
-                PostInitTick = s_clock++;
             }
 
             protected override void OnShutdown()
@@ -416,13 +405,14 @@ namespace July.Arch.Tests
             }
         }
 
-        private sealed class PostInitCheckSystem : SystemBase
+        private sealed class DependencyCheckSystem : SystemBase
         {
-            public bool FoundSysBInPostInit;
+            public bool FoundDependencyReady;
 
-            protected override void OnPostInitialize()
+            protected override UniTask OnInitializeAsync()
             {
-                FoundSysBInPostInit = TryGetSystem<TestSystem>() != null;
+                FoundDependencyReady = GetSystem<TestSystem>().InitCalled;
+                return UniTask.CompletedTask;
             }
         }
 
@@ -454,37 +444,7 @@ namespace July.Arch.Tests
 
         private sealed class TestStoreData { }
 
-        private class TestStore : StoreBase<TestStoreData>
-        {
-            public bool InitCalled, ShutdownCalled;
-            public int InitTick = -1, ShutdownTick = -1;
-
-            protected override UniTask OnInitializeAsync()
-            {
-                Data = new TestStoreData();
-                InitCalled = true;
-                InitTick = s_clock++;
-                return UniTask.CompletedTask;
-            }
-
-            protected override void OnShutdown()
-            {
-                ShutdownCalled = true;
-                ShutdownTick = s_clock++;
-            }
-        }
-
-        private sealed class TestAsyncStore : StoreBase<TestStoreData>
-        {
-            public bool InitCalled;
-
-            protected override UniTask OnInitializeAsync()
-            {
-                InitCalled = true;
-                Data = new TestStoreData();
-                return UniTask.CompletedTask;
-            }
-        }
+        private class TestStore : StoreBase<TestStoreData> { }
 
         private sealed class NoopProcedure : ProcedureBase
         {

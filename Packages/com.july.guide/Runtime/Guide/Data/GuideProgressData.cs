@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using July.Persistence;
 
 namespace July.Guide
 {
@@ -9,7 +8,7 @@ namespace July.Guide
     /// 用于持久化引导进度
     /// </summary>
     [Serializable]
-    public class GuideProgressData : ISaveData
+    public class GuideProgressData
     {
         /// <summary>
         /// 已完成的流程ID集合
@@ -30,11 +29,6 @@ namespace July.Guide
         /// 当前进行中的步骤ID
         /// </summary>
         public string currentStepId;
-
-        /// <summary>
-        /// 数据重要性等级（引导进度为高重要性）
-        /// </summary>
-        public SaveImportance Importance => SaveImportance.Important;
     }
 }
 

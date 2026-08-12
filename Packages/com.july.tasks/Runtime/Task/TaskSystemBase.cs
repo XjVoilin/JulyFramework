@@ -21,12 +21,8 @@ namespace July.Tasks
             _tasks = new Dictionary<int, TaskData>();
             _eventQueue.Clear();
             _isDispatching = false;
-            return UniTask.CompletedTask;
-        }
-
-        protected sealed override void OnPostInitialize()
-        {
             OnConfigure();
+            return UniTask.CompletedTask;
         }
 
         protected sealed override void OnShutdown()

@@ -7,7 +7,6 @@
     "dependencies":  {
                          "com.july.arch":  "0.1.0",
                          "com.cysharp.unitask":  "2.5.10",
-                         "com.july.persistence":  "0.1.0",
                          "com.july.time":  "0.1.0"
                      },
     "author":  {

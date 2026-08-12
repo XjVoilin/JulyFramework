@@ -1,47 +1,27 @@
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using July.Arch;
 
 namespace July.Persistence
 {
+    /// <summary>
+    /// 本地持久化能力。持久化 Store 由组合根显式声明，恢复、修改跟踪和保存由 SaveSystem 统一管理。
+    /// Critical Store 标脏后会立即进入写入队列；需要等待保存结果时显式调用 SaveNowAsync。
+    /// </summary>
     public interface ISaveSystem
     {
-        void SetPolicy(ISaveStrategy strategy);
-        ISaveStrategy GetPolicy();
+        StoreBase<TData> Persist<TData>(
+            StoreBase<TData> store,
+            string key,
+            SaveImportance importance) where TData : class, new();
 
-        void Register(string key, ISaveData data);
-        bool Unregister(string key);
-        bool IsRegistered(string key);
-        T GetRegisteredData<T>(string key) where T : class, ISaveData;
-        IEnumerable<string> GetAllRegisteredKeys();
+        UniTask<IReadOnlyDictionary<string, SaveResult>> FlushAsync(
+            SaveSignal signal,
+            CancellationToken ct = default);
 
-        bool MarkDirty(string key);
-        bool IsDirty(string key);
-        int DirtyCount { get; }
-        IEnumerable<string> GetDirtyKeys();
-        void ClearDirty(string key);
-        void ClearAllDirty();
-
-        UniTask<Dictionary<string, SaveResult>> TriggerSaveAsync(SaveSignal signal);
-        UniTask<bool> MarkDirtyAndSaveAsync(string key, SaveSignal signal);
-
-        UniTask<T> LoadAndRegisterAsync<T>(string key, CancellationToken ct = default)
-            where T : ISaveData, new();
-        UniTask<Dictionary<string, T>> LoadAndRegisterBatchAsync<T>(string[] keys, CancellationToken ct = default)
-            where T : ISaveData, new();
-        UniTask<T> LoadAsync<T>(string key, CancellationToken ct = default)
-            where T : ISaveData, new();
-
-        UniTask<SaveResult> SaveAsync<T>(string key, T data, CancellationToken ct = default)
-            where T : ISaveData;
-
-        UniTask<Dictionary<string, SaveResult>> SaveBatchAsync<T>(
-            Dictionary<string, T> dataMap, CancellationToken ct = default) where T : ISaveData;
-        UniTask<Dictionary<string, T>> LoadBatchAsync<T>(
-            string[] keys, CancellationToken ct = default) where T : ISaveData, new();
-
-        bool Delete(string key);
-        bool HasSave(string key);
-        string GetSavePath(string key);
+        UniTask<SaveResult> SaveNowAsync(
+            StoreBase store,
+            CancellationToken ct = default);
     }
 }

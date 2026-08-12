@@ -3,7 +3,6 @@
     "rootNamespace":  "July.Guide",
     "references":  [
                        "July.Arch",
-                       "July.Persistence",
                        "UniTask"
                    ],
     "includePlatforms":  [

@@ -18,12 +18,8 @@ namespace July.Guide
         protected sealed override UniTask OnInitializeAsync()
         {
             _repo = ResolveRepository();
-            return UniTask.CompletedTask;
-        }
-
-        protected sealed override void OnPostInitialize()
-        {
             OnConfigure();
+            return UniTask.CompletedTask;
         }
 
         protected abstract GuideRepository ResolveRepository();

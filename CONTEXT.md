@@ -23,3 +23,19 @@ _Avoid_: Integrations folder
 **Composition Root**:
 The Template Repository code that chooses implementations, registers systems, and assembles the launch pipeline.
 _Avoid_: JulyGame package, global container
+
+**Store**:
+A domain-state owner whose data source is selected by the Composition Root rather than by its inheritance hierarchy.
+_Avoid_: Savable Store, server Store
+
+**System**:
+A long-lived runtime module that owns one capability and is ready for dependants when its initialization completes.
+_Avoid_: Manager, service
+
+**Procedure**:
+A one-shot workflow that coordinates runtime capabilities for a business operation.
+_Avoid_: Initialization phase, lifecycle hook
+
+**Persistence Declaration**:
+The Composition Root's explicit choice that a Store participates in local restoration, dirty tracking, and saving.
+_Avoid_: Savable Store registration, persistence mode

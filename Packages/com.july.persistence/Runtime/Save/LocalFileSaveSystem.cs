@@ -22,11 +22,10 @@ namespace July.Persistence
 
         #region Lifecycle
 
-        protected override UniTask OnInitializeAsync()
+        protected override async UniTask OnInitializeAsync()
         {
-            var initTask = base.OnInitializeAsync();
             EnsurePathsInitialized();
-            return initTask;
+            await base.OnInitializeAsync();
         }
 
         private void EnsurePathsInitialized()
@@ -52,7 +51,7 @@ namespace July.Persistence
         {
             EnsurePathsInitialized();
 
-            var filePath = GetSavePath(key);
+            var filePath = ResolveSavePath(key);
             var directory = Path.GetDirectoryName(filePath);
             if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
                 Directory.CreateDirectory(directory);
@@ -65,7 +64,7 @@ namespace July.Persistence
         {
             EnsurePathsInitialized();
 
-            var filePath = GetSavePath(key);
+            var filePath = ResolveSavePath(key);
             if (!File.Exists(filePath))
                 return null;
 
@@ -76,22 +75,11 @@ namespace July.Persistence
         {
             EnsurePathsInitialized();
 
-            var filePath = GetSavePath(key);
+            var filePath = ResolveSavePath(key);
             return File.Exists(filePath);
         }
 
-        protected override bool DeleteData(string key)
-        {
-            EnsurePathsInitialized();
-
-            var filePath = GetSavePath(key);
-            if (!File.Exists(filePath)) return false;
-
-            File.Delete(filePath);
-            return true;
-        }
-
-        public override string GetSavePath(string key)
+        private string ResolveSavePath(string key)
         {
             EnsurePathsInitialized();
 
@@ -168,7 +156,7 @@ namespace July.Persistence
         {
             try
             {
-                var filePath = GetSavePath(key);
+                var filePath = ResolveSavePath(key);
                 if (!File.Exists(filePath))
                     return null;
 
@@ -195,7 +183,7 @@ namespace July.Persistence
                 if (string.IsNullOrEmpty(backupPath) || !File.Exists(backupPath))
                     return;
 
-                var filePath = GetSavePath(key);
+                var filePath = ResolveSavePath(key);
                 var directory = Path.GetDirectoryName(filePath);
                 if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
                     Directory.CreateDirectory(directory);

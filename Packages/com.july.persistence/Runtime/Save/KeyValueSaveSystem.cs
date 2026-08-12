@@ -22,7 +22,7 @@ namespace July.Persistence
             ct.ThrowIfCancellationRequested();
             try
             {
-                _store.SetString(GetSavePath(key), Convert.ToBase64String(data));
+                _store.SetString(ResolveStorageKey(key), Convert.ToBase64String(data));
                 _store.Save();
                 return UniTask.FromResult(true);
             }
@@ -38,7 +38,7 @@ namespace July.Persistence
             ct.ThrowIfCancellationRequested();
             try
             {
-                var storageKey = GetSavePath(key);
+                var storageKey = ResolveStorageKey(key);
                 if (!_store.HasKey(storageKey)) return UniTask.FromResult<byte[]>(null);
                 var encoded = _store.GetString(storageKey);
                 return UniTask.FromResult(string.IsNullOrEmpty(encoded)
@@ -52,18 +52,9 @@ namespace July.Persistence
             }
         }
 
-        protected override bool DataExists(string key) => _store.HasKey(GetSavePath(key));
+        protected override bool DataExists(string key) => _store.HasKey(ResolveStorageKey(key));
 
-        protected override bool DeleteData(string key)
-        {
-            var storageKey = GetSavePath(key);
-            if (!_store.HasKey(storageKey)) return false;
-            _store.DeleteKey(storageKey);
-            _store.Save();
-            return true;
-        }
-
-        public override string GetSavePath(string key)
+        private string ResolveStorageKey(string key)
         {
             if (string.IsNullOrWhiteSpace(key))
                 throw new ArgumentException("存档 key 不能为空。", nameof(key));
