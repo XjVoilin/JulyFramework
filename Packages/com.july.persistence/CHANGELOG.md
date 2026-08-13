@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1 - 2026-08-13
+
+- Moved the shared LitJson binary to the independent `com.july.json` package.
+
 ## 0.3.0 - 2026-07-22
 
 - Added an explicit platform preferences adapter seam with Unity PlayerPrefs as the default.
