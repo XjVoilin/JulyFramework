@@ -5,25 +5,25 @@ using UnityEngine;
 
 namespace July.PointAllocation.Editor
 {
-    public enum PointAllocationLayoutDirection
+    internal enum PointAllocationLayoutDirection
     {
         TopToBottom = 0,
         LeftToRight = 1
     }
 
-    public readonly struct PointAllocationLayoutNode
+    internal readonly struct PointAllocationLayoutNode
     {
         public int Id { get; }
         public Vector2 Position { get; }
 
-        public PointAllocationLayoutNode(int id, Vector2 position)
+        internal PointAllocationLayoutNode(int id, Vector2 position)
         {
             Id = id;
             Position = position;
         }
     }
 
-    public readonly struct PointAllocationLayoutResult
+    internal readonly struct PointAllocationLayoutResult
     {
         public bool Success { get; }
         public string Error { get; }
@@ -41,17 +41,17 @@ namespace July.PointAllocation.Editor
     }
 
     /// <summary>稳定的分层 DAG 布局；方向只是同一算法的参数。</summary>
-    public static class PointAllocationLayeredLayout
+    internal static class PointAllocationLayeredLayout
     {
-        public static PointAllocationLayoutResult Calculate(
+        internal static PointAllocationLayoutResult Calculate(
             IReadOnlyList<PointAllocationLayoutNode> nodes,
-            IReadOnlyList<PointAllocationConnectionDefinition> connections,
+            IReadOnlyList<PointAllocationConnection> connections,
             PointAllocationLayoutDirection direction,
             float layerSpacing = 300f,
             float nodeSpacing = 190f)
         {
             if (nodes == null || connections == null)
-                return Failed("Nodes and connections cannot be null.");
+                return Failed("节点和连接列表不能为 null。");
             if (nodes.Count == 0)
                 return Succeeded(new Dictionary<int, Vector2>());
 
@@ -79,7 +79,7 @@ namespace July.PointAllocation.Editor
                     !nodeById.ContainsKey(connection.FromNodeId) ||
                     !nodeById.ContainsKey(connection.ToNodeId))
                 {
-                    return Failed("A connection references an unknown node.");
+                    return Failed("连接引用了不存在的节点。");
                 }
 
                 outgoing[connection.FromNodeId].Add(connection.ToNodeId);
@@ -109,7 +109,7 @@ namespace July.PointAllocation.Editor
             }
 
             if (topological.Count != nodes.Count)
-                return Failed("Cannot layout a graph containing a directed cycle.");
+                return Failed("存在有向环的加点图无法自动布局。");
 
             var layers = new SortedDictionary<int, List<int>>();
             foreach (var nodeId in topological)
@@ -238,4 +238,3 @@ namespace July.PointAllocation.Editor
             new PointAllocationLayoutResult(true, null, positions);
     }
 }
-

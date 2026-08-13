@@ -10,13 +10,15 @@ namespace July.PointAllocation.Editor
 {
     internal sealed class PointAllocationNodeView : Node
     {
-        public PointAllocationNodeAuthoringData Data { get; }
+        public PointAllocationEditableNode Data { get; }
         public Port InputPort { get; }
         public Port OutputPort { get; }
 
-        public PointAllocationNodeView(PointAllocationNodeAuthoringData data)
+        public PointAllocationNodeView(PointAllocationEditableNode data)
         {
-            Data = data ?? throw new ArgumentNullException(nameof(data));
+            Data = data ?? throw new ArgumentNullException(
+                nameof(data),
+                "节点编辑数据 data 不能为 null。");
             viewDataKey = $"point-allocation-node-{data.Id}";
 
             InputPort = InstantiatePort(
@@ -25,7 +27,6 @@ namespace July.PointAllocation.Editor
                 Port.Capacity.Multi,
                 typeof(bool));
             InputPort.portName = "Prerequisites";
-            InputPort.userData = this;
             inputContainer.Add(InputPort);
 
             OutputPort = InstantiatePort(
@@ -34,38 +35,35 @@ namespace July.PointAllocation.Editor
                 Port.Capacity.Multi,
                 typeof(bool));
             OutputPort.portName = "Unlocks";
-            OutputPort.userData = this;
             outputContainer.Add(OutputPort);
 
             RefreshTitle();
-            SetPosition(new Rect(data.Position, new Vector2(230f, 130f)));
+            SetPosition(new Rect(data.EditorData.Position, new Vector2(230f, 130f)));
             RefreshExpandedState();
             RefreshPorts();
         }
 
         public void RefreshTitle()
         {
-            var baseTitle = string.IsNullOrWhiteSpace(Data.Label)
+            var metadata = Data.EditorData;
+            var baseTitle = string.IsNullOrWhiteSpace(metadata.Label)
                 ? $"Node {Data.Id}"
-                : $"{Data.Label}  [{Data.Id}]";
-            title = Data.Locked ? $"🔒 {baseTitle}" : baseTitle;
-            tooltip = string.IsNullOrWhiteSpace(Data.Note) ? null : Data.Note;
-
+                : $"{metadata.Label}  [{Data.Id}]";
+            title = metadata.Locked ? $"🔒 {baseTitle}" : baseTitle;
+            tooltip = string.IsNullOrWhiteSpace(metadata.Note) ? null : metadata.Note;
         }
     }
 
     internal sealed class PointAllocationGraphView : GraphView
     {
-        private readonly EditorWindow _window;
+        private readonly PointAllocationEditorWindow _window;
         private readonly Dictionary<int, PointAllocationNodeView> _nodeViews =
             new Dictionary<int, PointAllocationNodeView>();
-        private PointAllocationAuthoringAsset _authoring;
+        private PointAllocationEditorDocument _document;
         private bool _suppressChanges;
         private Vector2 _lastContentMousePosition;
 
-        public PointAllocationAuthoringAsset Authoring => _authoring;
-
-        public PointAllocationGraphView(EditorWindow window)
+        public PointAllocationGraphView(PointAllocationEditorWindow window)
         {
             _window = window;
             name = "PointAllocation Graph";
@@ -84,29 +82,27 @@ namespace July.PointAllocation.Editor
             graphViewChanged = OnGraphViewChanged;
             viewTransformChanged += OnViewTransformChanged;
             RegisterCallback<MouseMoveEvent>(eventData =>
-            {
-                _lastContentMousePosition = contentViewContainer.WorldToLocal(eventData.mousePosition);
-            });
+                _lastContentMousePosition = contentViewContainer.WorldToLocal(eventData.mousePosition));
+            RegisterCallback<MouseDownEvent>(OnMouseDown, TrickleDown.TrickleDown);
         }
 
-        public void Load(PointAllocationAuthoringAsset authoring)
+        public void Load(PointAllocationEditorDocument document)
         {
             _suppressChanges = true;
             try
             {
                 DeleteElements(graphElements.ToList());
                 _nodeViews.Clear();
-                _authoring = authoring;
-                if (_authoring == null)
+                _document = document;
+                if (_document == null)
                     return;
 
-                _authoring.Normalize();
-                for (var index = 0; index < _authoring.Nodes.Count; index++)
-                    AddNodeView(_authoring.Nodes[index]);
+                for (var index = 0; index < _document.Nodes.Count; index++)
+                    AddNodeView(_document.Nodes[index]);
 
-                for (var index = 0; index < _authoring.Connections.Count; index++)
+                for (var index = 0; index < _document.Connections.Count; index++)
                 {
-                    var connection = _authoring.Connections[index];
+                    var connection = _document.Connections[index];
                     if (!_nodeViews.TryGetValue(connection.FromNodeId, out var from) ||
                         !_nodeViews.TryGetValue(connection.ToNodeId, out var to))
                     {
@@ -118,7 +114,9 @@ namespace July.PointAllocation.Editor
                     AddElement(edge);
                 }
 
-                UpdateViewTransform(_authoring.ViewPosition, _authoring.ViewScale);
+                UpdateViewTransform(
+                    _document.Workspace.ViewPosition,
+                    _document.Workspace.ViewScale);
             }
             finally
             {
@@ -128,13 +126,14 @@ namespace July.PointAllocation.Editor
 
         public PointAllocationNodeView AddNodeAt(Vector2 position)
         {
-            if (_authoring == null)
+            if (_document == null)
                 return null;
 
-            Undo.RecordObject(_authoring, "Add PointAllocation Node");
-            var data = _authoring.AddNode(position);
+            Undo.RecordObject(_document.Workspace, "Add PointAllocation Node Metadata");
+            var data = _document.AddNode(position);
             var view = AddNodeView(data);
-            EditorUtility.SetDirty(_authoring);
+            EditorUtility.SetDirty(_document.Workspace);
+            _window.OnDocumentChanged();
             ClearSelection();
             AddToSelection(view);
             return view;
@@ -146,7 +145,7 @@ namespace July.PointAllocation.Editor
             return contentViewContainer.WorldToLocal(worldCenter) - new Vector2(115f, 65f);
         }
 
-        public void RefreshNode(PointAllocationNodeAuthoringData data)
+        public void RefreshNode(PointAllocationEditableNode data)
         {
             if (data != null && _nodeViews.TryGetValue(data.Id, out var view))
                 view.RefreshTitle();
@@ -156,10 +155,10 @@ namespace July.PointAllocation.Editor
             IReadOnlyDictionary<int, Vector2> positions,
             ISet<int> includedNodeIds)
         {
-            if (_authoring == null || positions == null)
+            if (_document == null || positions == null)
                 return;
 
-            Undo.RecordObject(_authoring, "Auto Layout PointAllocation Graph");
+            Undo.RecordObject(_document.Workspace, "Auto Layout PointAllocation Graph");
             _suppressChanges = true;
             try
             {
@@ -167,11 +166,14 @@ namespace July.PointAllocation.Editor
                 {
                     if (includedNodeIds != null && !includedNodeIds.Contains(pair.Key))
                         continue;
-                    var data = _authoring.FindNode(pair.Key);
-                    if (data == null || data.Locked || !_nodeViews.TryGetValue(pair.Key, out var view))
+                    var data = _document.FindNode(pair.Key);
+                    if (data == null || data.EditorData.Locked ||
+                        !_nodeViews.TryGetValue(pair.Key, out var view))
+                    {
                         continue;
+                    }
 
-                    data.SetPosition(pair.Value);
+                    data.EditorData.SetPosition(pair.Value);
                     var rect = view.GetPosition();
                     rect.position = pair.Value;
                     view.SetPosition(rect);
@@ -181,8 +183,7 @@ namespace July.PointAllocation.Editor
             {
                 _suppressChanges = false;
             }
-
-            EditorUtility.SetDirty(_authoring);
+            EditorUtility.SetDirty(_document.Workspace);
         }
 
         public override List<Port> GetCompatiblePorts(Port startPort, NodeAdapter nodeAdapter)
@@ -190,20 +191,19 @@ namespace July.PointAllocation.Editor
             var ports = new List<Port>();
             foreach (var port in this.ports)
             {
-                if (port == startPort ||
-                    port.direction == startPort.direction ||
-                    port.node == startPort.node)
+                if (port != startPort &&
+                    port.direction != startPort.direction &&
+                    port.node != startPort.node)
                 {
-                    continue;
+                    ports.Add(port);
                 }
-                ports.Add(port);
             }
             return ports;
         }
 
         public override void BuildContextualMenu(ContextualMenuPopulateEvent eventData)
         {
-            if (_authoring != null)
+            if (_document != null)
             {
                 eventData.menu.AppendAction(
                     "Add PointAllocation Node",
@@ -213,7 +213,7 @@ namespace July.PointAllocation.Editor
             base.BuildContextualMenu(eventData);
         }
 
-        private PointAllocationNodeView AddNodeView(PointAllocationNodeAuthoringData data)
+        private PointAllocationNodeView AddNodeView(PointAllocationEditableNode data)
         {
             var view = new PointAllocationNodeView(data);
             _nodeViews.Add(data.Id, view);
@@ -221,20 +221,35 @@ namespace July.PointAllocation.Editor
             return view;
         }
 
+        private void OnMouseDown(MouseDownEvent eventData)
+        {
+            if (_document == null || eventData.button != 0 || eventData.clickCount != 2)
+                return;
+
+            if (eventData.target is VisualElement target &&
+                (target is GraphElement || target.GetFirstAncestorOfType<GraphElement>() != null))
+            {
+                return;
+            }
+
+            AddNodeAt(contentViewContainer.WorldToLocal(eventData.mousePosition));
+            eventData.StopImmediatePropagation();
+        }
+
         private GraphViewChange OnGraphViewChanged(GraphViewChange change)
         {
-            if (_suppressChanges || _authoring == null)
+            if (_suppressChanges || _document == null)
                 return change;
 
             if (change.movedElements != null && change.movedElements.Count > 0)
             {
-                Undo.RecordObject(_authoring, "Move PointAllocation Nodes");
+                Undo.RecordObject(_document.Workspace, "Move PointAllocation Nodes");
                 for (var index = 0; index < change.movedElements.Count; index++)
                 {
                     if (change.movedElements[index] is PointAllocationNodeView nodeView)
-                        nodeView.Data.SetPosition(nodeView.GetPosition().position);
+                        nodeView.Data.EditorData.SetPosition(nodeView.GetPosition().position);
                 }
-                EditorUtility.SetDirty(_authoring);
+                EditorUtility.SetDirty(_document.Workspace);
             }
 
             if (change.edgesToCreate != null)
@@ -243,14 +258,8 @@ namespace July.PointAllocation.Editor
                 {
                     var edge = change.edgesToCreate[index];
                     if (!(edge.output?.node is PointAllocationNodeView from) ||
-                        !(edge.input?.node is PointAllocationNodeView to))
-                    {
-                        change.edgesToCreate.RemoveAt(index);
-                        continue;
-                    }
-
-                    Undo.RecordObject(_authoring, "Add PointAllocation Connection");
-                    if (!_authoring.TryAddConnection(from.Data.Id, to.Data.Id, out var connection))
+                        !(edge.input?.node is PointAllocationNodeView to) ||
+                        !_document.TryAddConnection(from.Data.Id, to.Data.Id, out var connection))
                     {
                         change.edgesToCreate.RemoveAt(index);
                         _window.ShowNotification(new GUIContent("连接重复、无效或会形成有向环。"));
@@ -258,27 +267,34 @@ namespace July.PointAllocation.Editor
                     }
 
                     edge.userData = connection;
-                    EditorUtility.SetDirty(_authoring);
+                    _window.OnDocumentChanged();
                 }
             }
 
             if (change.elementsToRemove != null && change.elementsToRemove.Count > 0)
             {
-                Undo.RecordObject(_authoring, "Delete PointAllocation Graph Elements");
-                for (var index = 0; index < change.elementsToRemove.Count; index++)
+                for (var index = change.elementsToRemove.Count - 1; index >= 0; index--)
                 {
                     switch (change.elementsToRemove[index])
                     {
                         case PointAllocationNodeView nodeView:
-                            _authoring.RemoveNode(nodeView.Data.Id);
+                            Undo.RecordObject(_document.Workspace, "Delete PointAllocation Node Metadata");
+                            if (!_document.RemoveNode(nodeView.Data.Id))
+                            {
+                                change.elementsToRemove.RemoveAt(index);
+                                _window.ShowNotification(new GUIContent("加点图必须至少保留一个节点。"));
+                                continue;
+                            }
                             _nodeViews.Remove(nodeView.Data.Id);
+                            EditorUtility.SetDirty(_document.Workspace);
+                            _window.OnDocumentChanged();
                             break;
-                        case Edge edge when edge.userData is PointAllocationConnectionAuthoringData connection:
-                            _authoring.RemoveConnection(connection.FromNodeId, connection.ToNodeId);
+                        case Edge edge when edge.userData is PointAllocationEditableConnection connection:
+                            _document.RemoveConnection(connection.FromNodeId, connection.ToNodeId);
+                            _window.OnDocumentChanged();
                             break;
                     }
                 }
-                EditorUtility.SetDirty(_authoring);
             }
 
             return change;
@@ -286,11 +302,11 @@ namespace July.PointAllocation.Editor
 
         private void OnViewTransformChanged(GraphView graphView)
         {
-            if (_suppressChanges || _authoring == null)
+            if (_suppressChanges || _document == null)
                 return;
-
-            _authoring.SetViewTransform(viewTransform.position, viewTransform.scale);
-            EditorUtility.SetDirty(_authoring);
+            Undo.RecordObject(_document.Workspace, "Change PointAllocation View");
+            _document.Workspace.SetViewTransform(viewTransform.position, viewTransform.scale);
+            EditorUtility.SetDirty(_document.Workspace);
         }
     }
 }

@@ -1,16 +1,17 @@
+using System.Collections.Generic;
+
 namespace July.PointAllocation
 {
-    /// <summary>注册不可变定义并创建独立 PointAllocationRuntime 的 July 系统入口。</summary>
+    /// <summary>提供加点图加载、状态替换和节点升级操作。</summary>
     public interface IPointAllocationSystem
     {
-        PointAllocationOperationResult RegisterDefinition(PointAllocationGraphDefinition definition);
-        bool RemoveDefinition(int definitionId);
-        bool TryGetDefinition(int definitionId, out PointAllocationGraphDefinition definition);
+        int AvailablePoints { get; }
 
-        PointAllocationOperationResult CreateRuntime(
-            int definitionId,
-            PointAllocationSnapshot initialProgress,
-            out PointAllocationRuntime runtime);
+        void LoadGraph(string json);
+        void ReplaceState(int graphId, List<PointAllocationNodeState> nodeStates, int availablePoints);
+        int GetNodeLevel(int graphId, int nodeId);
+        bool CanUpgrade(int graphId, int nodeId);
+        bool TryUpgrade(int graphId, int nodeId);
+        void ResetGraph(int graphId);
     }
 }
-

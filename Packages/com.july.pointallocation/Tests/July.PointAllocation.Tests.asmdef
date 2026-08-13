@@ -3,7 +3,9 @@
   "rootNamespace": "July.PointAllocation.Tests",
   "references": [
     "July.PointAllocation",
-    "July.Arch"
+    "July.Arch",
+    "July.Events",
+    "UniTask"
   ],
   "includePlatforms": [
     "Editor"
