@@ -1,6 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
+using July.Arch;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -10,12 +14,16 @@ namespace July.UI.Tests
     public sealed class UIToggleGroupTests
     {
         private GameObject _root;
+        private ArchContext _context;
 
         [TearDown]
         public void TearDown()
         {
             if (_root != null)
                 UnityEngine.Object.DestroyImmediate(_root);
+
+            _context?.Shutdown();
+            _context = null;
         }
 
         [Test]
@@ -146,17 +154,112 @@ namespace July.UI.Tests
             Assert.That(group.SelectedIndex, Is.EqualTo(1));
         }
 
-        private UIToggleGroup CreateGroup(out List<UIToggleItem> items)
+        [Test]
+        public async Task CommitSelectionAsync_WaitsForProcedureBeforeCommitting()
+        {
+            InitializeArchitecture();
+            var group = CreateGroup(out var items);
+            group.SetWithoutNotify(0);
+            var procedure = new PendingProcedure();
+
+            var selection = group.CommitSelectionAsync(1, procedure);
+
+            Assert.That(group.SelectedIndex, Is.Zero);
+            Assert.That(items[0].IsOn, Is.True);
+            Assert.That(items[1].IsOn, Is.False);
+
+            procedure.Complete();
+
+            Assert.That(await selection, Is.True);
+            Assert.That(group.SelectedIndex, Is.EqualTo(1));
+        }
+
+        [Test]
+        public async Task CommitSelectionAsync_WithoutProcedureCommitsImmediately()
+        {
+            var group = CreateGroup(out _);
+            group.SetWithoutNotify(0);
+
+            var committed = await group.CommitSelectionAsync(1);
+
+            Assert.That(committed, Is.True);
+            Assert.That(group.SelectedIndex, Is.EqualTo(1));
+        }
+
+        [Test]
+        public async Task CommitSelectionAsync_NewerRequestSupersedesPendingProcedure()
+        {
+            InitializeArchitecture();
+            var group = CreateGroup(out _, 3);
+            group.SetWithoutNotify(0);
+            var pending = new PendingProcedure();
+
+            var firstSelection = group.CommitSelectionAsync(1, pending);
+            var secondCommitted = await group.CommitSelectionAsync(2);
+
+            Assert.That(secondCommitted, Is.True);
+            Assert.That(await firstSelection, Is.False);
+            Assert.That(group.SelectedIndex, Is.EqualTo(2));
+        }
+
+        [Test]
+        public async Task SetWithoutNotify_CancelsPendingProcedureSelection()
+        {
+            InitializeArchitecture();
+            var group = CreateGroup(out _);
+            group.SetWithoutNotify(0);
+            var pending = new PendingProcedure();
+
+            var selection = group.CommitSelectionAsync(1, pending);
+            group.SetWithoutNotify(0);
+
+            Assert.That(await selection, Is.False);
+            Assert.That(group.SelectedIndex, Is.Zero);
+        }
+
+        [Test]
+        public async Task CommitSelection_CancelsPendingProcedureSelection()
+        {
+            InitializeArchitecture();
+            var group = CreateGroup(out _, 3);
+            group.SetWithoutNotify(0);
+            var pending = new PendingProcedure();
+
+            var selection = group.CommitSelectionAsync(1, pending);
+            var committed = group.CommitSelection(2);
+
+            Assert.That(committed, Is.True);
+            Assert.That(await selection, Is.False);
+            Assert.That(group.SelectedIndex, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void CommitSelectionAsync_ProcedureFailureKeepsCurrentSelection()
+        {
+            InitializeArchitecture();
+            var group = CreateGroup(out _);
+            group.SetWithoutNotify(0);
+
+            Assert.ThrowsAsync<InvalidOperationException>(async () =>
+                await group.CommitSelectionAsync(1, new FailingProcedure()));
+            Assert.That(group.SelectedIndex, Is.Zero);
+        }
+
+        private UIToggleGroup CreateGroup(out List<UIToggleItem> items, int itemCount = 2)
         {
             _root = new GameObject("UIToggleGroup");
             var group = _root.AddComponent<UIToggleGroup>();
-            items = new List<UIToggleItem>
-            {
-                CreateItem("Item0"),
-                CreateItem("Item1")
-            };
+            items = new List<UIToggleItem>(itemCount);
+            for (var i = 0; i < itemCount; i++)
+                items.Add(CreateItem($"Item{i}"));
             SetField(group, "m_Items", items);
             return group;
+        }
+
+        private void InitializeArchitecture()
+        {
+            _context = new ArchContext();
+            _context.InitializeAsync().GetAwaiter().GetResult();
         }
 
         private UIToggleItem CreateItem(string name)
@@ -182,6 +285,24 @@ namespace July.UI.Tests
             typeof(UIToggleGroup)
                 .GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)
                 ?.SetValue(group, value);
+        }
+
+        private sealed class PendingProcedure : ProcedureBase
+        {
+            private readonly UniTaskCompletionSource<bool> _completion = new();
+
+            public void Complete() => _completion.TrySetResult(true);
+
+            protected override async UniTask OnExecuteAsync(CancellationToken ct)
+            {
+                await _completion.Task.AttachExternalCancellation(ct);
+            }
+        }
+
+        private sealed class FailingProcedure : ProcedureBase
+        {
+            protected override UniTask OnExecuteAsync(CancellationToken ct)
+                => UniTask.FromException(new InvalidOperationException("Preparation failed."));
         }
     }
 }
