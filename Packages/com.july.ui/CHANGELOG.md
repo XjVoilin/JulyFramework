@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.16 - 2026-08-14
+
+- 修复 `FixedHandleScrollRectEditor` 在字段重命名后无法找到序列化属性的问题。
+
 ## 0.2.15 - 2026-08-14
 
 - 统一私有字段命名为 `_camelCase`，并通过 `FormerlySerializedAs` 保留现有 UI 序列化数据兼容性。

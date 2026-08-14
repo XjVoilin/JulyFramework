@@ -12,8 +12,8 @@ namespace July.UI.Editor
         protected override void OnEnable()
         {
             base.OnEnable();
-            _fixedHandleSize = serializedObject.FindProperty("fixedHandleSize");
-            _handleSizeRatio = serializedObject.FindProperty("handleSizeRatio");
+            _fixedHandleSize = serializedObject.FindProperty(nameof(_fixedHandleSize));
+            _handleSizeRatio = serializedObject.FindProperty(nameof(_handleSizeRatio));
         }
 
         public override void OnInspectorGUI()
