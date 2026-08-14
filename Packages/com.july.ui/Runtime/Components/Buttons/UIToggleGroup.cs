@@ -7,34 +7,36 @@ using UnityEngine;
 
 namespace July.UI
 {
-    public enum UIToggleSelectionMode
-    {
-        Immediate,
-        ManualCommit
-    }
-
     public class UIToggleGroup : MonoBehaviour, ICanRunProcedure
     {
         [SerializeField] private int m_SelectedIndex;
-        [SerializeField] private UIToggleSelectionMode m_SelectionMode;
         [SerializeField] private List<UIToggleItem> m_Items = new();
         [SerializeField] private List<GameObject> m_Contents = new();
 
+        private Func<int, ProcedureBase> m_ProcedureFactory;
         private CancellationTokenSource m_SelectionRequestCts;
 
-        public event Action<int> OnSelectionRequested;
         public event Action<int> OnValueChanged;
         public event Action<int> OnLockedItemClicked;
 
-        public int SelectedIndex
-        {
-            get => m_SelectedIndex;
-            set => CommitSelection(value);
-        }
+        public int SelectedIndex => m_SelectedIndex;
 
         public int Count => m_Items.Count;
 
         public UIToggleItem GetItem(int index) => m_Items[index];
+
+        /// <summary>
+        /// 设置选择前流程工厂。每次有效选择都会调用一次，返回空表示立即切换。
+        /// 返回的 Procedure 必须是尚未执行过的新实例。
+        /// </summary>
+        public void SetProcedureFactory(Func<int, ProcedureBase> factory)
+        {
+            if (m_ProcedureFactory == factory)
+                return;
+
+            CancelPendingSelection();
+            m_ProcedureFactory = factory;
+        }
 
         public bool IsItemLocked(int index)
         {
@@ -56,42 +58,29 @@ namespace July.UI
             ApplySelection(index);
         }
 
-        public bool CommitSelection(int index)
-        {
-            if (!CanCommitSelection(index)) return false;
-
-            CancelPendingSelection();
-            return CommitSelectionCore(index);
-        }
-
         /// <summary>
-        /// 提交选择前执行一个一次性的准备流程。
-        /// <paramref name="preparation"/> 为空时立即提交；新的选择请求、同步选择或组件禁用
-        /// 会取消尚未完成的请求并返回 false。准备流程抛出的异常会继续向上传播，当前选择保持不变。
-        /// 通过点击触发时应配合 <see cref="UIToggleSelectionMode.ManualCommit"/> 使用，
-        /// 并为每次请求传入新的 Procedure 实例。
+        /// 执行当前选择对应的准备流程，成功后提交选择。
+        /// 新的选择、强制重置或组件禁用会取消尚未完成的选择。
         /// </summary>
-        public async UniTask<bool> CommitSelectionAsync(
-            int index,
-            ProcedureBase preparation = null,
-            CancellationToken ct = default)
+        private async UniTask SelectAsync(int index)
         {
-            if (!CanCommitSelection(index)) return false;
+            if (!CanSelect(index)) return;
 
-            var cancellation = BeginSelectionRequest(ct);
+            var cancellation = BeginSelectionRequest();
             var token = cancellation.Token;
             try
             {
-                if (preparation != null)
-                    await this.RunProcedure(preparation, token);
+                var procedure = m_ProcedureFactory?.Invoke(index);
+                if (procedure != null)
+                    await this.RunProcedure(procedure, token);
 
-                if (token.IsCancellationRequested) return false;
+                if (token.IsCancellationRequested) return;
 
-                return CommitSelectionCore(index);
+                ApplySelection(index);
+                OnValueChanged?.Invoke(m_SelectedIndex);
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested)
             {
-                return false;
             }
             finally
             {
@@ -101,18 +90,13 @@ namespace July.UI
 
         internal void NotifyItemClicked(UIToggleItem item)
         {
-            int index = m_Items.IndexOf(item);
-            if (!CanCommitSelection(index)) return;
-
-            OnSelectionRequested?.Invoke(index);
-
-            if (m_SelectionMode == UIToggleSelectionMode.Immediate && m_SelectedIndex != index)
-                CommitSelection(index);
+            var index = m_Items.IndexOf(item);
+            SelectAsync(index).Forget(Debug.LogException);
         }
 
         internal void NotifyLockedItemClicked(UIToggleItem item)
         {
-            int index = m_Items.IndexOf(item);
+            var index = m_Items.IndexOf(item);
             if (index < 0) return;
             OnLockedItemClicked?.Invoke(index);
         }
@@ -121,31 +105,20 @@ namespace July.UI
         {
             ValidateConfiguration();
 
-            for (int i = 0; i < m_Items.Count; i++)
+            for (var i = 0; i < m_Items.Count; i++)
                 m_Items[i].SetOn(i == index);
 
-            for (int i = 0; i < m_Contents.Count; i++)
+            for (var i = 0; i < m_Contents.Count; i++)
                 m_Contents[i].SetActive(i == index);
 
             m_SelectedIndex = index;
         }
 
-        private bool CommitSelectionCore(int index)
-        {
-            if (!CanCommitSelection(index)) return false;
-
-            ApplySelection(index);
-            OnValueChanged?.Invoke(m_SelectedIndex);
-            return true;
-        }
-
-        private CancellationTokenSource BeginSelectionRequest(CancellationToken ct)
+        private CancellationTokenSource BeginSelectionRequest()
         {
             CancelPendingSelection();
 
-            m_SelectionRequestCts = ct.CanBeCanceled
-                ? CancellationTokenSource.CreateLinkedTokenSource(ct)
-                : new CancellationTokenSource();
+            m_SelectionRequestCts = new CancellationTokenSource();
             return m_SelectionRequestCts;
         }
 
@@ -167,7 +140,7 @@ namespace July.UI
             cancellation.Dispose();
         }
 
-        private bool CanCommitSelection(int index)
+        private bool CanSelect(int index)
         {
             if (index < 0 || index >= m_Items.Count) return false;
             if (m_SelectedIndex == index) return false;
@@ -179,7 +152,7 @@ namespace July.UI
             for (int i = 0; i < m_Items.Count; i++)
             {
                 if (m_Items[i] == null)
-                    throw new InvalidOperationException($"UIToggleGroup item {i} is not assigned.");
+                    throw new InvalidOperationException($"UIToggleGroup 第 {i} 个 Item 未配置。");
             }
 
             if (m_Contents.Count == 0)
@@ -188,13 +161,13 @@ namespace July.UI
             if (m_Contents.Count != m_Items.Count)
             {
                 throw new InvalidOperationException(
-                    $"UIToggleGroup has {m_Items.Count} items but {m_Contents.Count} contents.");
+                    $"UIToggleGroup 有 {m_Items.Count} 个 Item，但配置了 {m_Contents.Count} 个 Content。");
             }
 
             for (int i = 0; i < m_Contents.Count; i++)
             {
                 if (m_Contents[i] == null)
-                    throw new InvalidOperationException($"UIToggleGroup content {i} is not assigned.");
+                    throw new InvalidOperationException($"UIToggleGroup 第 {i} 个 Content 未配置。");
             }
         }
 

@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using July.Arch;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace July.UI.Tests
 {
@@ -94,43 +96,18 @@ namespace July.UI.Tests
         }
 
         [Test]
-        public void ManualCommit_ClickRequestsSelectionWithoutChangingVisibleContent()
+        public void ClickWithoutFactory_CommitsSelectionAndNotifies()
         {
             var group = CreateGroup(out var items);
             var contents = CreateContents();
             SetField(group, "m_Contents", contents);
-            SetField(group, "m_SelectionMode", UIToggleSelectionMode.ManualCommit);
-            group.SetWithoutNotify(0);
-
-            var requestedIndex = -1;
-            group.OnSelectionRequested += index => requestedIndex = index;
-
-            group.NotifyItemClicked(items[1]);
-
-            Assert.That(requestedIndex, Is.EqualTo(1));
-            Assert.That(group.SelectedIndex, Is.Zero);
-            Assert.That(items[0].IsOn, Is.True);
-            Assert.That(items[1].IsOn, Is.False);
-            Assert.That(contents[0].activeSelf, Is.True);
-            Assert.That(contents[1].activeSelf, Is.False);
-        }
-
-        [Test]
-        public void CommitSelection_AfterManualRequestChangesContentAndNotifies()
-        {
-            var group = CreateGroup(out var items);
-            var contents = CreateContents();
-            SetField(group, "m_Contents", contents);
-            SetField(group, "m_SelectionMode", UIToggleSelectionMode.ManualCommit);
             group.SetWithoutNotify(0);
 
             var changedIndex = -1;
             group.OnValueChanged += index => changedIndex = index;
 
             group.NotifyItemClicked(items[1]);
-            var committed = group.CommitSelection(1);
 
-            Assert.That(committed, Is.True);
             Assert.That(changedIndex, Is.EqualTo(1));
             Assert.That(group.SelectedIndex, Is.EqualTo(1));
             Assert.That(items[0].IsOn, Is.False);
@@ -140,65 +117,72 @@ namespace July.UI.Tests
         }
 
         [Test]
-        public void ImmediateMode_ClickRequestsBeforeCommittingSelection()
-        {
-            var group = CreateGroup(out var items);
-            group.SetWithoutNotify(0);
-            var events = new List<string>();
-            group.OnSelectionRequested += index => events.Add($"request:{index}");
-            group.OnValueChanged += index => events.Add($"changed:{index}");
-
-            group.NotifyItemClicked(items[1]);
-
-            Assert.That(events, Is.EqualTo(new[] { "request:1", "changed:1" }));
-            Assert.That(group.SelectedIndex, Is.EqualTo(1));
-        }
-
-        [Test]
-        public async Task CommitSelectionAsync_WaitsForProcedureBeforeCommitting()
+        public async Task Click_WaitsForFactoryProcedureBeforeCommitting()
         {
             InitializeArchitecture();
             var group = CreateGroup(out var items);
             group.SetWithoutNotify(0);
             var procedure = new PendingProcedure();
+            group.SetProcedureFactory(_ => procedure);
 
-            var selection = group.CommitSelectionAsync(1, procedure);
+            group.NotifyItemClicked(items[1]);
 
             Assert.That(group.SelectedIndex, Is.Zero);
             Assert.That(items[0].IsOn, Is.True);
             Assert.That(items[1].IsOn, Is.False);
 
             procedure.Complete();
+            await UniTask.Yield();
 
-            Assert.That(await selection, Is.True);
             Assert.That(group.SelectedIndex, Is.EqualTo(1));
         }
 
         [Test]
-        public async Task CommitSelectionAsync_WithoutProcedureCommitsImmediately()
+        public void Click_WithoutFactoryCommitsImmediately()
         {
-            var group = CreateGroup(out _);
+            var group = CreateGroup(out var items);
             group.SetWithoutNotify(0);
 
-            var committed = await group.CommitSelectionAsync(1);
+            group.NotifyItemClicked(items[1]);
 
-            Assert.That(committed, Is.True);
             Assert.That(group.SelectedIndex, Is.EqualTo(1));
         }
 
         [Test]
-        public async Task CommitSelectionAsync_NewerRequestSupersedesPendingProcedure()
+        public void Click_RequestsFreshProcedureForEachSelection()
         {
             InitializeArchitecture();
-            var group = CreateGroup(out _, 3);
+            var group = CreateGroup(out var items);
+            group.SetWithoutNotify(0);
+            var procedures = new List<ProcedureBase>();
+            group.SetProcedureFactory(_ =>
+            {
+                var procedure = new CompletedProcedure();
+                procedures.Add(procedure);
+                return procedure;
+            });
+
+            group.NotifyItemClicked(items[1]);
+            group.NotifyItemClicked(items[0]);
+
+            Assert.That(procedures, Has.Count.EqualTo(2));
+            Assert.That(procedures[0], Is.Not.SameAs(procedures[1]));
+        }
+
+        [Test]
+        public async Task NewerClick_SupersedesPendingProcedure()
+        {
+            InitializeArchitecture();
+            var group = CreateGroup(out var items, 3);
             group.SetWithoutNotify(0);
             var pending = new PendingProcedure();
+            group.SetProcedureFactory(index => index == 1 ? pending : null);
 
-            var firstSelection = group.CommitSelectionAsync(1, pending);
-            var secondCommitted = await group.CommitSelectionAsync(2);
+            group.NotifyItemClicked(items[1]);
+            group.NotifyItemClicked(items[2]);
+            pending.Complete();
+            await UniTask.Yield();
 
-            Assert.That(secondCommitted, Is.True);
-            Assert.That(await firstSelection, Is.False);
             Assert.That(group.SelectedIndex, Is.EqualTo(2));
         }
 
@@ -206,42 +190,49 @@ namespace July.UI.Tests
         public async Task SetWithoutNotify_CancelsPendingProcedureSelection()
         {
             InitializeArchitecture();
-            var group = CreateGroup(out _);
+            var group = CreateGroup(out var items);
             group.SetWithoutNotify(0);
             var pending = new PendingProcedure();
+            group.SetProcedureFactory(_ => pending);
 
-            var selection = group.CommitSelectionAsync(1, pending);
+            group.NotifyItemClicked(items[1]);
             group.SetWithoutNotify(0);
+            pending.Complete();
+            await UniTask.Yield();
 
-            Assert.That(await selection, Is.False);
             Assert.That(group.SelectedIndex, Is.Zero);
         }
 
         [Test]
-        public async Task CommitSelection_CancelsPendingProcedureSelection()
+        public async Task SetProcedureFactory_CancelsPendingSelection()
         {
             InitializeArchitecture();
-            var group = CreateGroup(out _, 3);
+            var group = CreateGroup(out var items);
             group.SetWithoutNotify(0);
             var pending = new PendingProcedure();
+            group.SetProcedureFactory(_ => pending);
 
-            var selection = group.CommitSelectionAsync(1, pending);
-            var committed = group.CommitSelection(2);
+            group.NotifyItemClicked(items[1]);
+            group.SetProcedureFactory(null);
+            pending.Complete();
+            await UniTask.Yield();
 
-            Assert.That(committed, Is.True);
-            Assert.That(await selection, Is.False);
-            Assert.That(group.SelectedIndex, Is.EqualTo(2));
+            Assert.That(group.SelectedIndex, Is.Zero);
         }
 
         [Test]
-        public void CommitSelectionAsync_ProcedureFailureKeepsCurrentSelection()
+        public void Click_ProcedureFailureIsLoggedAndKeepsCurrentSelection()
         {
             InitializeArchitecture();
-            var group = CreateGroup(out _);
+            var group = CreateGroup(out var items);
             group.SetWithoutNotify(0);
+            group.SetProcedureFactory(_ => new FailingProcedure());
 
-            Assert.ThrowsAsync<InvalidOperationException>(async () =>
-                await group.CommitSelectionAsync(1, new FailingProcedure()));
+            LogAssert.Expect(
+                LogType.Exception,
+                new Regex("InvalidOperationException: Preparation failed."));
+            group.NotifyItemClicked(items[1]);
+
             Assert.That(group.SelectedIndex, Is.Zero);
         }
 
@@ -303,6 +294,12 @@ namespace July.UI.Tests
         {
             protected override UniTask OnExecuteAsync(CancellationToken ct)
                 => UniTask.FromException(new InvalidOperationException("Preparation failed."));
+        }
+
+        private sealed class CompletedProcedure : ProcedureBase
+        {
+            protected override UniTask OnExecuteAsync(CancellationToken ct)
+                => UniTask.CompletedTask;
         }
     }
 }
