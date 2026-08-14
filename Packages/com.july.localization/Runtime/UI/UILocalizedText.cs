@@ -1,6 +1,7 @@
 using July.Arch;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace July.Localization
 {
@@ -11,7 +12,8 @@ namespace July.Localization
     [RequireComponent(typeof(TextMeshProUGUI))]
     public class UILocalizedText : ArchBehaviour
     {
-        [SerializeField] private string key;
+        [FormerlySerializedAs("key")]
+        [SerializeField] private string _key;
 
         private TextMeshProUGUI _text;
         private object[] _args;
@@ -28,28 +30,28 @@ namespace July.Localization
 
         public void SetKey(string newKey)
         {
-            key = newKey;
+            _key = newKey;
             _args = null;
             Apply();
         }
 
         public void SetKey(string newKey, params object[] args)
         {
-            key = newKey;
+            _key = newKey;
             _args = args is { Length: > 0 } ? args : null;
             Apply();
         }
 
         private void Apply()
         {
-            if (_text == null || string.IsNullOrEmpty(key)) return;
+            if (_text == null || string.IsNullOrEmpty(_key)) return;
 
             var loc = this.GetSystem<ILocalizationSystem>();
             if (loc == null) return;
 
             _text.text = _args != null
-                ? loc.GetFormat(key, _args)
-                : loc.Get(key);
+                ? loc.GetFormat(_key, _args)
+                : loc.Get(_key);
         }
     }
 }
