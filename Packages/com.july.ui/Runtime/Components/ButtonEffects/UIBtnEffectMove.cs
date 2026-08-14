@@ -1,5 +1,6 @@
 using DG.Tweening;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace July.UI
 {
@@ -9,7 +10,8 @@ namespace July.UI
     public class UIBtnEffectMove : UIBtnEffect
     {
         [Header("Move")]
-        [SerializeField] private Vector3 pressOffset;
+        [FormerlySerializedAs("pressOffset")]
+        [SerializeField] private Vector3 _pressOffset;
 
         private Vector3 _originPos;
 
@@ -21,7 +23,7 @@ namespace July.UI
         protected override void OnPress()
         {
             tween?.Kill();
-            tween = transform.DOLocalMove(_originPos + pressOffset, duration)
+            tween = transform.DOLocalMove(_originPos + _pressOffset, duration)
                 .SetDelay(delay)
                 .SetEase(pressEase)
                 .SetUpdate(true)

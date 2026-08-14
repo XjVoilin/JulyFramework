@@ -36,8 +36,8 @@ namespace July.UI.Editor
             toggle.targetGraphic = rootImage;
 
             var so = new SerializedObject(toggle);
-            so.FindProperty("m_Normal").objectReferenceValue = normal;
-            so.FindProperty("m_Selected").objectReferenceValue = selected;
+            so.FindProperty("_normal").objectReferenceValue = normal;
+            so.FindProperty("_selected").objectReferenceValue = selected;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             selected.SetActive(false);

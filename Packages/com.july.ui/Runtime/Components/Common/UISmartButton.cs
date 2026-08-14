@@ -4,6 +4,7 @@ using July.Audio;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
+using UnityEngine.Serialization;
 
 namespace July.UI
 {
@@ -14,7 +15,8 @@ public class UISmartButton : ArchBehaviour,
     IPointerUpHandler,
     IPointerExitHandler
 {
-    [Header("Interact")] [SerializeField] private bool interactable = true;
+    [FormerlySerializedAs("interactable")]
+    [Header("Interact")] [SerializeField] private bool _interactable = true;
 
     [Header("Scale Feedback")] public bool enableScale = true;
     public float scaleTarget = 1.11f;
@@ -27,7 +29,8 @@ public class UISmartButton : ArchBehaviour,
     [Header("Audio")]
     public bool enableSound = true;
     [Tooltip("点击音效名（留空使用 AudioSystem 配置的默认值）")]
-    [SerializeField] private string clickSfx;
+    [FormerlySerializedAs("clickSfx")]
+    [SerializeField] private string _clickSfx;
 
     [Header("Event")] public UnityEvent onClick = new();
 
@@ -51,7 +54,7 @@ public class UISmartButton : ArchBehaviour,
 
     public void OnPointerDown(PointerEventData eventData)
     {
-        if (!interactable || !enableScale)
+        if (!_interactable || !enableScale)
             return;
 
         _scaleTweener?.Kill();
@@ -64,7 +67,7 @@ public class UISmartButton : ArchBehaviour,
 
     public void OnPointerUp(PointerEventData eventData)
     {
-        if (!interactable || !enableScale)
+        if (!_interactable || !enableScale)
             return;
 
         // 抬起时用动画恢复
@@ -73,7 +76,7 @@ public class UISmartButton : ArchBehaviour,
 
     public void OnPointerExit(PointerEventData eventData)
     {
-        if (!interactable || !enableScale)
+        if (!_interactable || !enableScale)
             return;
 
         // 离开时用动画恢复
@@ -82,7 +85,7 @@ public class UISmartButton : ArchBehaviour,
 
     public void OnPointerClick(PointerEventData eventData)
     {
-        if (!interactable)
+        if (!_interactable)
             return;
 
         if (!TryProcessClick())
@@ -96,16 +99,16 @@ public class UISmartButton : ArchBehaviour,
 
     #region Public API
 
-    public bool IsInteractable => interactable;
+    public bool IsInteractable => _interactable;
 
     public virtual void SetInteractable(bool value)
     {
-        if (interactable == value)
+        if (_interactable == value)
             return;
 
-        interactable = value;
+        _interactable = value;
 
-        if (!interactable)
+        if (!_interactable)
         {
             _scaleTweener?.Kill();
             transform.localScale = _originScale;
@@ -153,7 +156,7 @@ public class UISmartButton : ArchBehaviour,
     private void PlayClickSound()
     {
         if (!enableSound) return;
-        this.GetSystem<IAudioSystem>()?.PlayClickSfx(clickSfx);
+        this.GetSystem<IAudioSystem>()?.PlayClickSfx(_clickSfx);
     }
 
     #endregion

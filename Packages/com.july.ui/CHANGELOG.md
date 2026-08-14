@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.15 - 2026-08-14
+
+- 统一私有字段命名为 `_camelCase`，并通过 `FormerlySerializedAs` 保留现有 UI 序列化数据兼容性。
+
 ## 0.2.14 - 2026-08-14
 
 - Let `UIToggleGroup` obtain a fresh optional `ProcedureBase` from a project-provided factory for every selection.

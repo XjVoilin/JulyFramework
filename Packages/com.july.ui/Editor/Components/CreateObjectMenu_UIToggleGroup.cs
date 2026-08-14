@@ -24,7 +24,7 @@ namespace July.UI.Editor
 
             var group = root.AddComponent<UIToggleGroup>();
             var so = new SerializedObject(group);
-            var itemsProp = so.FindProperty("m_Items");
+            var itemsProp = so.FindProperty("_items");
             itemsProp.arraySize = DefaultItemCount;
 
             for (int i = 0; i < DefaultItemCount; i++)
@@ -33,7 +33,7 @@ namespace July.UI.Editor
                 itemsProp.GetArrayElementAtIndex(i).objectReferenceValue = item;
             }
 
-            so.FindProperty("m_SelectedIndex").intValue = 0;
+            so.FindProperty("_selectedIndex").intValue = 0;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             GameObjectUtility.SetParentAndAlign(root, parent);
@@ -72,9 +72,9 @@ namespace July.UI.Editor
             item.targetGraphic = rootImage;
 
             var itemSo = new SerializedObject(item);
-            itemSo.FindProperty("m_Normal").objectReferenceValue = normal;
-            itemSo.FindProperty("m_Selected").objectReferenceValue = selected;
-            itemSo.FindProperty("m_Locked").objectReferenceValue = locked;
+            itemSo.FindProperty("_normal").objectReferenceValue = normal;
+            itemSo.FindProperty("_selected").objectReferenceValue = selected;
+            itemSo.FindProperty("_locked").objectReferenceValue = locked;
             itemSo.ApplyModifiedPropertiesWithoutUndo();
 
             selected.SetActive(false);

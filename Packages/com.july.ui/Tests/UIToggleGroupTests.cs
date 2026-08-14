@@ -38,7 +38,7 @@ namespace July.UI.Tests
                 new("Content1")
             };
             contents.ForEach(content => content.transform.SetParent(_root.transform));
-            SetField(group, "m_Contents", contents);
+            SetField(group, "_contents", contents);
 
             group.SetWithoutNotify(1);
 
@@ -70,7 +70,7 @@ namespace July.UI.Tests
             };
             contents.ForEach(content => content.transform.SetParent(_root.transform));
             contents[0].SetActive(false);
-            SetField(group, "m_Contents", contents);
+            SetField(group, "_contents", contents);
 
             group.SetWithoutNotify(0);
 
@@ -86,7 +86,7 @@ namespace July.UI.Tests
             var group = CreateGroup(out var items);
             var content = new GameObject("Content0");
             content.transform.SetParent(_root.transform);
-            SetField(group, "m_Contents", new List<GameObject> { content });
+            SetField(group, "_contents", new List<GameObject> { content });
 
             Assert.Throws<InvalidOperationException>(() => group.SetWithoutNotify(1));
             Assert.That(group.SelectedIndex, Is.Zero);
@@ -100,7 +100,7 @@ namespace July.UI.Tests
         {
             var group = CreateGroup(out var items);
             var contents = CreateContents();
-            SetField(group, "m_Contents", contents);
+            SetField(group, "_contents", contents);
             group.SetWithoutNotify(0);
 
             var changedIndex = -1;
@@ -243,7 +243,7 @@ namespace July.UI.Tests
             items = new List<UIToggleItem>(itemCount);
             for (var i = 0; i < itemCount; i++)
                 items.Add(CreateItem($"Item{i}"));
-            SetField(group, "m_Items", items);
+            SetField(group, "_items", items);
             return group;
         }
 

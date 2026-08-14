@@ -4,26 +4,30 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using July.Arch;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace July.UI
 {
     public class UIToggleGroup : MonoBehaviour, ICanRunProcedure
     {
-        [SerializeField] private int m_SelectedIndex;
-        [SerializeField] private List<UIToggleItem> m_Items = new();
-        [SerializeField] private List<GameObject> m_Contents = new();
+        [FormerlySerializedAs("m_SelectedIndex")]
+        [SerializeField] private int _selectedIndex;
+        [FormerlySerializedAs("m_Items")]
+        [SerializeField] private List<UIToggleItem> _items = new();
+        [FormerlySerializedAs("m_Contents")]
+        [SerializeField] private List<GameObject> _contents = new();
 
-        private Func<int, ProcedureBase> m_ProcedureFactory;
-        private CancellationTokenSource m_SelectionRequestCts;
+        private Func<int, ProcedureBase> _procedureFactory;
+        private CancellationTokenSource _selectionRequestCts;
 
         public event Action<int> OnValueChanged;
         public event Action<int> OnLockedItemClicked;
 
-        public int SelectedIndex => m_SelectedIndex;
+        public int SelectedIndex => _selectedIndex;
 
-        public int Count => m_Items.Count;
+        public int Count => _items.Count;
 
-        public UIToggleItem GetItem(int index) => m_Items[index];
+        public UIToggleItem GetItem(int index) => _items[index];
 
         /// <summary>
         /// 设置选择前流程工厂。每次有效选择都会调用一次，返回空表示立即切换。
@@ -31,29 +35,29 @@ namespace July.UI
         /// </summary>
         public void SetProcedureFactory(Func<int, ProcedureBase> factory)
         {
-            if (m_ProcedureFactory == factory)
+            if (_procedureFactory == factory)
                 return;
 
             CancelPendingSelection();
-            m_ProcedureFactory = factory;
+            _procedureFactory = factory;
         }
 
         public bool IsItemLocked(int index)
         {
-            if (index < 0 || index >= m_Items.Count) return false;
-            return m_Items[index] != null && m_Items[index].IsLocked;
+            if (index < 0 || index >= _items.Count) return false;
+            return _items[index] != null && _items[index].IsLocked;
         }
 
         public void SetItemLocked(int index, bool locked)
         {
-            if (index < 0 || index >= m_Items.Count) return;
-            if (m_Items[index] != null)
-                m_Items[index].SetLocked(locked);
+            if (index < 0 || index >= _items.Count) return;
+            if (_items[index] != null)
+                _items[index].SetLocked(locked);
         }
 
         public void SetWithoutNotify(int index)
         {
-            if (index < 0 || index >= m_Items.Count) return;
+            if (index < 0 || index >= _items.Count) return;
             CancelPendingSelection();
             ApplySelection(index);
         }
@@ -70,14 +74,14 @@ namespace July.UI
             var token = cancellation.Token;
             try
             {
-                var procedure = m_ProcedureFactory?.Invoke(index);
+                var procedure = _procedureFactory?.Invoke(index);
                 if (procedure != null)
                     await this.RunProcedure(procedure, token);
 
                 if (token.IsCancellationRequested) return;
 
                 ApplySelection(index);
-                OnValueChanged?.Invoke(m_SelectedIndex);
+                OnValueChanged?.Invoke(_selectedIndex);
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested)
             {
@@ -90,13 +94,13 @@ namespace July.UI
 
         internal void NotifyItemClicked(UIToggleItem item)
         {
-            var index = m_Items.IndexOf(item);
+            var index = _items.IndexOf(item);
             SelectAsync(index).Forget(Debug.LogException);
         }
 
         internal void NotifyLockedItemClicked(UIToggleItem item)
         {
-            var index = m_Items.IndexOf(item);
+            var index = _items.IndexOf(item);
             if (index < 0) return;
             OnLockedItemClicked?.Invoke(index);
         }
@@ -105,35 +109,35 @@ namespace July.UI
         {
             ValidateConfiguration();
 
-            for (var i = 0; i < m_Items.Count; i++)
-                m_Items[i].SetOn(i == index);
+            for (var i = 0; i < _items.Count; i++)
+                _items[i].SetOn(i == index);
 
-            for (var i = 0; i < m_Contents.Count; i++)
-                m_Contents[i].SetActive(i == index);
+            for (var i = 0; i < _contents.Count; i++)
+                _contents[i].SetActive(i == index);
 
-            m_SelectedIndex = index;
+            _selectedIndex = index;
         }
 
         private CancellationTokenSource BeginSelectionRequest()
         {
             CancelPendingSelection();
 
-            m_SelectionRequestCts = new CancellationTokenSource();
-            return m_SelectionRequestCts;
+            _selectionRequestCts = new CancellationTokenSource();
+            return _selectionRequestCts;
         }
 
         private void CompleteSelectionRequest(CancellationTokenSource cancellation)
         {
-            if (!ReferenceEquals(m_SelectionRequestCts, cancellation)) return;
+            if (!ReferenceEquals(_selectionRequestCts, cancellation)) return;
 
-            m_SelectionRequestCts = null;
+            _selectionRequestCts = null;
             cancellation.Dispose();
         }
 
         private void CancelPendingSelection()
         {
-            var cancellation = m_SelectionRequestCts;
-            m_SelectionRequestCts = null;
+            var cancellation = _selectionRequestCts;
+            _selectionRequestCts = null;
             if (cancellation == null) return;
 
             cancellation.Cancel();
@@ -142,31 +146,31 @@ namespace July.UI
 
         private bool CanSelect(int index)
         {
-            if (index < 0 || index >= m_Items.Count) return false;
-            if (m_SelectedIndex == index) return false;
-            return m_Items[index] == null || !m_Items[index].IsLocked;
+            if (index < 0 || index >= _items.Count) return false;
+            if (_selectedIndex == index) return false;
+            return _items[index] == null || !_items[index].IsLocked;
         }
 
         private void ValidateConfiguration()
         {
-            for (int i = 0; i < m_Items.Count; i++)
+            for (int i = 0; i < _items.Count; i++)
             {
-                if (m_Items[i] == null)
+                if (_items[i] == null)
                     throw new InvalidOperationException($"UIToggleGroup 第 {i} 个 Item 未配置。");
             }
 
-            if (m_Contents.Count == 0)
+            if (_contents.Count == 0)
                 return;
 
-            if (m_Contents.Count != m_Items.Count)
+            if (_contents.Count != _items.Count)
             {
                 throw new InvalidOperationException(
-                    $"UIToggleGroup 有 {m_Items.Count} 个 Item，但配置了 {m_Contents.Count} 个 Content。");
+                    $"UIToggleGroup 有 {_items.Count} 个 Item，但配置了 {_contents.Count} 个 Content。");
             }
 
-            for (int i = 0; i < m_Contents.Count; i++)
+            for (int i = 0; i < _contents.Count; i++)
             {
-                if (m_Contents[i] == null)
+                if (_contents[i] == null)
                     throw new InvalidOperationException($"UIToggleGroup 第 {i} 个 Content 未配置。");
             }
         }
@@ -174,11 +178,11 @@ namespace July.UI
         private void OnEnable()
         {
             ValidateConfiguration();
-            if (m_Items.Count == 0)
+            if (_items.Count == 0)
                 return;
 
-            m_SelectedIndex = Mathf.Clamp(m_SelectedIndex, 0, m_Items.Count - 1);
-            ApplySelection(m_SelectedIndex);
+            _selectedIndex = Mathf.Clamp(_selectedIndex, 0, _items.Count - 1);
+            ApplySelection(_selectedIndex);
         }
 
         private void OnDisable()

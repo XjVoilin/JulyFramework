@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.Serialization;
 
 namespace July.UI
 {
@@ -13,7 +14,8 @@ namespace July.UI
         IPointerUpHandler,
         IPointerExitHandler
     {
-        [SerializeField] private UIBtnEffect[] effects;
+        [FormerlySerializedAs("effects")]
+        [SerializeField] private UIBtnEffect[] _effects;
 
         private UISmartButton _smartButton;
         private bool _isPressed;
@@ -34,8 +36,8 @@ namespace July.UI
             if (_isPressed) return;
             _isPressed = true;
 
-            for (var i = 0; i < effects.Length; i++)
-                effects[i].Press();
+            for (var i = 0; i < _effects.Length; i++)
+                _effects[i].Press();
         }
 
         public void OnPointerUp(PointerEventData eventData)
@@ -53,8 +55,8 @@ namespace July.UI
             if (!_isPressed) return;
             _isPressed = false;
 
-            for (var i = 0; i < effects.Length; i++)
-                effects[i].Release();
+            for (var i = 0; i < _effects.Length; i++)
+                _effects[i].Release();
         }
     }
 }

@@ -1,5 +1,6 @@
 using DG.Tweening;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace July.UI
 {
@@ -9,7 +10,8 @@ namespace July.UI
     public class UIBtnEffectScale : UIBtnEffect
     {
         [Header("Scale")]
-        [SerializeField] private float scaleMultiplier = 1.1f;
+        [FormerlySerializedAs("scaleMultiplier")]
+        [SerializeField] private float _scaleMultiplier = 1.1f;
 
         private Vector3 _originScale;
         private Vector3 _pressedScale;
@@ -17,7 +19,7 @@ namespace July.UI
         private void Awake()
         {
             _originScale = transform.localScale;
-            _pressedScale = _originScale * scaleMultiplier;
+            _pressedScale = _originScale * _scaleMultiplier;
         }
 
         protected override void OnPress()

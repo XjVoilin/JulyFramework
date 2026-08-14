@@ -1,68 +1,73 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 namespace July.UI
 {
     public class UIToggleItem : Selectable, IPointerClickHandler
     {
-        [SerializeField] private GameObject m_Normal;
-        [SerializeField] private GameObject m_Selected;
-        [SerializeField] private GameObject m_Locked;
+        [FormerlySerializedAs("m_Normal")]
+        [SerializeField] private GameObject _normal;
+        [FormerlySerializedAs("m_Selected")]
+        [SerializeField] private GameObject _selected;
+        [FormerlySerializedAs("m_Locked")]
+        [SerializeField] private GameObject _locked;
 
-        private UIToggleGroup m_Group;
-        private bool m_IsOn;
-        [SerializeField]private bool m_IsLocked;
+        private UIToggleGroup _group;
+        private bool _isOn;
+        [FormerlySerializedAs("m_IsLocked")]
+        [SerializeField] private bool _isLocked;
 
-        public bool IsOn => m_IsOn;
-        public bool IsLocked => m_IsLocked;
+        public bool IsOn => _isOn;
+        public bool IsLocked => _isLocked;
 
         public virtual void OnPointerClick(PointerEventData eventData)
         {
             if (eventData.button > 0) return;
             if (!IsActive() || !IsInteractable()) return;
-            if (m_Group == null) return;
+            if (_group == null) return;
 
-            if (m_IsLocked)
-                m_Group.NotifyLockedItemClicked(this);
+            if (_isLocked)
+                _group.NotifyLockedItemClicked(this);
             else
-                m_Group.NotifyItemClicked(this);
+                _group.NotifyItemClicked(this);
         }
 
         protected override void OnEnable()
         {
             base.OnEnable();
-            m_Group = GetComponentInParent<UIToggleGroup>();
+            _group = GetComponentInParent<UIToggleGroup>();
             UpdateVisuals();
         }
 
         internal void SetOn(bool value)
         {
-            if (m_IsOn == value) return;
-            m_IsOn = value;
+            if (_isOn == value) return;
+            _isOn = value;
             UpdateVisuals();
         }
 
         internal void SetLocked(bool value)
         {
-            if (m_IsLocked == value) return;
-            m_IsLocked = value;
+            if (_isLocked == value) return;
+            _isLocked = value;
             UpdateVisuals();
         }
 
         private void UpdateVisuals()
         {
-            if (m_IsLocked)
+            if (_isLocked)
             {
-                if (m_Normal != null) m_Normal.SetActive(false);
-                if (m_Selected != null) m_Selected.SetActive(false);
-                if (m_Locked != null) m_Locked.SetActive(true);
+                if (_normal != null) _normal.SetActive(false);
+                if (_selected != null) _selected.SetActive(false);
+                if (_locked != null) _locked.SetActive(true);
             }
             else
             {
-                if (m_Normal != null) m_Normal.SetActive(!m_IsOn);
-                if (m_Selected != null) m_Selected.SetActive(m_IsOn);
-                if (m_Locked != null) m_Locked.SetActive(false);
+                if (_normal != null) _normal.SetActive(!_isOn);
+                if (_selected != null) _selected.SetActive(_isOn);
+                if (_locked != null) _locked.SetActive(false);
             }
         }
     }

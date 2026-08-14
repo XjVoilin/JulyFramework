@@ -1,5 +1,6 @@
 using DG.Tweening;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace July.UI
 {
@@ -9,7 +10,8 @@ namespace July.UI
     public class UIBtnEffectRotate : UIBtnEffect
     {
         [Header("Rotate")]
-        [SerializeField] private Vector3 pressRotation = new(0f, 0f, 15f);
+        [FormerlySerializedAs("pressRotation")]
+        [SerializeField] private Vector3 _pressRotation = new(0f, 0f, 15f);
 
         private Vector3 _originRotation;
 
@@ -21,7 +23,7 @@ namespace July.UI
         protected override void OnPress()
         {
             tween?.Kill();
-            tween = transform.DOLocalRotate(_originRotation + pressRotation, duration)
+            tween = transform.DOLocalRotate(_originRotation + _pressRotation, duration)
                 .SetDelay(delay)
                 .SetEase(pressEase)
                 .SetUpdate(true)

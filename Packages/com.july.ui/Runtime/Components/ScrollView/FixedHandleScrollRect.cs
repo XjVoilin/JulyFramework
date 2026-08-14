@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 namespace July.UI
@@ -9,19 +10,21 @@ namespace July.UI
     public class FixedHandleScrollRect : ScrollRect
     {
         [Header("Fixed Handle")]
-        [SerializeField] private bool fixedHandleSize;
-        [SerializeField, Range(0.05f, 1f)] private float handleSizeRatio = 0.15f;
+        [FormerlySerializedAs("fixedHandleSize")]
+        [SerializeField] private bool _fixedHandleSize;
+        [FormerlySerializedAs("handleSizeRatio")]
+        [SerializeField, Range(0.05f, 1f)] private float _handleSizeRatio = 0.15f;
 
         protected override void LateUpdate()
         {
             base.LateUpdate();
 
-            if (!fixedHandleSize) return;
+            if (!_fixedHandleSize) return;
 
             if (verticalScrollbar != null)
-                verticalScrollbar.size = handleSizeRatio;
+                verticalScrollbar.size = _handleSizeRatio;
             if (horizontalScrollbar != null)
-                horizontalScrollbar.size = handleSizeRatio;
+                horizontalScrollbar.size = _handleSizeRatio;
         }
     }
 }

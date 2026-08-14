@@ -1,34 +1,39 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 namespace July.UI
 {
     public class UIToggleButton : Selectable, IPointerClickHandler
     {
-        [SerializeField] private bool m_IsOn;
-        [SerializeField] private GameObject m_Normal;
-        [SerializeField] private GameObject m_Selected;
-        [SerializeField] private Toggle.ToggleEvent m_OnValueChanged = new();
+        [FormerlySerializedAs("m_IsOn")]
+        [SerializeField] private bool _isOn;
+        [FormerlySerializedAs("m_Normal")]
+        [SerializeField] private GameObject _normal;
+        [FormerlySerializedAs("m_Selected")]
+        [SerializeField] private GameObject _selected;
+        [FormerlySerializedAs("m_OnValueChanged")]
+        [SerializeField] private Toggle.ToggleEvent _onValueChanged = new();
 
         public bool IsOn
         {
-            get => m_IsOn;
+            get => _isOn;
             set
             {
-                if (m_IsOn == value) return;
-                m_IsOn = value;
+                if (_isOn == value) return;
+                _isOn = value;
                 UpdateVisuals();
-                m_OnValueChanged.Invoke(m_IsOn);
+                _onValueChanged.Invoke(_isOn);
             }
         }
 
-        public Toggle.ToggleEvent OnValueChanged => m_OnValueChanged;
+        public Toggle.ToggleEvent OnValueChanged => _onValueChanged;
 
         public void SetWithoutNotify(bool value)
         {
-            if (m_IsOn == value) return;
-            m_IsOn = value;
+            if (_isOn == value) return;
+            _isOn = value;
             UpdateVisuals();
         }
 
@@ -47,8 +52,8 @@ namespace July.UI
 
         private void UpdateVisuals()
         {
-            if (m_Normal != null) m_Normal.SetActive(!m_IsOn);
-            if (m_Selected != null) m_Selected.SetActive(m_IsOn);
+            if (_normal != null) _normal.SetActive(!_isOn);
+            if (_selected != null) _selected.SetActive(_isOn);
         }
     }
 }

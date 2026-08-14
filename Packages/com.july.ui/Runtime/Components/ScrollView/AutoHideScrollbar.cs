@@ -1,5 +1,6 @@
 using DG.Tweening;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 namespace July.UI
@@ -11,17 +12,23 @@ namespace July.UI
     {
         public enum Direction { Horizontal, Vertical }
 
-        [SerializeField] private ScrollRect scrollRect;
-        [SerializeField] private RectTransform scrollbarRect;
-        [SerializeField] private Direction direction = Direction.Horizontal;
+        [FormerlySerializedAs("scrollRect")]
+        [SerializeField] private ScrollRect _scrollRect;
+        [FormerlySerializedAs("scrollbarRect")]
+        [SerializeField] private RectTransform _scrollbarRect;
+        [FormerlySerializedAs("direction")]
+        [SerializeField] private Direction _direction = Direction.Horizontal;
 
         [Header("Timing")]
-        [SerializeField] private float hideDelay = 2f;
-        [SerializeField] private float slideDuration = 0.25f;
+        [FormerlySerializedAs("hideDelay")]
+        [SerializeField] private float _hideDelay = 2f;
+        [FormerlySerializedAs("slideDuration")]
+        [SerializeField] private float _slideDuration = 0.25f;
 
         [Header("Offset")]
         [Tooltip("隐藏时沿滚动条法线方向的偏移距离（正值：水平向右/垂直向下）")]
-        [SerializeField] private float hideDistance = 70f;
+        [FormerlySerializedAs("hideDistance")]
+        [SerializeField] private float _hideDistance = 70f;
 
         private Vector2 _showPos;
         private Vector2 _hidePos;
@@ -32,26 +39,26 @@ namespace July.UI
 
         private void Start()
         {
-            _showPos = scrollbarRect.anchoredPosition;
+            _showPos = _scrollbarRect.anchoredPosition;
 
-            var offset = direction == Direction.Horizontal
-                ? new Vector2(hideDistance, 0f)
-                : new Vector2(0f, -hideDistance);
+            var offset = _direction == Direction.Horizontal
+                ? new Vector2(_hideDistance, 0f)
+                : new Vector2(0f, -_hideDistance);
             _hidePos = _showPos + offset;
 
             _isVisible = false;
-            scrollbarRect.anchoredPosition = _hidePos;
+            _scrollbarRect.anchoredPosition = _hidePos;
         }
 
         private void OnEnable()
         {
             _skipFirst = true;
-            scrollRect.onValueChanged.AddListener(OnScroll);
+            _scrollRect.onValueChanged.AddListener(OnScroll);
         }
 
         private void OnDisable()
         {
-            scrollRect.onValueChanged.RemoveListener(OnScroll);
+            _scrollRect.onValueChanged.RemoveListener(OnScroll);
             KillAll();
         }
 
@@ -80,7 +87,7 @@ namespace July.UI
         private void SlideIn()
         {
             KillSlide();
-            _slideTween = scrollbarRect.DOAnchorPos(_showPos, slideDuration)
+            _slideTween = _scrollbarRect.DOAnchorPos(_showPos, _slideDuration)
                 .SetEase(Ease.OutCubic)
                 .SetUpdate(true)
                 .SetLink(gameObject);
@@ -89,7 +96,7 @@ namespace July.UI
         private void SlideOut()
         {
             KillSlide();
-            _slideTween = scrollbarRect.DOAnchorPos(_hidePos, slideDuration)
+            _slideTween = _scrollbarRect.DOAnchorPos(_hidePos, _slideDuration)
                 .SetEase(Ease.InCubic)
                 .SetUpdate(true)
                 .SetLink(gameObject)
@@ -99,7 +106,7 @@ namespace July.UI
         private void ResetHideTimer()
         {
             KillTimer();
-            _timerTween = DOVirtual.DelayedCall(hideDelay, SlideOut, false)
+            _timerTween = DOVirtual.DelayedCall(_hideDelay, SlideOut, false)
                 .SetUpdate(true)
                 .SetLink(gameObject);
         }
