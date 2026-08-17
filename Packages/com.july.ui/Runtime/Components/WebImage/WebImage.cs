@@ -19,9 +19,13 @@ namespace July.UI
 
         public string CurrentUrl => _currentUrl;
 
+        private Image TargetImage => _image != null
+            ? _image
+            : (_image = GetComponent<Image>());
+
         private void Awake()
         {
-            _image = GetComponent<Image>();
+            _image = TargetImage;
         }
 
         public void Load(string url)
@@ -33,13 +37,13 @@ namespace July.UI
 
             if (string.IsNullOrEmpty(url))
             {
-                _image.overrideSprite = null;
+                TargetImage.overrideSprite = null;
                 return;
             }
 
             if (_cache.TryGetValue(url, out var cached) && cached != null)
             {
-                _image.overrideSprite = cached;
+                TargetImage.overrideSprite = cached;
                 return;
             }
 
@@ -51,7 +55,7 @@ namespace July.UI
         {
             Cancel();
             _currentUrl = null;
-            _image.overrideSprite = null;
+            TargetImage.overrideSprite = null;
         }
 
         public static void ClearCache()
@@ -91,7 +95,7 @@ namespace July.UI
             if (_cache.TryGetValue(url, out var existing) && existing != null)
             {
                 if (_currentUrl == url)
-                    _image.overrideSprite = existing;
+                    TargetImage.overrideSprite = existing;
                 return;
             }
 
@@ -105,7 +109,7 @@ namespace July.UI
             _cache[url] = sprite;
 
             if (_currentUrl == url)
-                _image.overrideSprite = sprite;
+                TargetImage.overrideSprite = sprite;
         }
 
         private void Cancel()

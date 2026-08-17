@@ -10,6 +10,7 @@ namespace July.Platform
 {
     public class WeChatSocialService : ISocialService, INeedGetService
     {
+        private readonly Vector3[] _worldCorners = new Vector3[4];
         private WXOpenDataContext _openDataContext;
 
         public Func<Type, object> ServiceGetter { get; set; }
@@ -37,7 +38,11 @@ namespace July.Platform
                 return;
             }
 
-            ShowOpenData(render);
+            if (!TryShowOpenData(render))
+            {
+                return;
+            }
+
             _openDataContext.PostMessage(msgStr);
         }
 
@@ -88,16 +93,49 @@ namespace July.Platform
             }
         }
 
-        private void ShowOpenData(RawImage rawImage)
+        private bool TryShowOpenData(RawImage rawImage)
         {
-            var minPoint = rawImage.rectTransform.Find("MinPoint").position;
-            var maxPoint = rawImage.rectTransform.Find("MaxPoint").position;
+            if (rawImage == null)
+            {
+                Debug.LogError("[WeChatSocial] Rank RawImage is null.");
+                return false;
+            }
 
-            minPoint = RectTransformUtility.WorldToScreenPoint(null, minPoint);
-            maxPoint = RectTransformUtility.WorldToScreenPoint(null, maxPoint);
+            var canvas = rawImage.canvas;
+            if (canvas == null)
+            {
+                Debug.LogError("[WeChatSocial] Rank RawImage is not under a Canvas.");
+                return false;
+            }
 
-            WX.ShowOpenData(rawImage.texture, (int)minPoint.x, Screen.height - (int)minPoint.y,
-                Mathf.Abs((int)(maxPoint.x - minPoint.x)), Mathf.Abs((int)(maxPoint.y - minPoint.y)));
+            var camera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
+            if (canvas.renderMode != RenderMode.ScreenSpaceOverlay && camera == null)
+            {
+                Debug.LogError("[WeChatSocial] Canvas worldCamera is missing.");
+                return false;
+            }
+
+            Canvas.ForceUpdateCanvases();
+            rawImage.rectTransform.GetWorldCorners(_worldCorners);
+
+            var bottomLeft = RectTransformUtility.WorldToScreenPoint(camera, _worldCorners[0]);
+            var topRight = RectTransformUtility.WorldToScreenPoint(camera, _worldCorners[2]);
+
+            var left = Mathf.FloorToInt(bottomLeft.x);
+            var bottom = Mathf.FloorToInt(bottomLeft.y);
+            var right = Mathf.CeilToInt(topRight.x);
+            var top = Mathf.CeilToInt(topRight.y);
+            var width = right - left;
+            var height = top - bottom;
+
+            if (width <= 0 || height <= 0)
+            {
+                Debug.LogError($"[WeChatSocial] Invalid rank viewport: ({left}, {bottom}) - ({right}, {top}).");
+                return false;
+            }
+
+            WX.ShowOpenData(rawImage.texture, left, Screen.height - top, width, height);
+            return true;
         }
 
         [Serializable]
@@ -111,4 +149,3 @@ namespace July.Platform
     }
 }
 #endif
-

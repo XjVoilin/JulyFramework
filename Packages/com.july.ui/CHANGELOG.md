@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.18 - 2026-08-14
+
+- Make `WebImage` public operations safe before `Awake`, including on inactive UI objects.
+
+## 0.2.17 - 2026-08-14
+
+- Add the reusable anti-aliased `UI/RoundedRect` shader with adjustable roundness and inset.
+
 ## 0.2.16 - 2026-08-14
 
 - 修复 `FixedHandleScrollRectEditor` 在字段重命名后无法找到序列化属性的问题。
