@@ -30,7 +30,7 @@ namespace July.UI
             _activeView = null;
 
             var ctx = ArchContext.Current;
-            var ui = ctx?.GetSystem<UISystem>();
+            var ui = ctx?.GetSystem<IUISystem>();
 
             if (_initialized && ui != null)
             {
@@ -43,10 +43,10 @@ namespace July.UI
 
             if (ui != null)
             {
-                ui.CloseLayer(UILayer.Background, destroy: true, excludeWindowId: _loadingWindowId);
-                ui.CloseLayer(UILayer.Normal, destroy: true, excludeWindowId: _loadingWindowId);
-                ui.CloseLayer(UILayer.Popup, destroy: true, excludeWindowId: _loadingWindowId);
-                ui.CloseLayer(UILayer.Top, destroy: true, excludeWindowId: _loadingWindowId);
+                ui.CloseLayer(UILayer.Background, excludeWindowId: _loadingWindowId);
+                ui.CloseLayer(UILayer.Normal, excludeWindowId: _loadingWindowId);
+                ui.CloseLayer(UILayer.Popup, excludeWindowId: _loadingWindowId);
+                ui.CloseLayer(UILayer.Top, excludeWindowId: _loadingWindowId);
             }
 
             ctx?.GetSystem<AudioSystem>()?.StopAllSfx();
@@ -61,7 +61,7 @@ namespace July.UI
             }
 
             if (_initialized)
-                await (ArchContext.Current?.GetSystem<UISystem>()?.CloseAsync(_loadingWindowId, ct: ct) ?? UniTask.CompletedTask);
+                await (ArchContext.Current?.GetSystem<IUISystem>()?.CloseAsync(_loadingWindowId, ct) ?? UniTask.CompletedTask);
         }
     }
 }

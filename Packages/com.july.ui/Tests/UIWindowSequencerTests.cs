@@ -10,47 +10,86 @@ using UnityEngine.TestTools;
 namespace July.UI.Tests
 {
     [TestFixture]
-    public class UIWindowSequencerTests
+    public sealed class UIWindowSequencerTests
     {
-        /// <summary>测试用 UIView 具体子类（UIView 无 abstract 成员，可直接实例化）。</summary>
         private sealed class TestView : UIView { }
 
         private UIWindowSequencer _sequencer;
         private readonly List<int> _opened = new();
-        private readonly List<GameObject> _gos = new();
+        private readonly List<GameObject> _gameObjects = new();
 
-        private static UIOpenOptions MakeOptions(int id, UIQueueMode mode)
-            => new UIOpenOptions
-            {
-                WindowIdentifier = new WindowIdentifier(id, id.ToString()),
-                QueueMode = mode,
-                OpenAnimationType = UIAnimationType.None,
-                CloseAnimationType = UIAnimationType.None,
-            };
+        private static UIOpenOptions MakeOptions(int id, UIQueueMode mode,
+            UILayer layer = UILayer.Normal) => new()
+        {
+            WindowIdentifier = new WindowIdentifier(id, id.ToString()),
+            QueueMode = mode,
+            Layer = layer,
+            OpenAnimationType = UIAnimationType.None,
+            CloseAnimationType = UIAnimationType.None,
+        };
 
-        /// <summary>fake 打开者：成功时创建 TestView 并记录顺序，失败时返回 null。</summary>
         private sealed class FakeOpener : IUIWindowOpener
         {
             private readonly List<int> _opened;
-            private readonly List<GameObject> _gos;
-            private readonly bool _success;
+            private readonly List<GameObject> _gameObjects;
 
-            public FakeOpener(List<int> opened, List<GameObject> gos, bool success = true)
+            internal FakeOpener(List<int> opened, List<GameObject> gameObjects)
             {
                 _opened = opened;
-                _gos = gos;
-                _success = success;
+                _gameObjects = gameObjects;
             }
 
-            public UniTask<UIView> OpenCoreAsync(UIOpenOptions opts, CancellationToken ct)
+            public UniTask<UIView> OpenCoreAsync(UIOpenOptions options, CancellationToken ct)
             {
-                if (!_success) return UniTask.FromResult<UIView>(null);
-                var go = new GameObject($"View_{opts.WindowIdentifier.ID}");
+                var go = new GameObject($"View_{options.WindowIdentifier.ID}");
                 var view = go.AddComponent<TestView>();
-                view.WindowId = opts.WindowIdentifier.ID;
-                _gos.Add(go);
-                _opened.Add(opts.WindowIdentifier.ID);
+                view.WindowId = options.WindowIdentifier.ID;
+                _gameObjects.Add(go);
+                _opened.Add(options.WindowIdentifier.ID);
                 return UniTask.FromResult<UIView>(view);
+            }
+        }
+
+        private sealed class ManualFirstOpener : IUIWindowOpener
+        {
+            private readonly FakeOpener _fallback;
+            private readonly UniTaskCompletionSource<UIView> _first = new();
+            private int _callCount;
+
+            internal ManualFirstOpener(List<int> opened, List<GameObject> gameObjects)
+            {
+                _fallback = new FakeOpener(opened, gameObjects);
+            }
+
+            internal void FailFirst() => _first.TrySetResult(null);
+
+            public UniTask<UIView> OpenCoreAsync(UIOpenOptions options, CancellationToken ct)
+            {
+                _callCount++;
+                return _callCount == 1
+                    ? _first.Task.AttachExternalCancellation(ct)
+                    : _fallback.OpenCoreAsync(options, ct);
+            }
+        }
+
+        private sealed class CancelOnceOpener : IUIWindowOpener
+        {
+            private readonly FakeOpener _fallback;
+            private bool _cancelNext = true;
+
+            internal CancelOnceOpener(List<int> opened, List<GameObject> gameObjects)
+            {
+                _fallback = new FakeOpener(opened, gameObjects);
+            }
+
+            public UniTask<UIView> OpenCoreAsync(UIOpenOptions options, CancellationToken ct)
+            {
+                if (_cancelNext)
+                {
+                    _cancelNext = false;
+                    throw new OperationCanceledException();
+                }
+                return _fallback.OpenCoreAsync(options, ct);
             }
         }
 
@@ -58,115 +97,169 @@ namespace July.UI.Tests
         public void SetUp()
         {
             _opened.Clear();
-            _sequencer = new UIWindowSequencer(new FakeOpener(_opened, _gos, success: true));
+            _sequencer = new UIWindowSequencer(new FakeOpener(_opened, _gameObjects));
         }
 
         [TearDown]
         public void TearDown()
         {
-            foreach (var go in _gos)
+            foreach (var go in _gameObjects)
                 if (go != null) UnityEngine.Object.DestroyImmediate(go);
-            _gos.Clear();
+            _gameObjects.Clear();
         }
 
         [UnityTest]
-        public IEnumerator Enqueue_Serial_Open_One_By_One_After_Close()
+        public IEnumerator Enqueue_OpensOneByOne_AndEachTaskReturnsItsView()
             => Run(async () =>
             {
-                var a = await _sequencer.RequestAsync(MakeOptions(1, UIQueueMode.Enqueue), default);
-                Assert.IsNotNull(a);
-                Assert.AreEqual(new[] { 1 }, _opened);
-
-                var b = await _sequencer.RequestAsync(MakeOptions(2, UIQueueMode.Enqueue), default);
-                var c = await _sequencer.RequestAsync(MakeOptions(3, UIQueueMode.Enqueue), default);
-                Assert.IsNull(b);
-                Assert.IsNull(c);
+                var first = await _sequencer.RequestAsync(MakeOptions(1, UIQueueMode.Enqueue), default);
+                var secondTask = _sequencer.RequestAsync(MakeOptions(2, UIQueueMode.Enqueue), default);
+                var thirdTask = _sequencer.RequestAsync(MakeOptions(3, UIQueueMode.Enqueue), default);
                 Assert.AreEqual(new[] { 1 }, _opened);
 
                 _sequencer.OnWindowClosed(1);
+                var second = await secondTask;
+                Assert.That(second.WindowId, Is.EqualTo(2));
                 Assert.AreEqual(new[] { 1, 2 }, _opened);
 
                 _sequencer.OnWindowClosed(2);
+                var third = await thirdTask;
+                Assert.That(third.WindowId, Is.EqualTo(3));
                 Assert.AreEqual(new[] { 1, 2, 3 }, _opened);
 
                 _sequencer.OnWindowClosed(3);
-                Assert.AreEqual(new[] { 1, 2, 3 }, _opened);
+                Assert.That(first.WindowId, Is.EqualTo(1));
             });
 
         [UnityTest]
-        public IEnumerator EnqueueFirst_Inserts_At_Head()
+        public IEnumerator EnqueueFirst_InsertsAtHead()
             => Run(async () =>
             {
                 await _sequencer.RequestAsync(MakeOptions(1, UIQueueMode.Enqueue), default);
-                await _sequencer.RequestAsync(MakeOptions(2, UIQueueMode.Enqueue), default);
-                await _sequencer.RequestAsync(MakeOptions(9, UIQueueMode.EnqueueFirst), default);
+                var secondTask = _sequencer.RequestAsync(MakeOptions(2, UIQueueMode.Enqueue), default);
+                var priorityTask = _sequencer.RequestAsync(MakeOptions(9, UIQueueMode.EnqueueFirst), default);
 
                 _sequencer.OnWindowClosed(1);
-                // U(9) 插队到队首，应先于 B(2) 打开
+                var priority = await priorityTask;
+                Assert.That(priority.WindowId, Is.EqualTo(9));
                 Assert.AreEqual(new[] { 1, 9 }, _opened);
 
                 _sequencer.OnWindowClosed(9);
-                Assert.AreEqual(new[] { 1, 9, 2 }, _opened);
+                var second = await secondTask;
+                Assert.That(second.WindowId, Is.EqualTo(2));
             });
 
         [UnityTest]
-        public IEnumerator Clear_Removes_Pending_Without_Affecting_Active()
+        public IEnumerator Clear_CancelsPendingWithoutAffectingActive()
             => Run(async () =>
             {
                 await _sequencer.RequestAsync(MakeOptions(1, UIQueueMode.Enqueue), default);
-                await _sequencer.RequestAsync(MakeOptions(2, UIQueueMode.Enqueue), default);
-                await _sequencer.RequestAsync(MakeOptions(3, UIQueueMode.Enqueue), default);
+                var pending = _sequencer.RequestAsync(MakeOptions(2, UIQueueMode.Enqueue), default);
 
                 _sequencer.Clear();
+                var canceled = await IsCanceled(pending);
                 _sequencer.OnWindowClosed(1);
-                // 队列已清空，关闭 A 后不应再开 B/C
+
+                Assert.That(canceled, Is.True);
                 Assert.AreEqual(new[] { 1 }, _opened);
             });
 
         [UnityTest]
-        public IEnumerator SubWindow_Close_Does_Not_Advance_Queue()
+        public IEnumerator ClearLayer_CancelsOnlyMatchingPendingRequests()
             => Run(async () =>
             {
                 await _sequencer.RequestAsync(MakeOptions(1, UIQueueMode.Enqueue), default);
-                await _sequencer.RequestAsync(MakeOptions(2, UIQueueMode.Enqueue), default);
+                var popup = _sequencer.RequestAsync(
+                    MakeOptions(2, UIQueueMode.Enqueue, UILayer.Popup), default);
+                var normal = _sequencer.RequestAsync(
+                    MakeOptions(3, UIQueueMode.Enqueue, UILayer.Normal), default);
 
-                // 模拟 A 开了子窗口 D(2002)，关闭 D 不应推进 B
+                _sequencer.ClearLayer(UILayer.Popup);
+                Assert.That(await IsCanceled(popup), Is.True);
+
+                _sequencer.OnWindowClosed(1);
+                var normalView = await normal;
+                Assert.That(normalView.WindowId, Is.EqualTo(3));
+                Assert.AreEqual(new[] { 1, 3 }, _opened);
+            });
+
+        [UnityTest]
+        public IEnumerator SubWindowClose_DoesNotAdvanceQueue()
+            => Run(async () =>
+            {
+                await _sequencer.RequestAsync(MakeOptions(1, UIQueueMode.Enqueue), default);
+                var secondTask = _sequencer.RequestAsync(MakeOptions(2, UIQueueMode.Enqueue), default);
+
                 _sequencer.OnWindowClosed(2002);
                 Assert.AreEqual(new[] { 1 }, _opened);
 
-                // 关闭 A 才开 B
                 _sequencer.OnWindowClosed(1);
+                await secondTask;
                 Assert.AreEqual(new[] { 1, 2 }, _opened);
             });
 
         [UnityTest]
-        public IEnumerator OpenFailure_Skips_To_Next_Does_Not_Deadlock()
+        public IEnumerator OpenFailure_AdvancesToQueuedRequest()
             => Run(async () =>
             {
-                _sequencer = new UIWindowSequencer(new FakeOpener(_opened, _gos, success: false));
-                // 打开失败 → _activeWindowId 回滚，不卡死
-                await _sequencer.RequestAsync(MakeOptions(1, UIQueueMode.Enqueue), default);
-                await _sequencer.RequestAsync(MakeOptions(2, UIQueueMode.Enqueue), default);
-                Assert.IsEmpty(_opened);
+                var opener = new ManualFirstOpener(_opened, _gameObjects);
+                _sequencer = new UIWindowSequencer(opener);
+                var failedTask = _sequencer.RequestAsync(MakeOptions(1, UIQueueMode.Enqueue), default);
+                var nextTask = _sequencer.RequestAsync(MakeOptions(2, UIQueueMode.Enqueue), default);
+
+                opener.FailFirst();
+                var failed = await failedTask;
+                var next = await nextTask;
+
+                Assert.That(failed, Is.Null);
+                Assert.That(next.WindowId, Is.EqualTo(2));
+                Assert.AreEqual(new[] { 2 }, _opened);
             });
 
         [UnityTest]
-        public IEnumerator Different_WindowIds_Serialize_Globally()
+        public IEnumerator OpenCancellation_ReleasesActiveSlot()
             => Run(async () =>
             {
-                // 升级奖励(1001)、成就(1002)、领奖(1003) 交错，全局串行
+                _sequencer = new UIWindowSequencer(new CancelOnceOpener(_opened, _gameObjects));
+
+                var canceled = await IsCanceled(
+                    _sequencer.RequestAsync(MakeOptions(1, UIQueueMode.Enqueue), default));
+                var next = await _sequencer.RequestAsync(MakeOptions(2, UIQueueMode.Enqueue), default);
+
+                Assert.That(canceled, Is.True);
+                Assert.That(next.WindowId, Is.EqualTo(2));
+                Assert.AreEqual(new[] { 2 }, _opened);
+            });
+
+        [UnityTest]
+        public IEnumerator DifferentWindowIds_SerializeGlobally()
+            => Run(async () =>
+            {
                 await _sequencer.RequestAsync(MakeOptions(1001, UIQueueMode.Enqueue), default);
-                await _sequencer.RequestAsync(MakeOptions(1002, UIQueueMode.Enqueue), default);
-                await _sequencer.RequestAsync(MakeOptions(1003, UIQueueMode.Enqueue), default);
+                var second = _sequencer.RequestAsync(MakeOptions(1002, UIQueueMode.Enqueue), default);
+                var third = _sequencer.RequestAsync(MakeOptions(1003, UIQueueMode.Enqueue), default);
 
                 Assert.AreEqual(new[] { 1001 }, _opened);
-
                 _sequencer.OnWindowClosed(1001);
-                Assert.AreEqual(new[] { 1001, 1002 }, _opened);
-
+                await second;
                 _sequencer.OnWindowClosed(1002);
+                await third;
+
                 Assert.AreEqual(new[] { 1001, 1002, 1003 }, _opened);
             });
+
+        private static async UniTask<bool> IsCanceled(UniTask<UIView> task)
+        {
+            try
+            {
+                await task;
+                return false;
+            }
+            catch (OperationCanceledException)
+            {
+                return true;
+            }
+        }
 
         private static IEnumerator Run(Func<UniTask> test) => test().ToCoroutine();
     }

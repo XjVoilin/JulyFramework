@@ -21,14 +21,12 @@ namespace July.UI
         public int WindowId { get; }
         public string WindowName { get; }
         public UILayer Layer { get; }
-        public bool IsDestroyed { get; }
 
-        public UICloseEvent(int windowId, string windowName, UILayer layer, bool isDestroyed)
+        public UICloseEvent(int windowId, string windowName, UILayer layer)
         {
             WindowId = windowId;
             WindowName = windowName;
             Layer = layer;
-            IsDestroyed = isDestroyed;
         }
     }
 }

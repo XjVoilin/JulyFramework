@@ -30,7 +30,7 @@ namespace July.UI
         private void OnClick()
         {
             if (_window != null && _window.IsOpened)
-                this.GetSystem<UISystem>()?.Close(_window, true);
+                this.GetSystem<IUISystem>()?.Close(_window);
         }
     }
 }

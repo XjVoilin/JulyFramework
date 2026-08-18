@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using July.Arch;
@@ -15,12 +14,7 @@ namespace July.UI
 {
     public class UISystem : SystemBase, IUISystem, IUIWindowOpener
     {
-        private static readonly UILayer[] AllLayers = (UILayer[])Enum.GetValues(typeof(UILayer));
-
-        private readonly List<UIInfo> _stack = new();
-        private readonly Dictionary<int, UIInfo> _openWindows = new();
-        private readonly Dictionary<int, GameObject> _windowMasks = new();
-        private readonly Dictionary<string, ResourceHandle<GameObject>> _preloadedPrefabs = new();
+        private readonly Dictionary<int, UIWindowSession> _windows = new();
         private TipManager _tipManager;
         private UIWindowSequencer _sequencer;
 
@@ -29,7 +23,6 @@ namespace July.UI
         private GameObject _uiRootGo;
         private Camera _uiCamera;
         private Transform _stagingRoot;
-        private readonly Dictionary<UILayer, Canvas> _layerCanvases = new();
         private readonly Dictionary<UILayer, Transform> _layerTransforms = new();
         private readonly Dictionary<UILayer, Transform> _safeAreaRoots = new();
 
@@ -37,10 +30,8 @@ namespace July.UI
         private bool _maskActive;
 
         public Camera UICamera => _uiCamera;
-        public Transform StagingRoot => _stagingRoot;
-        public bool IsMaskActive => _maskActive;
 
-        public Transform GetLayer(UILayer layer)
+        private Transform GetLayer(UILayer layer)
         {
             if (_layerTransforms.TryGetValue(layer, out var t))
                 return t;
@@ -68,14 +59,6 @@ namespace July.UI
             return safeAreaGo.transform;
         }
 
-        public Canvas GetLayerCanvas(UILayer layer)
-        {
-            if (!_layerCanvases.ContainsKey(layer))
-                CreateLayerRoot(layer);
-            _layerCanvases.TryGetValue(layer, out var c);
-            return c;
-        }
-
         private Transform CreateLayerRoot(UILayer layer)
         {
             var layerGo = new GameObject($"Layer_{layer}");
@@ -96,7 +79,6 @@ namespace July.UI
 
             layerGo.AddComponent<GraphicRaycaster>();
 
-            _layerCanvases[layer] = canvas;
             _layerTransforms[layer] = layerGo.transform;
             return layerGo.transform;
         }
@@ -226,7 +208,6 @@ namespace July.UI
             _uiRootGo = null;
             _uiCamera = null;
             _stagingRoot = null;
-            _layerCanvases.Clear();
             _layerTransforms.Clear();
             _safeAreaRoots.Clear();
         }
@@ -250,15 +231,15 @@ namespace July.UI
 
         #region ISupportMultipleSource
 
-        public IUIWindowProvider MainProvider { get; private set; }
-        public IUIWindowProvider AdditionalProvider { get; private set; }
+        private IUIWindowProvider _mainProvider;
+        private IUIWindowProvider _additionalProvider;
 
-        public void SetMainProvider(IUIWindowProvider provider) => MainProvider = provider;
-        public void SetAdditionalProvider(IUIWindowProvider provider) => AdditionalProvider = provider;
+        public void SetMainProvider(IUIWindowProvider provider) => _mainProvider = provider;
+        public void SetAdditionalProvider(IUIWindowProvider provider) => _additionalProvider = provider;
 
         public void UnsetAdditionalProvider(IUIWindowProvider provider)
         {
-            if (AdditionalProvider == provider) AdditionalProvider = null;
+            if (_additionalProvider == provider) _additionalProvider = null;
         }
 
         #endregion
@@ -270,27 +251,22 @@ namespace July.UI
             CreateUIRoot();
             InitTipManager();
             _sequencer = new UIWindowSequencer(this);
-            Subscribe<UICloseEvent>(e => _sequencer.OnWindowClosed(e.WindowId));
             return UniTask.CompletedTask;
         }
 
         protected override void OnShutdown()
         {
-            CloseAll(destroy: true);
             _sequencer?.Shutdown();
+            CloseAll();
             _sequencer = null;
-            ReleaseAllMasks();
-            ReleaseAllPreloads();
-            MainProvider = null;
-            AdditionalProvider = null;
+            _mainProvider = null;
+            _additionalProvider = null;
             _tipManager?.Shutdown();
             _tipManager = null;
             ShutdownUIRoot();
         }
 
         #endregion
-
-        public UIOpenOptions GetWindowConfig(int windowId) => ResolveOptions(windowId);
 
         #region Open
 
@@ -299,21 +275,21 @@ namespace July.UI
             OpenAsync(windowId, data, ct).Forget();
         }
 
-        public async UniTask<UIView> OpenAsync(int windowId, object data = null, CancellationToken ct = default)
+        public UniTask<UIView> OpenAsync(int windowId, object data = null, CancellationToken ct = default)
         {
             var options = ResolveOptions(windowId);
-            if (options == null) return null;
+            if (options == null) return UniTask.FromResult<UIView>(null);
 
-            options.Data = data;
-            return await OpenAsync(options, ct);
+            return OpenAsync(SnapshotOptions(options, data), ct);
         }
 
-        public UniTask<UIView> OpenAsync(UIOpenOptions options, CancellationToken ct = default)
+        internal UniTask<UIView> OpenAsync(UIOpenOptions options, CancellationToken ct = default)
         {
-            if (options == null) return UniTask.FromResult<UIView>(null);
-            if (options.QueueMode != UIQueueMode.None)
-                return _sequencer.RequestAsync(options, ct);
-            return OpenCoreAsync(options, ct);
+            if (!IsValidOptions(options)) return UniTask.FromResult<UIView>(null);
+            var request = SnapshotOptions(options, options.Data);
+            if (request.QueueMode != UIQueueMode.None)
+                return _sequencer.RequestAsync(request, ct);
+            return OpenCoreAsync(request, ct);
         }
 
         UniTask<UIView> IUIWindowOpener.OpenCoreAsync(UIOpenOptions options, CancellationToken ct)
@@ -321,105 +297,116 @@ namespace July.UI
 
         internal async UniTask<UIView> OpenCoreAsync(UIOpenOptions options, CancellationToken ct = default)
         {
-            if (options == null) return null;
+            if (!IsValidOptions(options)) return null;
 
             var windowId = options.WindowIdentifier.ID;
-            if (_openWindows.ContainsKey(windowId))
+            while (_windows.TryGetValue(windowId, out var existing))
             {
-                JLogger.LogWarning($"[UISystem] Window {windowId} already open, ignoring");
-                return _openWindows[windowId].View;
+                if (existing.Lifecycle is UIWindowLifecycle.Closing or UIWindowLifecycle.Closed)
+                {
+                    await existing.WaitUntilClosedAsync(ct);
+                    continue;
+                }
+
+                if (existing.Lifecycle == UIWindowLifecycle.Open)
+                {
+                    JLogger.LogWarning($"[UISystem] Window {windowId} already open, reusing");
+                    return existing.View;
+                }
+
+                return await existing.WaitUntilOpenedAsync(ct);
             }
 
-            var go = await LoadWindowPrefab(options.WindowIdentifier.WindowName, ct);
-            if (go == null) return null;
-
-            var view = go.GetComponent<UIView>();
-            if (view == null)
-            {
-                JLogger.LogError($"[UISystem] Prefab '{options.WindowIdentifier.WindowName}' missing UIView component");
-                Object.Destroy(go);
-                return null;
-            }
-
-            view.WindowId = windowId;
-            view.InternalSetData(options.Data);
-
-            var canvasGroup = go.GetComponent<CanvasGroup>();
-            if (canvasGroup == null)
-                canvasGroup = go.AddComponent<CanvasGroup>();
-
-            var parentTransform = GetSafeAreaRoot(options.Layer);
-            go.transform.SetParent(parentTransform, false);
-
-            if (options.IgnoreSafeArea)
-                ExpandToFullScreen(go.GetComponent<RectTransform>());
-
-            if (options.ShowMask)
-                RequestMask(windowId, parentTransform, options.ClickMaskToClose, go.transform);
-
-            var uiInfo = new UIInfo
-            {
-                View = view,
-                WindowId = windowId,
-                WindowIdentifier = options.WindowIdentifier,
-                Layer = options.Layer,
-                IgnoreSafeArea = options.IgnoreSafeArea,
-                CanvasGroup = canvasGroup,
-                CloseAnimationType = options.CloseAnimationType,
-                QueueMode = options.QueueMode,
-            };
-
-            if (canvasGroup != null)
-            {
-                canvasGroup.interactable = false;
-                canvasGroup.blocksRaycasts = false;
-            }
-
-            view.InternalBeforeOpen();
-
-            var strategy = GetAnimationStrategy(options.OpenAnimationType);
-            await strategy.PlayAsync(go, true, ct);
-
-            if (canvasGroup != null)
-            {
-                canvasGroup.interactable = true;
-                canvasGroup.blocksRaycasts = true;
-            }
-
-            view.InternalOpen();
-
-            if (options.AddToStack)
-                _stack.Add(uiInfo);
-            _openWindows[windowId] = uiInfo;
-
-            this.Publish(new UIOpenEvent(windowId, options.WindowIdentifier.WindowName, options.Layer, options.Data));
-
-            return view;
+            var session = new UIWindowSession(options, ct);
+            _windows.Add(windowId, session);
+            return await OpenSessionAsync(session);
         }
 
-        public async UniTask<UIOpenResult> TryOpenAsync(UIOpenOptions options,
-            CancellationToken ct = default)
+        private async UniTask<UIView> OpenSessionAsync(UIWindowSession session)
         {
-            if (options == null)
-                return UIOpenResult.Failure(UIOpenError.InvalidOptions, "UIOpenOptions不能为空");
+            var options = session.Options;
+            var ct = session.OpeningToken;
 
             try
             {
-                var view = await OpenAsync(options, ct);
-                if (view == null)
-                    return UIOpenResult.Failure(UIOpenError.OpenFailed,
-                        $"UI打开失败: {options.WindowIdentifier}");
+                var go = await InstantiateWindow(options.WindowIdentifier.WindowName, ct);
+                if (go == null)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    session.CompleteOpening(null);
+                    FinalizeSession(session, publishClose: false);
+                    return null;
+                }
 
-                return UIOpenResult.Success(view);
-            }
-            catch (OperationCanceledException)
-            {
-                return UIOpenResult.Failure(UIOpenError.Cancelled, "UI打开被取消");
+                if (!session.TryAttachGameObject(go))
+                {
+                    Object.Destroy(go);
+                    ct.ThrowIfCancellationRequested();
+                    return null;
+                }
+                ct.ThrowIfCancellationRequested();
+
+                var view = go.GetComponent<UIView>();
+                if (view == null)
+                {
+                    JLogger.LogError($"[UISystem] Prefab '{options.WindowIdentifier.WindowName}' missing UIView component");
+                    session.CompleteOpening(null);
+                    FinalizeSession(session, publishClose: false);
+                    return null;
+                }
+
+                view.WindowId = session.WindowId;
+                view.InternalSetData(options.Data);
+
+                var canvasGroup = go.GetComponent<CanvasGroup>();
+                if (canvasGroup == null)
+                    canvasGroup = go.AddComponent<CanvasGroup>();
+                session.SetView(view, canvasGroup);
+
+                var parentTransform = GetSafeAreaRoot(options.Layer);
+                go.transform.SetParent(parentTransform, false);
+
+                if (options.IgnoreSafeArea)
+                    ExpandToFullScreen(go.GetComponent<RectTransform>());
+
+                if (options.ShowMask)
+                    RequestMask(session, parentTransform, options.ClickMaskToClose, go.transform);
+
+                if (canvasGroup != null)
+                {
+                    canvasGroup.interactable = false;
+                    canvasGroup.blocksRaycasts = false;
+                }
+
+                view.InternalBeforeOpen();
+
+                var strategy = GetAnimationStrategy(options.OpenAnimationType);
+                await strategy.PlayAsync(go, true, ct);
+                ct.ThrowIfCancellationRequested();
+
+                if (canvasGroup != null)
+                {
+                    canvasGroup.interactable = true;
+                    canvasGroup.blocksRaycasts = true;
+                }
+
+                session.MarkOpened();
+                view.InternalOpen();
+
+                if (session.Lifecycle == UIWindowLifecycle.Open)
+                {
+                    this.Publish(new UIOpenEvent(session.WindowId, options.WindowIdentifier.WindowName,
+                        options.Layer, options.Data));
+                }
+                session.CompleteOpening(view);
+
+                return view;
             }
             catch (Exception ex)
             {
-                return UIOpenResult.Failure(UIOpenError.OpenFailed,
-                    $"UI打开失败: {ex.Message}", ex);
+                session.FailOpening(ex);
+                FinalizeSession(session, publishClose: false);
+                throw;
             }
         }
 
@@ -427,84 +414,57 @@ namespace July.UI
 
         #region Close
 
-        public void Close(int windowId, bool destroy = true, UIAnimationType? animationType = null)
+        public void Close(int windowId)
         {
-            CloseInternal(windowId, destroy, animationType).Forget();
+            CloseInternal(windowId).Forget();
         }
 
-        public void Close(UIView view, bool destroy = true, UIAnimationType? animationType = null)
+        public void Close(UIView view)
         {
-            if (view == null) return;
-            Close(view.WindowId, destroy, animationType);
+            if (!TryGetCurrentSession(view, out var session)) return;
+            CloseSessionAsync(session).Forget();
         }
 
-        public UniTask CloseAsync(int windowId, bool destroy = true, UIAnimationType? animationType = null,
-            CancellationToken ct = default)
+        public UniTask CloseAsync(int windowId, CancellationToken ct = default)
         {
-            return CloseInternal(windowId, destroy, animationType, ct);
+            return CloseInternal(windowId, ct);
         }
 
-        public UniTask CloseAsync(UIView view, bool destroy = true, UIAnimationType? animationType = null,
-            CancellationToken ct = default)
+        public UniTask CloseAsync(UIView view, CancellationToken ct = default)
         {
-            if (view == null) return UniTask.CompletedTask;
-            return CloseAsync(view.WindowId, destroy, animationType, ct);
+            if (!TryGetCurrentSession(view, out var session)) return UniTask.CompletedTask;
+            return CloseSessionAsync(session, ct);
         }
 
-        public void CloseAll(bool destroy = false)
+        private bool TryGetCurrentSession(UIView view, out UIWindowSession session)
         {
-            var ids = new List<int>(_openWindows.Keys);
-            foreach (var id in ids)
-                CloseImmediate(id, destroy);
-        }
-
-        public void CloseLayer(UILayer layer, bool destroy = false, int excludeWindowId = -1)
-        {
-            var ids = new List<int>();
-            foreach (var kvp in _openWindows)
-            {
-                if (kvp.Value.Layer == layer && kvp.Key != excludeWindowId)
-                    ids.Add(kvp.Key);
-            }
-            foreach (var id in ids)
-                CloseImmediate(id, destroy);
-        }
-
-        public bool GoBack()
-        {
-            if (_stack.Count == 0) return false;
-            var top = _stack[_stack.Count - 1];
-            Close(top.WindowId);
+            session = null;
+            if (view == null || !_windows.TryGetValue(view.WindowId, out var current)
+                             || !ReferenceEquals(current.View, view))
+                return false;
+            session = current;
             return true;
         }
 
-        #endregion
-
-        #region Query
-
-        public bool IsOpen(int windowId) => _openWindows.ContainsKey(windowId);
-
-        public bool TryGet(int windowId, out UIView view)
+        private void CloseAll()
         {
-            if (_openWindows.TryGetValue(windowId, out var info))
+            _sequencer?.Clear();
+            var sessions = new List<UIWindowSession>(_windows.Values);
+            foreach (var session in sessions)
+                CloseImmediate(session);
+        }
+
+        public void CloseLayer(UILayer layer, int excludeWindowId = -1)
+        {
+            _sequencer?.ClearLayer(layer, excludeWindowId);
+            var sessions = new List<UIWindowSession>();
+            foreach (var kvp in _windows)
             {
-                view = info.View;
-                return true;
+                if (kvp.Value.Options.Layer == layer && kvp.Key != excludeWindowId)
+                    sessions.Add(kvp.Value);
             }
-            view = null;
-            return false;
-        }
-
-        public bool TryGetUIInfo(int windowId, out UIInfo info)
-        {
-            return _openWindows.TryGetValue(windowId, out info);
-        }
-
-        public int GetStackDepth() => _stack.Count;
-
-        public int GetLayerUICount(UILayer layer)
-        {
-            return _openWindows.Count(kvp => kvp.Value.Layer == layer);
+            foreach (var session in sessions)
+                CloseImmediate(session);
         }
 
         #endregion
@@ -530,150 +490,129 @@ namespace July.UI
 
         #endregion
 
-        #region Preload
-
-        public async UniTask PreloadAsync(string windowName, CancellationToken ct = default)
-        {
-            if (_preloadedPrefabs.ContainsKey(windowName)) return;
-            var resource = GetSystem<IResourceSystem>();
-            if (resource == null) return;
-
-            var handle = await resource.LoadAssetAsync<GameObject>(windowName, ct);
-            if (handle != null && handle.IsValid)
-                _preloadedPrefabs[windowName] = handle;
-        }
-
-        public async UniTask<bool[]> PreloadBatchAsync(string[] windowNames, CancellationToken ct = default)
-        {
-            if (windowNames == null || windowNames.Length == 0)
-                return Array.Empty<bool>();
-
-            var tasks = new UniTask<bool>[windowNames.Length];
-            for (int i = 0; i < windowNames.Length; i++)
-            {
-                var name = windowNames[i];
-                tasks[i] = SafePreloadAsync(name, ct);
-            }
-            return await UniTask.WhenAll(tasks);
-        }
-
-        private async UniTask<bool> SafePreloadAsync(string windowName, CancellationToken ct)
-        {
-            try
-            {
-                await PreloadAsync(windowName, ct);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                JLogger.LogWarning($"[UISystem] Preload failed: {windowName} — {ex.Message}");
-                return false;
-            }
-        }
-
-        public void ReleasePreload(string windowName)
-        {
-            if (_preloadedPrefabs.Remove(windowName, out var handle))
-                handle.Dispose();
-        }
-
-        public bool IsPreloaded(string windowName)
-        {
-            return _preloadedPrefabs.TryGetValue(windowName, out var handle) && handle.IsValid;
-        }
-
-        private void ReleaseAllPreloads()
-        {
-            foreach (var handle in _preloadedPrefabs.Values)
-                handle.Dispose();
-            _preloadedPrefabs.Clear();
-        }
-
-        #endregion
-
-        #region Sequencer
-
-        public void ClearQueue() => _sequencer?.Clear();
-
-        #endregion
-
         #region Internal
 
         private UIOpenOptions ResolveOptions(int windowId)
         {
-            if (AdditionalProvider != null && AdditionalProvider.TryResolve(windowId, out var opt))
+            if (_additionalProvider != null && _additionalProvider.TryResolve(windowId, out var opt))
                 return opt;
-            if (MainProvider != null && MainProvider.TryResolve(windowId, out opt))
+            if (_mainProvider != null && _mainProvider.TryResolve(windowId, out opt))
                 return opt;
             JLogger.LogError($"[UISystem] No config for windowId: {windowId}");
             return null;
         }
 
-        private async UniTask CloseInternal(int windowId, bool destroy,
-            UIAnimationType? animationOverride = null, CancellationToken ct = default)
+        private static UIOpenOptions SnapshotOptions(UIOpenOptions source, object data)
         {
-            if (!_openWindows.TryGetValue(windowId, out var info)) return;
-
-            info.SetInteractable(false);
-            info.View.InternalClose();
-
-            var animType = animationOverride ?? info.CloseAnimationType;
-            var strategy = GetAnimationStrategy(animType);
-            await strategy.PlayAsync(info.GameObject, false, ct);
-
-            info.View.InternalAfterClose();
-
-            ReleaseMask(windowId);
-
-            RemoveFromStack(windowId);
-            _openWindows.Remove(windowId);
-
-            var windowName = info.WindowIdentifier?.WindowName;
-            if (info.GameObject != null)
+            return new UIOpenOptions
             {
-                if (destroy)
-                    Object.Destroy(info.GameObject);
-                else
-                    info.GameObject.SetActive(false);
-            }
-
-            this.Publish(new UICloseEvent(windowId, windowName, info.Layer, destroy));
+                WindowIdentifier = source.WindowIdentifier,
+                Layer = source.Layer,
+                QueueMode = source.QueueMode,
+                Data = data,
+                OpenAnimationType = source.OpenAnimationType,
+                CloseAnimationType = source.CloseAnimationType,
+                ShowMask = source.ShowMask,
+                ClickMaskToClose = source.ClickMaskToClose,
+                IgnoreSafeArea = source.IgnoreSafeArea,
+            };
         }
 
-        private void CloseImmediate(int windowId, bool destroy)
+        private static bool IsValidOptions(UIOpenOptions options)
         {
-            if (!_openWindows.TryGetValue(windowId, out var info)) return;
+            if (options?.WindowIdentifier != null
+                && !string.IsNullOrWhiteSpace(options.WindowIdentifier.WindowName))
+                return true;
 
-            info.View.InternalClose();
-            info.View.InternalAfterClose();
-
-            ReleaseMask(windowId);
-
-            RemoveFromStack(windowId);
-            _openWindows.Remove(windowId);
-
-            var windowName = info.WindowIdentifier?.WindowName;
-            if (info.GameObject != null)
-            {
-                if (destroy)
-                    Object.Destroy(info.GameObject);
-                else
-                    info.GameObject.SetActive(false);
-            }
-
-            this.Publish(new UICloseEvent(windowId, windowName, info.Layer, destroy));
+            JLogger.LogError("[UISystem] Invalid open options: WindowIdentifier and WindowName are required");
+            return false;
         }
 
-        private void RemoveFromStack(int windowId)
+        private async UniTask CloseInternal(int windowId, CancellationToken ct = default)
         {
-            for (int i = _stack.Count - 1; i >= 0; i--)
+            if (!_windows.TryGetValue(windowId, out var session)) return;
+            await CloseSessionAsync(session, ct);
+        }
+
+        private async UniTask CloseSessionAsync(UIWindowSession session, CancellationToken ct = default)
+        {
+            if (!session.TryBeginClosing(out var wasOpen))
             {
-                if (_stack[i].WindowId == windowId)
+                await session.WaitUntilClosedAsync(ct);
+                return;
+            }
+
+            if (!wasOpen)
+            {
+                await session.WaitUntilClosedAsync(ct);
+                return;
+            }
+
+            try
+            {
+                SetInteractable(session.CanvasGroup, false);
+                session.View?.InternalClose();
+                var strategy = GetAnimationStrategy(session.Options.CloseAnimationType);
+                await strategy.PlayAsync(session.GameObject, false, ct);
+            }
+            finally
+            {
+                FinalizeSession(session, publishClose: true);
+            }
+        }
+
+        private void CloseImmediate(UIWindowSession session)
+        {
+            session.TryBeginClosing(out _);
+            if (!session.WasOpened)
+                session.FailOpening(new OperationCanceledException(session.OpeningToken));
+            FinalizeSession(session, publishClose: session.WasOpened);
+        }
+
+        private void FinalizeSession(UIWindowSession session, bool publishClose)
+        {
+            if (!session.TryFinalize()) return;
+
+            var view = session.View;
+            if (view != null)
+            {
+                try
                 {
-                    _stack.RemoveAt(i);
-                    break;
+                    if (view.IsOpened)
+                        view.InternalClose();
+                }
+                catch (Exception ex)
+                {
+                    JLogger.LogError($"[UISystem] Window {session.WindowId} OnClose failed: {ex}");
+                }
+
+                try
+                {
+                    view.InternalAfterClose();
+                }
+                catch (Exception ex)
+                {
+                    JLogger.LogError($"[UISystem] Window {session.WindowId} OnAfterClose failed: {ex}");
                 }
             }
+
+            ReleaseMask(session);
+
+            if (session.GameObject != null)
+                Object.Destroy(session.GameObject);
+
+            if (_windows.TryGetValue(session.WindowId, out var current)
+                && ReferenceEquals(current, session))
+                _windows.Remove(session.WindowId);
+
+            if (publishClose)
+            {
+                this.Publish(new UICloseEvent(session.WindowId,
+                    session.Options.WindowIdentifier.WindowName, session.Options.Layer));
+            }
+            session.CompleteClosed();
+            if (publishClose)
+                _sequencer?.OnWindowClosed(session.WindowId);
         }
 
         private static void ExpandToFullScreen(RectTransform windowRect)
@@ -711,7 +650,7 @@ namespace July.UI
             };
         }
 
-        private async UniTask<GameObject> LoadWindowPrefab(string windowName, CancellationToken ct)
+        private async UniTask<GameObject> InstantiateWindow(string windowName, CancellationToken ct)
         {
             var resource = GetSystem<IResourceSystem>();
             if (resource == null)
@@ -720,34 +659,28 @@ namespace July.UI
                 return null;
             }
 
-            ResourceHandle<GameObject> handle;
-            if (_preloadedPrefabs.TryGetValue(windowName, out var preloaded) && preloaded.IsValid)
-            {
-                handle = preloaded;
-            }
-            else
-            {
-                handle = await resource.LoadAssetAsync<GameObject>(windowName, ct);
-                if (handle != null && handle.IsValid)
-                    _preloadedPrefabs[windowName] = handle;
-            }
-
-            if (handle == null || !handle.IsValid)
+            var instance = await resource.InstantiateAsync(windowName, _stagingRoot, ct);
+            if (instance == null)
             {
                 JLogger.LogError($"[UISystem] Failed to load UI prefab: {windowName}");
                 return null;
             }
+            return instance;
+        }
 
-            var go = Object.Instantiate(handle.Asset, _stagingRoot);
-            handle.BindTo(go);
-            return go;
+        private static void SetInteractable(CanvasGroup canvasGroup, bool interactable)
+        {
+            if (canvasGroup == null) return;
+            canvasGroup.interactable = interactable;
+            canvasGroup.blocksRaycasts = interactable;
         }
 
         #endregion
 
         #region Window Mask
 
-        private void RequestMask(int windowId, Transform parent, bool clickToClose, Transform windowTransform)
+        private void RequestMask(UIWindowSession session, Transform parent, bool clickToClose,
+            Transform windowTransform)
         {
             var maskObj = new GameObject("UIMask");
             maskObj.transform.SetParent(parent, false);
@@ -765,27 +698,25 @@ namespace July.UI
             {
                 var button = maskObj.AddComponent<Button>();
                 button.transition = Selectable.Transition.None;
-                var id = windowId;
-                button.onClick.AddListener(() => Close(id));
+                button.onClick.AddListener(() => CloseIfCurrent(session));
             }
 
             maskObj.transform.SetSiblingIndex(windowTransform.GetSiblingIndex());
-            _windowMasks[windowId] = maskObj;
+            session.Mask = maskObj;
         }
 
-        private void ReleaseMask(int windowId)
+        private void CloseIfCurrent(UIWindowSession session)
         {
-            if (_windowMasks.Remove(windowId, out var maskObj) && maskObj != null)
-                Object.Destroy(maskObj);
+            if (_windows.TryGetValue(session.WindowId, out var current)
+                && ReferenceEquals(current, session))
+                CloseSessionAsync(session).Forget();
         }
 
-        private void ReleaseAllMasks()
+        private static void ReleaseMask(UIWindowSession session)
         {
-            foreach (var maskObj in _windowMasks.Values)
-            {
-                if (maskObj != null) Object.Destroy(maskObj);
-            }
-            _windowMasks.Clear();
+            if (session.Mask != null)
+                Object.Destroy(session.Mask);
+            session.Mask = null;
         }
 
         #endregion

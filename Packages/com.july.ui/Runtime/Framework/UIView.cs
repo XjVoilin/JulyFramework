@@ -8,11 +8,12 @@ namespace July.UI
     /// <summary>
     /// UI 面板基类 — 继承 ArchBehaviour，由 UISystem 驱动生命周期。
     /// <para>与 <see cref="GameView"/> 平级，不经过 GameView 继承链。</para>
-    /// <para>不占用 Unity 生命周期方法；事件清理在 InternalClose 中自动完成。</para>
+    /// <para>不占用 Unity 生命周期方法；事件清理由内部生命周期统一保证。</para>
     /// </summary>
     public abstract class UIView : ArchBehaviour
     {
         private object _data;
+        private bool _prepared;
 
         public bool IsOpened { get; private set; }
         public int WindowId { get; internal set; }
@@ -23,6 +24,7 @@ namespace July.UI
 
         internal void InternalBeforeOpen()
         {
+            _prepared = true;
             OnBeforeOpen();
         }
 
@@ -42,6 +44,9 @@ namespace July.UI
 
         internal void InternalAfterClose()
         {
+            if (!_prepared) return;
+            _prepared = false;
+            this.UnsubscribeAll();
             OnAfterClose();
         }
 
@@ -71,17 +76,14 @@ namespace July.UI
             return default;
         }
 
-        protected void CloseWindow(bool destroy = true, UIAnimationType? animationType = null)
+        protected void CloseWindow()
         {
-            if (!IsOpened) return;
-            this.GetSystem<UISystem>().Close(this, destroy, animationType);
+            this.GetSystem<IUISystem>()?.Close(this);
         }
 
-        protected UniTask CloseWindowAsync(bool destroy = true, UIAnimationType? animationType = null,
-            CancellationToken ct = default)
+        protected UniTask CloseWindowAsync(CancellationToken ct = default)
         {
-            if (!IsOpened) return UniTask.CompletedTask;
-            return this.GetSystem<UISystem>().CloseAsync(this, destroy, animationType, ct);
+            return this.GetSystem<IUISystem>()?.CloseAsync(this, ct) ?? UniTask.CompletedTask;
         }
 
         #endregion

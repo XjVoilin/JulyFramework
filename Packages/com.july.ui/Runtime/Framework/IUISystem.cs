@@ -4,82 +4,30 @@ using UnityEngine;
 
 namespace July.UI
 {
+    /// <summary>
+    /// UI 窗口模块的业务接口。窗口加载、资源所有权、层级、遮罩、动画、队列和生命周期状态均由实现隐藏。
+    /// </summary>
     public interface IUISystem
     {
-        IUIWindowProvider MainProvider { get; }
-        IUIWindowProvider AdditionalProvider { get; }
+        Camera UICamera { get; }
+
         void SetMainProvider(IUIWindowProvider provider);
         void SetAdditionalProvider(IUIWindowProvider provider);
         void UnsetAdditionalProvider(IUIWindowProvider provider);
 
-        #region UIRoot Physical Stage
+        void Open(int windowId, object data = null, CancellationToken ct = default);
+        UniTask<UIView> OpenAsync(int windowId, object data = null, CancellationToken ct = default);
 
-        Camera UICamera { get; }
-        Transform StagingRoot { get; }
-        bool IsMaskActive { get; }
-        Transform GetLayer(UILayer layer);
-        Canvas GetLayerCanvas(UILayer layer);
+        void Close(int windowId);
+        void Close(UIView view);
+        UniTask CloseAsync(int windowId, CancellationToken ct = default);
+        UniTask CloseAsync(UIView view, CancellationToken ct = default);
+        void CloseLayer(UILayer layer, int excludeWindowId = -1);
+
         void ShowMask();
         void HideMask();
 
-        #endregion
-
-        UIOpenOptions GetWindowConfig(int windowId);
-
-        #region Open
-
-        void Open(int windowId, object data = null, CancellationToken ct = default);
-        UniTask<UIView> OpenAsync(int windowId, object data = null, CancellationToken ct = default);
-        UniTask<UIView> OpenAsync(UIOpenOptions options, CancellationToken ct = default);
-        UniTask<UIOpenResult> TryOpenAsync(UIOpenOptions options, CancellationToken ct = default);
-
-        #endregion
-
-        #region Close
-
-        void Close(int windowId, bool destroy = true, UIAnimationType? animationType = null);
-        void Close(UIView view, bool destroy = true, UIAnimationType? animationType = null);
-        UniTask CloseAsync(int windowId, bool destroy = true, UIAnimationType? animationType = null,
-            CancellationToken ct = default);
-        UniTask CloseAsync(UIView view, bool destroy = true, UIAnimationType? animationType = null,
-            CancellationToken ct = default);
-        void CloseAll(bool destroy = false);
-        void CloseLayer(UILayer layer, bool destroy = false, int excludeWindowId = -1);
-        bool GoBack();
-
-        #endregion
-
-        #region Query
-
-        bool IsOpen(int windowId);
-        bool TryGet(int windowId, out UIView view);
-        bool TryGetUIInfo(int windowId, out UIInfo info);
-        int GetStackDepth();
-        int GetLayerUICount(UILayer layer);
-
-        #endregion
-
-        #region Tip
-
         void ShowTip(string message, float duration = 2f);
         void ConfigureTip(TipConfig config);
-
-        #endregion
-
-        #region Preload
-
-        UniTask PreloadAsync(string windowName, CancellationToken ct = default);
-        UniTask<bool[]> PreloadBatchAsync(string[] windowNames, CancellationToken ct = default);
-        void ReleasePreload(string windowName);
-        bool IsPreloaded(string windowName);
-
-        #endregion
-
-        #region Sequencer
-
-        /// <summary>清空串行等待队列。不影响当前已打开的活跃串行窗口，也不影响 QueueMode=None 的窗口。</summary>
-        void ClearQueue();
-
-        #endregion
     }
 }

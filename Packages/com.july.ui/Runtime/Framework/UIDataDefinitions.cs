@@ -1,5 +1,4 @@
 using System;
-using UnityEngine;
 
 namespace July.UI
 {
@@ -84,7 +83,6 @@ namespace July.UI
     {
         public WindowIdentifier WindowIdentifier { get; set; }
         public UILayer Layer { get; set; } = UILayer.Normal;
-        public bool AddToStack { get; set; } = true;
         public UIQueueMode QueueMode { get; set; } = UIQueueMode.None;
         public object Data { get; set; } = null;
         public UIAnimationType OpenAnimationType { get; set; } = UIAnimationType.None;
@@ -99,39 +97,4 @@ namespace July.UI
         bool TryResolve(int windowId, out UIOpenOptions options);
     }
 
-    public class UIInfo
-    {
-        public UIView View { get; internal set; }
-        public GameObject GameObject => View != null ? View.gameObject : null;
-        public int WindowId { get; internal set; }
-        public WindowIdentifier WindowIdentifier { get; internal set; }
-        public UILayer Layer { get; internal set; }
-        public bool IgnoreSafeArea { get; internal set; }
-        public CanvasGroup CanvasGroup { get; internal set; }
-        public UIAnimationType CloseAnimationType { get; internal set; }
-        public UIQueueMode QueueMode { get; internal set; }
-        public bool IsValid => View != null && View.IsOpened;
-
-        public void Visible(bool isShow)
-        {
-            if (CanvasGroup != null)
-            {
-                CanvasGroup.alpha = isShow ? 1f : 0f;
-                CanvasGroup.interactable = isShow;
-                CanvasGroup.blocksRaycasts = isShow;
-            }
-
-            if (GameObject != null)
-                GameObject.SetActive(isShow);
-        }
-
-        public void SetInteractable(bool interactable)
-        {
-            if (CanvasGroup != null)
-            {
-                CanvasGroup.interactable = interactable;
-                CanvasGroup.blocksRaycasts = interactable;
-            }
-        }
-    }
 }
