@@ -20,6 +20,9 @@ namespace July.Animation
         [Tooltip("状态所在的 Animator Layer 索引。")]
         [SerializeField, Min(0)] private int _layerIndex;
 
+        [Tooltip("切换到循环状态时的融合时长（秒）。设为 0 表示立即切换。")]
+        [SerializeField, Min(0f)] private float _transitionDuration = 0.15f;
+
         [Tooltip("OnEnable 时自动播放。")]
         [SerializeField] private bool _playOnEnable = true;
 
@@ -46,7 +49,14 @@ namespace July.Animation
             if (stateInfo.normalizedTime < 1f)
                 return;
 
-            _animator.Play(_loopStateName, _layerIndex, 0f);
+            if (_transitionDuration == 0f)
+                _animator.Play(_loopStateName, _layerIndex, 0f);
+            else
+                _animator.CrossFadeInFixedTime(
+                    _loopStateName,
+                    _transitionDuration,
+                    _layerIndex,
+                    0f);
             _waitingForOneShot = false;
         }
 

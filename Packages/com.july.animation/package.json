@@ -1,6 +1,6 @@
 ﻿{
     "name":  "com.july.animation",
-    "version":  "0.2.2",
+    "version":  "0.2.3",
     "displayName":  "July Animation",
     "description":  "July Animation package for the July Unity seed framework.",
     "unity":  "2022.3",
