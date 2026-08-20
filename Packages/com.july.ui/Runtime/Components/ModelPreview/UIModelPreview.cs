@@ -10,8 +10,8 @@ using UnityEngine.UI;
 namespace July.UI
 {
     /// <summary>
-    /// 将多个 3D 模型渲染到当前 RawImage，并使每个模型的位置跟随对应的 UI 锚点。
-    /// 锚点的数量和布局由调用方负责。
+    /// 将多个 3D 模型渲染到当前 RawImage。
+    /// 模型原点由当前预览实例配置，多个模型以相同间隔水平居中排列。
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(RawImage))]
@@ -26,6 +26,11 @@ namespace July.UI
 
         private readonly List<LoadedModel> _loadedModels = new();
 
+        [SerializeField, Min(0.01f)] private float _overallScale = 1f;
+        [SerializeField, Range(0f, 1f)] private float _verticalAnchor;
+        [SerializeField] private float _verticalOffset = 32f;
+        [SerializeField, Min(0f)] private float _horizontalSpacing = 220f;
+
         private RawImage _output;
         private Camera _previewCamera;
         private RenderTexture _renderTexture;
@@ -38,6 +43,7 @@ namespace July.UI
         {
             EnsureInitialized();
             var assetNames = ValidateAndGetAssetNames(targets);
+            ValidateLayout(targets.Count);
             Clear();
 
             var resourceSystem = GetSystem<IResourceSystem>();
@@ -64,9 +70,11 @@ namespace July.UI
                     handle.BindTo(model);
                     handles[index] = null;
 
-                    PrepareModel(model, target.DisplayScale);
-                    _loadedModels.Add(new LoadedModel(model, target.Anchor));
+                    PrepareModel(model);
+                    var loadedModel = new LoadedModel(model);
+                    _loadedModels.Add(loadedModel);
                     target.ConfigureInstance?.Invoke(model);
+                    loadedModel.CaptureReferenceScale();
                 }
 
                 RefreshPreview();
@@ -141,6 +149,16 @@ namespace July.UI
             RefreshPreview();
         }
 
+        private void OnValidate()
+        {
+            RefreshLayout();
+        }
+
+        private void OnRectTransformDimensionsChange()
+        {
+            RefreshLayout();
+        }
+
         protected override void OnViewDisable()
         {
             if (_previewCamera != null)
@@ -158,10 +176,19 @@ namespace July.UI
             }
         }
 
+        private void RefreshLayout()
+        {
+            if (_output == null || _loadedModels.Count == 0)
+                return;
+
+            RefreshPreview();
+        }
+
         private void RefreshPreview()
         {
             if (_loadedModels.Count == 0)
                 return;
+            ValidateLayout(_loadedModels.Count);
             if (!EnsureRenderTexture())
             {
                 _output.enabled = false;
@@ -170,9 +197,15 @@ namespace July.UI
             }
 
             var outputRect = _output.rectTransform.rect;
-            var uiCamera = GetUICamera();
             for (var index = 0; index < _loadedModels.Count; index++)
-                PlaceModel(_loadedModels[index], outputRect, uiCamera);
+            {
+                ApplyOverallScale(_loadedModels[index]);
+                PlaceModel(
+                    _loadedModels[index],
+                    outputRect,
+                    index,
+                    _loadedModels.Count);
+            }
 
             _output.enabled = true;
             _previewCamera.enabled = isActiveAndEnabled;
@@ -206,17 +239,26 @@ namespace July.UI
             {
                 if (string.IsNullOrWhiteSpace(targets[index].ModelAssetName))
                     throw new ArgumentException($"第 {index} 个目标未指定模型资源。", nameof(targets));
-                if (targets[index].Anchor == null)
-                    throw new ArgumentException($"第 {index} 个目标未指定锚点。", nameof(targets));
-                if (targets[index].DisplayScale <= 0f)
-                    throw new ArgumentOutOfRangeException(
-                        nameof(targets),
-                        $"第 {index} 个目标的显示缩放必须大于零。");
-
                 assetNames[index] = targets[index].ModelAssetName;
             }
 
             return assetNames;
+        }
+
+        private void ValidateLayout(int targetCount)
+        {
+            if (!IsFinite(_overallScale) || _overallScale <= 0f)
+                throw new InvalidOperationException("模型预览的整体缩放必须大于零。");
+            if (!IsFinite(_verticalAnchor) ||
+                _verticalAnchor < 0f ||
+                _verticalAnchor > 1f)
+                throw new InvalidOperationException("模型预览的垂直锚点必须在 [0, 1] 范围内。");
+            if (!IsFinite(_verticalOffset))
+                throw new InvalidOperationException("模型预览的垂直偏移必须是有限数值。");
+            if (!IsFinite(_horizontalSpacing) || _horizontalSpacing < 0f)
+                throw new InvalidOperationException("模型预览的水平间隔必须是有限的非负数值。");
+            if (targetCount > 1 && _horizontalSpacing <= 0f)
+                throw new InvalidOperationException("显示多个模型时，模型预览的水平间隔必须大于零。");
         }
 
         private static void DisposeHandles(ResourceHandle<GameObject>[] handles)
@@ -228,26 +270,38 @@ namespace July.UI
                 handles[index]?.Dispose();
         }
 
-        private void PrepareModel(GameObject model, float displayScale)
+        private static void PrepareModel(GameObject model)
         {
             model.transform.localPosition = Vector3.zero;
-            model.transform.localScale *= displayScale;
         }
 
-        private void PlaceModel(LoadedModel loadedModel, Rect outputRect, Camera uiCamera)
+        private void ApplyOverallScale(LoadedModel loadedModel)
         {
-            if (loadedModel.Anchor == null)
-                return;
+            loadedModel.Model.transform.localScale = CalculateModelScale(
+                loadedModel.ReferenceScale,
+                _overallScale);
+        }
 
-            var anchorCenter = loadedModel.Anchor.TransformPoint(loadedModel.Anchor.rect.center);
-            var screenPoint = RectTransformUtility.WorldToScreenPoint(uiCamera, anchorCenter);
-            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                    _output.rectTransform,
-                    screenPoint,
-                    uiCamera,
-                    out var outputPoint))
-                return;
+        internal static Vector3 CalculateModelScale(
+            Vector3 referenceScale,
+            float overallScale)
+        {
+            return referenceScale * overallScale;
+        }
 
+        private void PlaceModel(
+            LoadedModel loadedModel,
+            Rect outputRect,
+            int index,
+            int count)
+        {
+            var outputPoint = CalculateModelOrigin(
+                outputRect,
+                _verticalAnchor,
+                _verticalOffset,
+                _horizontalSpacing,
+                index,
+                count);
             var viewportPoint = new Vector3(
                 Mathf.InverseLerp(outputRect.xMin, outputRect.xMax, outputPoint.x),
                 Mathf.InverseLerp(outputRect.yMin, outputRect.yMax, outputPoint.y),
@@ -256,13 +310,19 @@ namespace July.UI
                 _previewCamera.ViewportToWorldPoint(viewportPoint);
         }
 
-        private Camera GetUICamera()
+        internal static Vector2 CalculateModelOrigin(
+            Rect outputRect,
+            float verticalAnchor,
+            float verticalOffset,
+            float horizontalSpacing,
+            int index,
+            int count)
         {
-            var canvas = _output.canvas;
-            if (canvas == null || canvas.renderMode == RenderMode.ScreenSpaceOverlay)
-                return null;
-
-            return canvas.worldCamera;
+            var centeredIndex = index - (count - 1) * 0.5f;
+            return new Vector2(
+                outputRect.center.x + centeredIndex * horizontalSpacing,
+                Mathf.Lerp(outputRect.yMin, outputRect.yMax, verticalAnchor) +
+                verticalOffset);
         }
 
         private bool EnsureRenderTexture()
@@ -337,15 +397,25 @@ namespace July.UI
             _renderTexture = null;
         }
 
-        private readonly struct LoadedModel
+        private static bool IsFinite(float value)
+        {
+            return !float.IsNaN(value) && !float.IsInfinity(value);
+        }
+
+        private sealed class LoadedModel
         {
             public readonly GameObject Model;
-            public readonly RectTransform Anchor;
+            public Vector3 ReferenceScale { get; private set; }
 
-            public LoadedModel(GameObject model, RectTransform anchor)
+            public LoadedModel(GameObject model)
             {
                 Model = model;
-                Anchor = anchor;
+                CaptureReferenceScale();
+            }
+
+            public void CaptureReferenceScale()
+            {
+                ReferenceScale = Model.transform.localScale;
             }
         }
     }

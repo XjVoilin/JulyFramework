@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.19 - 2026-08-20
+
+- Configure the shared model origin and horizontal spacing on each `UIModelPreview` instance instead of passing a `RectTransform` anchor for every model.
+- Move display sizing from `ModelPreviewTarget` to an Inspector-adjustable `UIModelPreview` overall scale, preserving the models' original relative sizes.
+
 ## 0.2.18 - 2026-08-14
 
 - Make `WebImage` public operations safe before `Awake`, including on inactive UI objects.
