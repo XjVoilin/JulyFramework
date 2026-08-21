@@ -12,6 +12,7 @@ namespace July.UI
         public static Vector2Int Calculate(
             Vector2 logicalSize,
             float canvasScaleFactor,
+            float renderTextureScale,
             int maximumTextureSize)
         {
             if (!IsPositiveFinite(logicalSize.x) ||
@@ -28,7 +29,8 @@ namespace July.UI
                 MinimumPixelsPerCanvasUnit / safeCanvasScale,
                 1f,
                 MaximumResolutionCompensation);
-            var effectiveScale = safeCanvasScale * resolutionCompensation;
+            var effectiveScale =
+                safeCanvasScale * resolutionCompensation * renderTextureScale;
 
             var size = new Vector2Int(
                 Mathf.Clamp(

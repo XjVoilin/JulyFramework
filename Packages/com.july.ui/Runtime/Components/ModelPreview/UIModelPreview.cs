@@ -9,6 +9,13 @@ using UnityEngine.UI;
 
 namespace July.UI
 {
+    public enum ModelPreviewAntiAliasing
+    {
+        Disabled = 1,
+        TwoSamples = 2,
+        FourSamples = 4,
+    }
+
     /// <summary>
     /// 将多个 3D 模型渲染到当前 RawImage。
     /// 模型原点由当前预览实例配置，多个模型以相同间隔水平居中排列。
@@ -18,9 +25,12 @@ namespace July.UI
     public sealed class UIModelPreview : GameView
     {
         private const float CameraDistance = 10f;
+        private const float CameraNearClipPlane = 1f;
+        private const float CameraFarClipPlane = 20f;
         private const float CameraOrthographicSize = 1f;
         private const float RuntimeSlotSpacing = 1000f;
-        private const int AntiAliasingSamples = 2;
+        private const double RenderScheduleTolerance = 0.001d;
+        private const int DepthBufferBits = 16;
 
         private static int _nextRuntimeSlot;
 
@@ -31,10 +41,17 @@ namespace July.UI
         [SerializeField] private float _verticalOffset = 32f;
         [SerializeField, Min(0f)] private float _horizontalSpacing = 220f;
 
+        [SerializeField, Range(0.25f, 1f)] private float _renderTextureScale = 0.7f;
+        [SerializeField, Min(1)] private int _maxRenderFrameRate = 30;
+        [SerializeField] private ModelPreviewAntiAliasing _antiAliasing =
+            ModelPreviewAntiAliasing.TwoSamples;
+
         private RawImage _output;
         private Camera _previewCamera;
         private RenderTexture _renderTexture;
         private CancellationTokenSource _loadCts;
+        private bool _renderingRequested;
+        private double _nextRenderTime;
 
         /// <summary>清除当前内容并显示指定的模型。</summary>
         public async UniTask ShowAsync(
@@ -114,6 +131,25 @@ namespace July.UI
             return ShowAsync(targets, cancellationToken);
         }
 
+        /// <summary>
+        /// 覆盖当前实例的渲染质量参数。写入后的值会直接显示在运行时 Inspector 中。
+        /// </summary>
+        public void OverrideRendering(
+            float renderTextureScale,
+            int maxRenderFrameRate,
+            ModelPreviewAntiAliasing antiAliasing)
+        {
+            ValidateRenderingOverride(
+                renderTextureScale,
+                maxRenderFrameRate,
+                antiAliasing);
+
+            _renderTextureScale = renderTextureScale;
+            _maxRenderFrameRate = maxRenderFrameRate;
+            _antiAliasing = antiAliasing;
+            RefreshLayout();
+        }
+
         /// <summary>清除当前显示的全部模型。</summary>
         public void Clear()
         {
@@ -125,6 +161,7 @@ namespace July.UI
                 Destroy(_loadedModels[index].Model);
 
             _loadedModels.Clear();
+            _renderingRequested = false;
             if (_output != null)
             {
                 _output.enabled = false;
@@ -162,6 +199,22 @@ namespace July.UI
             RefreshPreview();
         }
 
+        private void LateUpdate()
+        {
+            if (!_renderingRequested || _previewCamera == null)
+                return;
+
+            var currentTime = Time.unscaledTimeAsDouble;
+            if (currentTime + RenderScheduleTolerance < _nextRenderTime)
+            {
+                _previewCamera.enabled = false;
+                return;
+            }
+
+            _previewCamera.enabled = true;
+            _nextRenderTime = currentTime + 1d / _maxRenderFrameRate;
+        }
+
         private void OnValidate()
         {
             RefreshLayout();
@@ -174,6 +227,7 @@ namespace July.UI
 
         protected override void OnViewDisable()
         {
+            _renderingRequested = false;
             if (_previewCamera != null)
             {
                 _previewCamera.enabled = false;
@@ -221,7 +275,9 @@ namespace July.UI
             }
 
             _output.enabled = true;
-            _previewCamera.enabled = isActiveAndEnabled;
+            _renderingRequested = isActiveAndEnabled;
+            _nextRenderTime = 0d;
+            _previewCamera.enabled = false;
         }
 
         private void CreatePreviewCamera()
@@ -234,12 +290,19 @@ namespace July.UI
             DontDestroyOnLoad(cameraObject);
 
             _previewCamera = cameraObject.AddComponent<Camera>();
-            _previewCamera.enabled = false;
-            _previewCamera.clearFlags = CameraClearFlags.SolidColor;
-            _previewCamera.backgroundColor = Color.clear;
-            _previewCamera.orthographic = true;
-            _previewCamera.orthographicSize = CameraOrthographicSize;
-            _previewCamera.allowMSAA = true;
+            ConfigurePreviewCamera(_previewCamera);
+        }
+
+        internal static void ConfigurePreviewCamera(Camera camera)
+        {
+            camera.enabled = false;
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = Color.clear;
+            camera.nearClipPlane = CameraNearClipPlane;
+            camera.farClipPlane = CameraFarClipPlane;
+            camera.orthographic = true;
+            camera.orthographicSize = CameraOrthographicSize;
+            camera.allowMSAA = true;
         }
 
         private static string[] ValidateAndGetAssetNames(IReadOnlyList<ModelPreviewTarget> targets)
@@ -273,6 +336,35 @@ namespace July.UI
                 throw new InvalidOperationException("模型预览的水平间隔必须是有限的非负数值。");
             if (targetCount > 1 && _horizontalSpacing <= 0f)
                 throw new InvalidOperationException("显示多个模型时，模型预览的水平间隔必须大于零。");
+            if (!IsFinite(_renderTextureScale) ||
+                _renderTextureScale < 0.25f ||
+                _renderTextureScale > 1f)
+                throw new InvalidOperationException("模型预览的渲染纹理缩放必须在 [0.25, 1] 范围内。");
+            if (_maxRenderFrameRate <= 0)
+                throw new InvalidOperationException("模型预览的最大渲染帧率必须大于零。");
+            if (!IsSupportedAntiAliasing(_antiAliasing))
+                throw new InvalidOperationException("模型预览的 MSAA 配置无效。");
+        }
+
+        private static void ValidateRenderingOverride(
+            float renderTextureScale,
+            int maxRenderFrameRate,
+            ModelPreviewAntiAliasing antiAliasing)
+        {
+            if (!IsFinite(renderTextureScale) ||
+                renderTextureScale < 0.25f ||
+                renderTextureScale > 1f)
+                throw new ArgumentOutOfRangeException(
+                    nameof(renderTextureScale),
+                    "渲染纹理缩放必须在 [0.25, 1] 范围内。");
+            if (maxRenderFrameRate <= 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(maxRenderFrameRate),
+                    "最大渲染帧率必须大于零。");
+            if (!IsSupportedAntiAliasing(antiAliasing))
+                throw new ArgumentOutOfRangeException(
+                    nameof(antiAliasing),
+                    "MSAA 只支持关闭、2 倍和 4 倍。");
         }
 
         private void OverrideLayout(float overallScale, float verticalOffset)
@@ -360,11 +452,14 @@ namespace July.UI
             var requiredSize = GetRequiredTextureSize();
             if (requiredSize.x == 0 || requiredSize.y == 0)
                 return false;
-            var descriptor = CreateRenderTextureDescriptor(requiredSize);
+            var descriptor = CreateRenderTextureDescriptor(
+                requiredSize,
+                (int)_antiAliasing);
 
             if (_renderTexture != null &&
                 _renderTexture.width == requiredSize.x &&
                 _renderTexture.height == requiredSize.y &&
+                _renderTexture.depth == descriptor.depthBufferBits &&
                 _renderTexture.antiAliasing == descriptor.msaaSamples)
                 return true;
 
@@ -383,15 +478,17 @@ namespace July.UI
             return true;
         }
 
-        private static RenderTextureDescriptor CreateRenderTextureDescriptor(Vector2Int size)
+        internal static RenderTextureDescriptor CreateRenderTextureDescriptor(
+            Vector2Int size,
+            int antiAliasingSamples)
         {
             var descriptor = new RenderTextureDescriptor(
                 size.x,
                 size.y,
                 RenderTextureFormat.ARGB32,
-                16)
+                DepthBufferBits)
             {
-                msaaSamples = AntiAliasingSamples
+                msaaSamples = antiAliasingSamples
             };
             descriptor.msaaSamples = Mathf.Max(
                 1,
@@ -409,6 +506,7 @@ namespace July.UI
             return UIModelPreviewTextureSizing.Calculate(
                 rect.size,
                 scaleFactor,
+                _renderTextureScale,
                 SystemInfo.maxTextureSize);
         }
 
@@ -430,6 +528,15 @@ namespace July.UI
         private static bool IsFinite(float value)
         {
             return !float.IsNaN(value) && !float.IsInfinity(value);
+        }
+
+        private static bool IsSupportedAntiAliasing(
+            ModelPreviewAntiAliasing antiAliasing)
+        {
+            return antiAliasing is
+                ModelPreviewAntiAliasing.Disabled or
+                ModelPreviewAntiAliasing.TwoSamples or
+                ModelPreviewAntiAliasing.FourSamples;
         }
 
         private sealed class LoadedModel

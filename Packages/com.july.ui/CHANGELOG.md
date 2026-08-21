@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.24 - 2026-08-21
+
+- Add configurable render texture scale, maximum render frame rate and MSAA to `UIModelPreview`, with runtime overrides reflected in the Inspector.
+- Use a 16-bit depth target with the focused preview camera clipping range after device verification.
+
+## 0.2.23 - 2026-08-21
+
+- Prevent animated model parts from flickering in `UIModelPreview` by using a 24-bit depth target and concentrating the preview camera clipping range around the model plane.
+
 ## 0.2.21 - 2026-08-21
 
 - Add a `UIModelPreview.ShowAsync` overload that writes the supplied scale and vertical offset directly to the preview instance, keeping the live Inspector editable and truthful.

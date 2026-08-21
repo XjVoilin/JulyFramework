@@ -12,6 +12,7 @@ namespace July.UI.Tests
             var size = UIModelPreviewTextureSizing.Calculate(
                 new Vector2(518f, 653.2f),
                 0.537f,
+                1f,
                 8192);
 
             Assert.That(size, Is.EqualTo(new Vector2Int(518, 654)));
@@ -28,6 +29,7 @@ namespace July.UI.Tests
             var size = UIModelPreviewTextureSizing.Calculate(
                 new Vector2(500f, 400f),
                 canvasScale,
+                1f,
                 8192);
 
             Assert.That(size, Is.EqualTo(new Vector2Int(expectedWidth, expectedHeight)));
@@ -39,6 +41,7 @@ namespace July.UI.Tests
             var size = UIModelPreviewTextureSizing.Calculate(
                 new Vector2(500f, 400f),
                 0.25f,
+                1f,
                 8192);
 
             Assert.That(size, Is.EqualTo(new Vector2Int(250, 200)));
@@ -50,6 +53,7 @@ namespace July.UI.Tests
             var size = UIModelPreviewTextureSizing.Calculate(
                 new Vector2(1000f, 1000f),
                 2f,
+                1f,
                 8192);
 
             Assert.That(size, Is.EqualTo(new Vector2Int(1024, 1024)));
@@ -63,9 +67,22 @@ namespace July.UI.Tests
             var size = UIModelPreviewTextureSizing.Calculate(
                 new Vector2(500f, 400f),
                 canvasScale,
+                1f,
                 8192);
 
             Assert.That(size, Is.EqualTo(new Vector2Int(500, 400)));
+        }
+
+        [Test]
+        public void Calculate_AppliesRenderTextureScale()
+        {
+            var size = UIModelPreviewTextureSizing.Calculate(
+                new Vector2(500f, 400f),
+                0.537f,
+                0.7f,
+                8192);
+
+            Assert.That(size, Is.EqualTo(new Vector2Int(350, 280)));
         }
     }
 }
