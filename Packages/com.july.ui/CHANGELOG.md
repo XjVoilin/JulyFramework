@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.20 - 2026-08-21
+
+- Allow each `ModelPreviewTarget` to optionally override the preview scale and vertical offset while retaining the `UIModelPreview` defaults when omitted.
+
 ## 0.2.19 - 2026-08-20
 
 - Configure the shared model origin and horizontal spacing on each `UIModelPreview` instance instead of passing a `RectTransform` anchor for every model.
