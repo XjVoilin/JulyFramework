@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.21 - 2026-08-21
+
+- Add a `UIModelPreview.ShowAsync` overload that writes the supplied scale and vertical offset directly to the preview instance, keeping the live Inspector editable and truthful.
+- Keep model sizing uniform per preview instance; individual targets no longer carry layout overrides.
+
 ## 0.2.20 - 2026-08-21
 
 - Allow each `ModelPreviewTarget` to optionally override the preview scale and vertical offset while retaining the `UIModelPreview` defaults when omitted.

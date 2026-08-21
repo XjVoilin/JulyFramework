@@ -7,34 +7,13 @@ namespace July.UI.Tests
     public sealed class UIModelPreviewOriginTests
     {
         [Test]
-        public void ModelPreviewTarget_OmitsOverridesByDefault()
-        {
-            var target = new ModelPreviewTarget("goose");
-
-            Assert.That(target.ScaleOverride, Is.Null);
-            Assert.That(target.VerticalOffsetOverride, Is.Null);
-        }
-
-        [Test]
-        public void CalculateModelScale_UsesOverallScaleWhenOverrideIsMissing()
+        public void CalculateModelScale_PreservesReferenceScaleRatio()
         {
             var scale = UIModelPreview.CalculateModelScale(
                 new Vector3(2f, 3f, 4f),
-                1.5f,
-                null);
+                1.5f);
 
             Assert.That(scale, Is.EqualTo(new Vector3(3f, 4.5f, 6f)));
-        }
-
-        [Test]
-        public void CalculateModelScale_UsesTargetOverride()
-        {
-            var scale = UIModelPreview.CalculateModelScale(
-                new Vector3(2f, 3f, 4f),
-                1.5f,
-                0.5f);
-
-            Assert.That(scale, Is.EqualTo(new Vector3(1f, 1.5f, 2f)));
         }
 
         [Test]
@@ -44,27 +23,11 @@ namespace July.UI.Tests
                 new Rect(10f, 20f, 400f, 300f),
                 0f,
                 32f,
-                null,
                 220f,
                 0,
                 1);
 
             Assert.That(origin, Is.EqualTo(new Vector2(210f, 52f)));
-        }
-
-        [Test]
-        public void CalculateModelOrigin_UsesTargetVerticalOffsetOverride()
-        {
-            var origin = UIModelPreview.CalculateModelOrigin(
-                new Rect(10f, 20f, 400f, 300f),
-                0f,
-                32f,
-                80f,
-                220f,
-                0,
-                1);
-
-            Assert.That(origin, Is.EqualTo(new Vector2(210f, 100f)));
         }
 
         [TestCase(0, -10f)]
@@ -78,7 +41,6 @@ namespace July.UI.Tests
                 new Rect(10f, 20f, 400f, 300f),
                 0f,
                 32f,
-                null,
                 220f,
                 index,
                 3);

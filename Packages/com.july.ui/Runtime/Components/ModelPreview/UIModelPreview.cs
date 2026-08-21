@@ -71,7 +71,7 @@ namespace July.UI
                     handles[index] = null;
 
                     PrepareModel(model);
-                    var loadedModel = new LoadedModel(model, target);
+                    var loadedModel = new LoadedModel(model);
                     _loadedModels.Add(loadedModel);
                     target.ConfigureInstance?.Invoke(model);
                     loadedModel.CaptureReferenceScale();
@@ -99,6 +99,19 @@ namespace July.UI
                     _loadCts = null;
                 }
             }
+        }
+
+        /// <summary>
+        /// 使用指定的实例级布局参数显示模型。传入值会直接覆盖当前组件的 Inspector 参数。
+        /// </summary>
+        public UniTask ShowAsync(
+            IReadOnlyList<ModelPreviewTarget> targets,
+            float overallScale,
+            float verticalOffset,
+            CancellationToken cancellationToken = default)
+        {
+            OverrideLayout(overallScale, verticalOffset);
+            return ShowAsync(targets, cancellationToken);
         }
 
         /// <summary>清除当前显示的全部模型。</summary>
@@ -240,17 +253,6 @@ namespace July.UI
                 var target = targets[index];
                 if (string.IsNullOrWhiteSpace(target.ModelAssetName))
                     throw new ArgumentException($"第 {index} 个目标未指定模型资源。", nameof(targets));
-                if (target.ScaleOverride.HasValue &&
-                    (!IsFinite(target.ScaleOverride.Value) || target.ScaleOverride.Value <= 0f))
-                    throw new ArgumentOutOfRangeException(
-                        nameof(targets),
-                        $"第 {index} 个目标的缩放覆盖必须大于零。");
-                if (target.VerticalOffsetOverride.HasValue &&
-                    !IsFinite(target.VerticalOffsetOverride.Value))
-                    throw new ArgumentOutOfRangeException(
-                        nameof(targets),
-                        $"第 {index} 个目标的垂直偏移覆盖必须是有限数值。");
-
                 assetNames[index] = target.ModelAssetName;
             }
 
@@ -273,6 +275,22 @@ namespace July.UI
                 throw new InvalidOperationException("显示多个模型时，模型预览的水平间隔必须大于零。");
         }
 
+        private void OverrideLayout(float overallScale, float verticalOffset)
+        {
+            if (!IsFinite(overallScale) || overallScale <= 0f)
+                throw new ArgumentOutOfRangeException(
+                    nameof(overallScale),
+                    "模型预览的整体缩放必须大于零。");
+            if (!IsFinite(verticalOffset))
+                throw new ArgumentOutOfRangeException(
+                    nameof(verticalOffset),
+                    "模型预览的垂直偏移必须是有限数值。");
+
+            _overallScale = overallScale;
+            _verticalOffset = verticalOffset;
+            RefreshLayout();
+        }
+
         private static void DisposeHandles(ResourceHandle<GameObject>[] handles)
         {
             if (handles == null)
@@ -291,16 +309,14 @@ namespace July.UI
         {
             loadedModel.Model.transform.localScale = CalculateModelScale(
                 loadedModel.ReferenceScale,
-                _overallScale,
-                loadedModel.ScaleOverride);
+                _overallScale);
         }
 
         internal static Vector3 CalculateModelScale(
             Vector3 referenceScale,
-            float overallScale,
-            float? scaleOverride)
+            float overallScale)
         {
-            return referenceScale * (scaleOverride ?? overallScale);
+            return referenceScale * overallScale;
         }
 
         private void PlaceModel(
@@ -313,7 +329,6 @@ namespace July.UI
                 outputRect,
                 _verticalAnchor,
                 _verticalOffset,
-                loadedModel.VerticalOffsetOverride,
                 _horizontalSpacing,
                 index,
                 count);
@@ -329,7 +344,6 @@ namespace July.UI
             Rect outputRect,
             float verticalAnchor,
             float verticalOffset,
-            float? verticalOffsetOverride,
             float horizontalSpacing,
             int index,
             int count)
@@ -338,7 +352,7 @@ namespace July.UI
             return new Vector2(
                 outputRect.center.x + centeredIndex * horizontalSpacing,
                 Mathf.Lerp(outputRect.yMin, outputRect.yMax, verticalAnchor) +
-                (verticalOffsetOverride ?? verticalOffset));
+                verticalOffset);
         }
 
         private bool EnsureRenderTexture()
@@ -421,15 +435,11 @@ namespace July.UI
         private sealed class LoadedModel
         {
             public readonly GameObject Model;
-            public readonly float? ScaleOverride;
-            public readonly float? VerticalOffsetOverride;
             public Vector3 ReferenceScale { get; private set; }
 
-            public LoadedModel(GameObject model, ModelPreviewTarget target)
+            public LoadedModel(GameObject model)
             {
                 Model = model;
-                ScaleOverride = target.ScaleOverride;
-                VerticalOffsetOverride = target.VerticalOffsetOverride;
                 CaptureReferenceScale();
             }
 
