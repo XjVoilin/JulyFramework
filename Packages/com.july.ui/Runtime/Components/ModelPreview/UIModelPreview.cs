@@ -29,7 +29,6 @@ namespace July.UI
         private const float CameraFarClipPlane = 20f;
         private const float CameraOrthographicSize = 1f;
         private const float RuntimeSlotSpacing = 1000f;
-        private const double RenderScheduleTolerance = 0.001d;
         private const int DepthBufferBits = 16;
 
         private static int _nextRuntimeSlot;
@@ -42,7 +41,6 @@ namespace July.UI
         [SerializeField, Min(0f)] private float _horizontalSpacing = 220f;
 
         [SerializeField, Range(0.25f, 1f)] private float _renderTextureScale = 0.7f;
-        [SerializeField, Min(1)] private int _maxRenderFrameRate = 30;
         [SerializeField] private ModelPreviewAntiAliasing _antiAliasing =
             ModelPreviewAntiAliasing.TwoSamples;
 
@@ -50,8 +48,6 @@ namespace July.UI
         private Camera _previewCamera;
         private RenderTexture _renderTexture;
         private CancellationTokenSource _loadCts;
-        private bool _renderingRequested;
-        private double _nextRenderTime;
 
         /// <summary>清除当前内容并显示指定的模型。</summary>
         public async UniTask ShowAsync(
@@ -136,16 +132,13 @@ namespace July.UI
         /// </summary>
         public void OverrideRendering(
             float renderTextureScale,
-            int maxRenderFrameRate,
             ModelPreviewAntiAliasing antiAliasing)
         {
             ValidateRenderingOverride(
                 renderTextureScale,
-                maxRenderFrameRate,
                 antiAliasing);
 
             _renderTextureScale = renderTextureScale;
-            _maxRenderFrameRate = maxRenderFrameRate;
             _antiAliasing = antiAliasing;
             RefreshLayout();
         }
@@ -161,7 +154,6 @@ namespace July.UI
                 Destroy(_loadedModels[index].Model);
 
             _loadedModels.Clear();
-            _renderingRequested = false;
             if (_output != null)
             {
                 _output.enabled = false;
@@ -199,22 +191,6 @@ namespace July.UI
             RefreshPreview();
         }
 
-        private void LateUpdate()
-        {
-            if (!_renderingRequested || _previewCamera == null)
-                return;
-
-            var currentTime = Time.unscaledTimeAsDouble;
-            if (currentTime + RenderScheduleTolerance < _nextRenderTime)
-            {
-                _previewCamera.enabled = false;
-                return;
-            }
-
-            _previewCamera.enabled = true;
-            _nextRenderTime = currentTime + 1d / _maxRenderFrameRate;
-        }
-
         private void OnValidate()
         {
             RefreshLayout();
@@ -227,7 +203,6 @@ namespace July.UI
 
         protected override void OnViewDisable()
         {
-            _renderingRequested = false;
             if (_previewCamera != null)
             {
                 _previewCamera.enabled = false;
@@ -275,9 +250,7 @@ namespace July.UI
             }
 
             _output.enabled = true;
-            _renderingRequested = isActiveAndEnabled;
-            _nextRenderTime = 0d;
-            _previewCamera.enabled = false;
+            _previewCamera.enabled = isActiveAndEnabled;
         }
 
         private void CreatePreviewCamera()
@@ -340,15 +313,12 @@ namespace July.UI
                 _renderTextureScale < 0.25f ||
                 _renderTextureScale > 1f)
                 throw new InvalidOperationException("模型预览的渲染纹理缩放必须在 [0.25, 1] 范围内。");
-            if (_maxRenderFrameRate <= 0)
-                throw new InvalidOperationException("模型预览的最大渲染帧率必须大于零。");
             if (!IsSupportedAntiAliasing(_antiAliasing))
                 throw new InvalidOperationException("模型预览的 MSAA 配置无效。");
         }
 
         private static void ValidateRenderingOverride(
             float renderTextureScale,
-            int maxRenderFrameRate,
             ModelPreviewAntiAliasing antiAliasing)
         {
             if (!IsFinite(renderTextureScale) ||
@@ -357,10 +327,6 @@ namespace July.UI
                 throw new ArgumentOutOfRangeException(
                     nameof(renderTextureScale),
                     "渲染纹理缩放必须在 [0.25, 1] 范围内。");
-            if (maxRenderFrameRate <= 0)
-                throw new ArgumentOutOfRangeException(
-                    nameof(maxRenderFrameRate),
-                    "最大渲染帧率必须大于零。");
             if (!IsSupportedAntiAliasing(antiAliasing))
                 throw new ArgumentOutOfRangeException(
                     nameof(antiAliasing),

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.25 - 2026-08-25
+
+- Remove the independent `UIModelPreview` frame-rate scheduler so preview rendering follows the application's global frame-rate setting.
+- Keep runtime rendering overrides focused on render texture scale and MSAA.
+
 ## 0.2.24 - 2026-08-21
 
 - Add configurable render texture scale, maximum render frame rate and MSAA to `UIModelPreview`, with runtime overrides reflected in the Inspector.
