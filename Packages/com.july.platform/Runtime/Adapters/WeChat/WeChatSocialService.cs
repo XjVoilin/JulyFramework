@@ -134,6 +134,9 @@ namespace July.Platform
                 return false;
             }
 
+            rawImage.uvRect = this.GetService<IDeviceService>().IsPc()
+                ? new Rect(0f, 1f, 1f, -1f)
+                : new Rect(0f, 0f, 1f, 1f);
             WX.ShowOpenData(rawImage.texture, left, Screen.height - top, width, height);
             return true;
         }
