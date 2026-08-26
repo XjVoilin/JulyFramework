@@ -1,15 +1,15 @@
 ﻿{
-    "name":  "com.july.platform",
-    "version":  "0.3.4",
-    "displayName":  "July Platform",
-    "description":  "Cross-platform services with normalized launch metadata and lifecycle control.",
-    "unity":  "2022.3",
-    "dependencies":  {
-                         "com.july.arch":  "0.1.0",
-                         "com.cysharp.unitask":  "2.5.10",
-                         "com.unity.ugui":  "1.0.0"
-                     },
-    "author":  {
-                   "name":  "July"
-               }
+  "name":  "com.july.platform",
+  "version":  "0.3.5",
+  "displayName":  "July Platform",
+  "description":  "Cross-platform services with normalized launch metadata and lifecycle control.",
+  "unity":  "2022.3",
+  "dependencies":  {
+    "com.july.arch":  "0.1.0",
+    "com.cysharp.unitask":  "2.5.10",
+    "com.unity.ugui":  "1.0.0"
+  },
+  "author":  {
+    "name":  "July"
+  }
 }
