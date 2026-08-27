@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.5 - 2026-08-27
+
+- Added `UISlideIn` for reusable RectTransform entrance animations.
+
 ## 0.2.4 - 2026-08-26
 
 - Allow callers to select both the one-shot and loop Animator states at runtime.
