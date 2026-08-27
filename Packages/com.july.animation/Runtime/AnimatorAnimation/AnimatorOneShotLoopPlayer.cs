@@ -28,6 +28,7 @@ namespace July.Animation
 
         private Animator _animator;
         private bool _waitingForOneShot;
+        private string _activeLoopStateName;
 
         private void Awake()
         {
@@ -50,10 +51,10 @@ namespace July.Animation
                 return;
 
             if (_transitionDuration == 0f)
-                _animator.Play(_loopStateName, _layerIndex, 0f);
+                _animator.Play(_activeLoopStateName, _layerIndex, 0f);
             else
                 _animator.CrossFadeInFixedTime(
-                    _loopStateName,
+                    _activeLoopStateName,
                     _transitionDuration,
                     _layerIndex,
                     0f);
@@ -63,15 +64,24 @@ namespace July.Animation
         /// <summary>从头播放一次指定状态，完成后切换到循环状态。</summary>
         public void Play()
         {
-            Play(_oneShotStateName);
+            Play(_oneShotStateName, _loopStateName);
         }
 
         /// <summary>Plays the requested state once, then switches to the configured loop state.</summary>
         public void Play(string oneShotStateName)
         {
+            Play(oneShotStateName, _loopStateName);
+        }
+
+        /// <summary>Plays the requested state once, then switches to the requested loop state.</summary>
+        public void Play(string oneShotStateName, string loopStateName)
+        {
             if (string.IsNullOrWhiteSpace(oneShotStateName))
                 throw new ArgumentException("One-shot state name cannot be empty.", nameof(oneShotStateName));
+            if (string.IsNullOrWhiteSpace(loopStateName))
+                throw new ArgumentException("Loop state name cannot be empty.", nameof(loopStateName));
 
+            _activeLoopStateName = loopStateName;
             _animator.Play(oneShotStateName, _layerIndex, 0f);
             _animator.Update(0f);
             _waitingForOneShot = true;

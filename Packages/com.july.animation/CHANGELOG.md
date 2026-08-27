@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.4 - 2026-08-26
+
+- Allow callers to select both the one-shot and loop Animator states at runtime.
+
 ## 0.2.2 - 2026-08-12
 
 - Allow callers to select the one-shot Animator state at runtime while preserving the configured loop state.
