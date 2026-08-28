@@ -707,6 +707,9 @@ namespace July.UI
 
         private void CloseIfCurrent(UIWindowSession session)
         {
+            if (session.Lifecycle != UIWindowLifecycle.Open)
+                return;
+
             if (_windows.TryGetValue(session.WindowId, out var current)
                 && ReferenceEquals(current, session))
                 CloseSessionAsync(session).Forget();

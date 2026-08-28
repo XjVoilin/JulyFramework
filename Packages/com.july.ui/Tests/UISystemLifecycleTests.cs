@@ -10,6 +10,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 
 namespace July.UI.Tests
 {
@@ -326,6 +327,29 @@ namespace July.UI.Tests
 
                 Assert.That(eventSawOpenedView, Is.True);
                 Assert.That(view.IsOpened, Is.False);
+            });
+
+        [UnityTest]
+        public IEnumerator ClickMask_DuringOpening_DoesNotCloseWindow()
+            => Run(async () =>
+            {
+                var options = CreateOptions();
+                options.ShowMask = true;
+                options.ClickMaskToClose = true;
+                options.OpenAnimationType = UIAnimationType.Fade;
+                _resources.ReleaseLoads();
+
+                var opening = _ui.OpenAsync(options);
+                await UniTask.WaitUntil(() => GameObject.Find("UIMask") != null);
+
+                var mask = GameObject.Find("UIMask");
+                mask.GetComponent<Button>().onClick.Invoke();
+
+                var view = await opening;
+
+                Assert.That(view.IsOpened, Is.True,
+                    "The mask must block input without closing a window that is still opening.");
+                await _ui.CloseAsync(view);
             });
 
         private static UIOpenOptions CreateOptions() => new()
