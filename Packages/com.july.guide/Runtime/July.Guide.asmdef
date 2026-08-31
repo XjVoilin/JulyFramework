@@ -3,7 +3,9 @@
     "rootNamespace":  "July.Guide",
     "references":  [
                        "July.Arch",
-                       "UniTask"
+                       "July.UI",
+                       "UniTask",
+                       "UnityEngine.UI"
                    ],
     "includePlatforms":  [
 
