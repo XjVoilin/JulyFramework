@@ -6,12 +6,14 @@ using TTSDK;
 using UnityEngine;
 namespace July.Platform
 {
-    public class TikTokLiveService : ILiveService, IArchNode
+    public class TikTokLiveService : ILiveService, INeedGetService, IArchNode
     {
         private const string Tag = "[TikTokLive]";
         private const int LiveSettingTimeoutMs = 3000;
 
         private TTLiveManager _liveManager;
+
+        public Func<Type, object> ServiceGetter { get; set; }
 
         public bool IsInLive { get; private set; }
         public bool IsAnchor { get; private set; }
@@ -33,7 +35,7 @@ namespace July.Platform
 
         public async UniTask PostInitAsync()
         {
-            if (_liveManager == null) return;
+            if (_liveManager == null || !IsLiveLaunch()) return;
 
             Debug.Log($"{Tag} GetLiveSetting requesting...");
             var tcs = new UniTaskCompletionSource();
@@ -108,7 +110,7 @@ namespace July.Platform
                 IsInstantPlay = res.InstantPlayStatus;
                 Debug.Log($"{Tag} InstantPlayStatusChange: {IsInstantPlay}");
 
-                if (IsInstantPlay && !IsInLive)
+                if (IsInstantPlay && !IsInLive && IsLiveLaunch())
                 {
                     RefreshLiveSettingAsync().Forget();
                 }
@@ -138,7 +140,9 @@ namespace July.Platform
             _liveManager.GetLiveSetting(param);
             await tcs.Task.Timeout(TimeSpan.FromMilliseconds(LiveSettingTimeoutMs));
         }
+
+        private bool IsLiveLaunch() =>
+            this.GetService<ILifecycleService>().LatestContext.Source == LaunchSource.Live;
     }
 }
 #endif
-
