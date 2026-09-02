@@ -510,7 +510,6 @@ namespace July.Diagnostics.Editor
             TextureImporterPlatformSettings inheritedSettings)
         {
             return inheritedSettings.textureCompression == TextureImporterCompression.Uncompressed
-                   && importer.textureType == TextureImporterType.Sprite
                    && importer.alphaSource != TextureImporterAlphaSource.None
                    && importer.DoesSourceTextureHaveAlpha();
         }
