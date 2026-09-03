@@ -10,7 +10,7 @@ namespace July.Platform
             double performanceDpr,
             double logicalWidth,
             double logicalHeight,
-            int maxFramebufferPixels)
+            int maxFramebufferLongEdge)
         {
             if (!IsPositiveFinite(performanceDpr))
                 throw new ArgumentOutOfRangeException(nameof(performanceDpr));
@@ -18,14 +18,14 @@ namespace July.Platform
                 throw new ArgumentOutOfRangeException(nameof(logicalWidth));
             if (!IsPositiveFinite(logicalHeight))
                 throw new ArgumentOutOfRangeException(nameof(logicalHeight));
-            if (maxFramebufferPixels <= 0)
-                throw new ArgumentOutOfRangeException(nameof(maxFramebufferPixels));
+            if (maxFramebufferLongEdge <= 0)
+                throw new ArgumentOutOfRangeException(nameof(maxFramebufferLongEdge));
 
-            var pixelBudgetDpr = Math.Sqrt(
-                maxFramebufferPixels / (logicalWidth * logicalHeight));
+            var longEdgeDpr = maxFramebufferLongEdge /
+                              Math.Max(logicalWidth, logicalHeight);
             return Math.Max(
                 MinimumDpr,
-                Math.Min(performanceDpr, pixelBudgetDpr));
+                Math.Min(performanceDpr, longEdgeDpr));
         }
 
         private static bool IsPositiveFinite(double value)

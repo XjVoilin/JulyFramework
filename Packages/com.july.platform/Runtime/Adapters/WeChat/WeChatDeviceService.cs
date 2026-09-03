@@ -8,15 +8,15 @@ namespace July.Platform
 {
     internal sealed class WeChatDeviceService : IDeviceService, ICanEvent
     {
-        private readonly int _maxFramebufferPixels;
+        private readonly int _maxFramebufferLongEdge;
         private int _benchmarkLevel;
         private double _effectiveDpr;
         private DeviceInfoData _cachedInfo;
         private string _platform;
 
-        internal WeChatDeviceService(int maxFramebufferPixels)
+        internal WeChatDeviceService(int maxFramebufferLongEdge)
         {
-            _maxFramebufferPixels = maxFramebufferPixels;
+            _maxFramebufferLongEdge = maxFramebufferLongEdge;
         }
 
         public void Init()
@@ -67,7 +67,7 @@ namespace July.Platform
                 performanceDpr,
                 windowInfo.windowWidth,
                 windowInfo.windowHeight,
-                _maxFramebufferPixels);
+                _maxFramebufferLongEdge);
 
             if (targetDpr < defaultDpr)
                 WXBase.SetDevicePixelRatio(targetDpr);
@@ -76,7 +76,7 @@ namespace July.Platform
                 $"[DPR] platform={_platform}, benchmarkLevel={benchmarkLevel}, " +
                 $"window={windowInfo.windowWidth}x{windowInfo.windowHeight}, " +
                 $"default={defaultDpr:F3}, performanceScale={performanceScale:F2}, " +
-                $"budget={_maxFramebufferPixels}, target={targetDpr:F3}");
+                $"maxLongEdge={_maxFramebufferLongEdge}, target={targetDpr:F3}");
             return targetDpr;
         }
 

@@ -10,18 +10,18 @@ namespace July.Platform
     public sealed class TikTokPlatformAdapter : IPlatformAdapter
     {
         private readonly int _platformType;
-        private readonly int _maxFramebufferPixels;
+        private readonly int _maxFramebufferLongEdge;
         private IDeviceService _device;
 
         public int PlatformType => _platformType;
 
-        public TikTokPlatformAdapter(int platformType, int maxFramebufferPixels)
+        public TikTokPlatformAdapter(int platformType, int maxFramebufferLongEdge)
         {
-            if (maxFramebufferPixels <= 0)
-                throw new ArgumentOutOfRangeException(nameof(maxFramebufferPixels));
+            if (maxFramebufferLongEdge <= 0)
+                throw new ArgumentOutOfRangeException(nameof(maxFramebufferLongEdge));
 
             _platformType = platformType;
-            _maxFramebufferPixels = maxFramebufferPixels;
+            _maxFramebufferLongEdge = maxFramebufferLongEdge;
         }
 
         public async UniTask ConfigureAsync(
@@ -40,7 +40,7 @@ namespace July.Platform
             registry.Register<IAuthorizeService>(new TikTokAuthorizeService());
             registry.Register<IShareService>(new TikTokShareService());
             registry.Register<IDeviceService>(
-                new TikTokDeviceService(_maxFramebufferPixels));
+                new TikTokDeviceService(_maxFramebufferLongEdge));
             registry.Register<ILifecycleService>(new TikTokLifecycleService());
             registry.Register<IPurchaseService>(new TikTokPurchaseService());
             registry.Register<ISocialService>(new TikTokSocialService());

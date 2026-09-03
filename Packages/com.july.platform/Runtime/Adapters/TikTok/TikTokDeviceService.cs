@@ -9,14 +9,14 @@ namespace July.Platform
 {
     internal sealed class TikTokDeviceService : IDeviceService, ICanEvent
     {
-        private readonly int _maxFramebufferPixels;
+        private readonly int _maxFramebufferLongEdge;
         private double _effectiveDpr;
         private DeviceInfoData _cachedInfo;
         private string _platform;
 
-        internal TikTokDeviceService(int maxFramebufferPixels)
+        internal TikTokDeviceService(int maxFramebufferLongEdge)
         {
-            _maxFramebufferPixels = maxFramebufferPixels;
+            _maxFramebufferLongEdge = maxFramebufferLongEdge;
         }
 
         public void Init()
@@ -67,7 +67,7 @@ namespace July.Platform
                 performanceDpr,
                 logicalWidth,
                 logicalHeight,
-                _maxFramebufferPixels);
+                _maxFramebufferLongEdge);
 
             if (targetDpr < defaultDpr)
             {
@@ -78,7 +78,7 @@ namespace July.Platform
             Debug.Log(
                 $"[DPR] overall={overall}, screen={logicalWidth}x{logicalHeight}, " +
                 $"default={defaultDpr:F3}, performanceScale={performanceScale:F2}, " +
-                $"budget={_maxFramebufferPixels}, target={targetDpr:F3}");
+                $"maxLongEdge={_maxFramebufferLongEdge}, target={targetDpr:F3}");
             return targetDpr;
         }
 

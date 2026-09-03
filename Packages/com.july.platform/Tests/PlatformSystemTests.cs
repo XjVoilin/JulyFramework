@@ -151,62 +151,59 @@ namespace July.Platform.Tests
         }
 
         [Test]
-        public void DprBudget_HighResolutionPhone_IsLimitedToPixelBudget()
+        public void DprBudget_HighResolutionPhone_IsLimitedByLongEdge()
         {
             var dpr = DevicePixelRatioBudget.Limit(
                 performanceDpr: 3d,
                 logicalWidth: 360d,
                 logicalHeight: 800d,
-                maxFramebufferPixels: 864 * 1920);
+                maxFramebufferLongEdge: 1600);
 
-            Assert.That(dpr, Is.EqualTo(2.4d).Within(0.0001d));
+            Assert.That(dpr, Is.EqualTo(2d).Within(0.0001d));
         }
 
         [Test]
-        public void DprBudget_PerformanceTierBelowBudget_IsPreserved()
+        public void DprBudget_PerformanceTierBelowLongEdgeLimit_IsPreserved()
         {
             var dpr = DevicePixelRatioBudget.Limit(
-                performanceDpr: 2.1d,
+                performanceDpr: 1.5d,
                 logicalWidth: 360d,
                 logicalHeight: 800d,
-                maxFramebufferPixels: 864 * 1920);
+                maxFramebufferLongEdge: 1600);
 
-            Assert.That(dpr, Is.EqualTo(2.1d).Within(0.0001d));
+            Assert.That(dpr, Is.EqualTo(1.5d).Within(0.0001d));
         }
 
         [Test]
-        public void DprBudget_HighResolutionTablet_IsLimitedByTotalPixels()
+        public void DprBudget_Tablet_PreservesMorePixelsThanPhoneAtSameLongEdge()
         {
-            const double logicalWidth = 574d;
-            const double logicalHeight = 826d;
-            const int maxPixels = 864 * 1920;
-
             var dpr = DevicePixelRatioBudget.Limit(
-                performanceDpr: 2d,
-                logicalWidth,
-                logicalHeight,
-                maxPixels);
+                performanceDpr: 1.4d,
+                logicalWidth: 820d,
+                logicalHeight: 1180d,
+                maxFramebufferLongEdge: 1600);
 
             Assert.That(
-                logicalWidth * logicalHeight * dpr * dpr,
-                Is.EqualTo(maxPixels).Within(0.01d));
+                1180d * dpr,
+                Is.EqualTo(1600d).Within(0.01d));
+            Assert.That(dpr, Is.EqualTo(1600d / 1180d).Within(0.0001d));
         }
 
         [Test]
         public void DprBudget_InvalidWindowSize_FailsFast()
         {
             Assert.Throws<ArgumentOutOfRangeException>(() =>
-                DevicePixelRatioBudget.Limit(3d, 0d, 800d, 864 * 1920));
+                DevicePixelRatioBudget.Limit(3d, 0d, 800d, 1600));
         }
 
         [Test]
-        public void DprBudget_PixelBudgetBelowOne_PreservesMinimumDpr()
+        public void DprBudget_LongEdgeLimitBelowLogicalSize_PreservesMinimumDpr()
         {
             var dpr = DevicePixelRatioBudget.Limit(
                 performanceDpr: 3d,
                 logicalWidth: 1920d,
                 logicalHeight: 1080d,
-                maxFramebufferPixels: 864 * 1920);
+                maxFramebufferLongEdge: 1600);
 
             Assert.That(dpr, Is.EqualTo(1d));
         }
@@ -218,7 +215,7 @@ namespace July.Platform.Tests
                 performanceDpr: 0.5d,
                 logicalWidth: 360d,
                 logicalHeight: 800d,
-                maxFramebufferPixels: 864 * 1920);
+                maxFramebufferLongEdge: 1600);
 
             Assert.That(dpr, Is.EqualTo(1d));
         }
