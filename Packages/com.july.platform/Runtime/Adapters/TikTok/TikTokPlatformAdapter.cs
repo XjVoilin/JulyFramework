@@ -1,4 +1,5 @@
 #if JULYGF_DY_MINIGAME
+using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using TTSDK;
@@ -9,13 +10,18 @@ namespace July.Platform
     public sealed class TikTokPlatformAdapter : IPlatformAdapter
     {
         private readonly int _platformType;
+        private readonly int _maxFramebufferPixels;
         private IDeviceService _device;
 
         public int PlatformType => _platformType;
 
-        public TikTokPlatformAdapter(int platformType)
+        public TikTokPlatformAdapter(int platformType, int maxFramebufferPixels)
         {
+            if (maxFramebufferPixels <= 0)
+                throw new ArgumentOutOfRangeException(nameof(maxFramebufferPixels));
+
             _platformType = platformType;
+            _maxFramebufferPixels = maxFramebufferPixels;
         }
 
         public async UniTask ConfigureAsync(
@@ -33,7 +39,8 @@ namespace July.Platform
             registry.Register<IADsService>(new TikTokADsService());
             registry.Register<IAuthorizeService>(new TikTokAuthorizeService());
             registry.Register<IShareService>(new TikTokShareService());
-            registry.Register<IDeviceService>(new TikTokDeviceService());
+            registry.Register<IDeviceService>(
+                new TikTokDeviceService(_maxFramebufferPixels));
             registry.Register<ILifecycleService>(new TikTokLifecycleService());
             registry.Register<IPurchaseService>(new TikTokPurchaseService());
             registry.Register<ISocialService>(new TikTokSocialService());

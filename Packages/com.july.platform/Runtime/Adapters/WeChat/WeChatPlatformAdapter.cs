@@ -1,4 +1,5 @@
 #if JULYGF_WX_MINIGAME
+using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using WeChatWASM;
@@ -9,13 +10,18 @@ namespace July.Platform
     public sealed class WeChatPlatformAdapter : IPlatformAdapter
     {
         private readonly int _platformType;
+        private readonly int _maxFramebufferPixels;
         private IDeviceService _device;
 
         public int PlatformType => _platformType;
 
-        public WeChatPlatformAdapter(int platformType)
+        public WeChatPlatformAdapter(int platformType, int maxFramebufferPixels)
         {
+            if (maxFramebufferPixels <= 0)
+                throw new ArgumentOutOfRangeException(nameof(maxFramebufferPixels));
+
             _platformType = platformType;
+            _maxFramebufferPixels = maxFramebufferPixels;
         }
 
         public async UniTask ConfigureAsync(
@@ -34,7 +40,8 @@ namespace July.Platform
             registry.Register<IADsService>(new WeChatADsService());
             registry.Register<IAuthorizeService>(new WeChatAuthorizeService());
             registry.Register<IShareService>(new WeChatShareService());
-            registry.Register<IDeviceService>(new WeChatDeviceService());
+            registry.Register<IDeviceService>(
+                new WeChatDeviceService(_maxFramebufferPixels));
             registry.Register<ILifecycleService>(new WeChatLifecycleService());
             registry.Register<ISocialService>(new WeChatSocialService());
             registry.Register<ISubscribeService>(new WeChatSubscribeService());

@@ -1,3 +1,4 @@
+using System;
 using July.Arch;
 using July.Platform;
 #if JULYGF_DY_MINIGAME
@@ -6,51 +7,84 @@ using UnityEngine;
 
 namespace July.Platform
 {
-    public class TikTokDeviceService : IDeviceService, ICanEvent
+    internal sealed class TikTokDeviceService : IDeviceService, ICanEvent
     {
+        private readonly int _maxFramebufferPixels;
         private double _effectiveDpr;
         private DeviceInfoData _cachedInfo;
+        private string _platform;
+
+        internal TikTokDeviceService(int maxFramebufferPixels)
+        {
+            _maxFramebufferPixels = maxFramebufferPixels;
+        }
 
         public void Init()
         {
             var sysInfo = TT.GetSystemInfo();
             var score = sysInfo.deviceScore.overall;
+            _platform = sysInfo.platform;
 
             _cachedInfo = new DeviceInfoData
             {
                 OS = sysInfo.system,
                 Language = sysInfo.language,
-                DeviceType = sysInfo.platform,
+                DeviceType = _platform,
                 BenchmarkLevel = (int)score
             };
 
-            _effectiveDpr = ApplyDpr(score, sysInfo.pixelRatio);
+            _effectiveDpr = ApplyDpr(
+                score,
+                sysInfo.pixelRatio,
+                sysInfo.screenWidth,
+                sysInfo.screenHeight);
             Debug.Log($"[Device] deviceScore: cpu={sysInfo.deviceScore.cpu}, gpu={sysInfo.deviceScore.gpu}, " +
                       $"memory={sysInfo.deviceScore.memory}, overall={score}");
         }
 
-        private static double ApplyDpr(double overall, double defaultDpr)
+        private double ApplyDpr(
+            double overall,
+            double defaultDpr,
+            double logicalWidth,
+            double logicalHeight)
         {
             const double highThreshold = 8.51;
             const double midThreshold = 7.30;
-
-            if (overall >= highThreshold)
+            if (IsPc())
             {
-                Debug.Log($"[DPR] 高端设备 (overall={overall})，保持默认 DPR");
+                Debug.Log(
+                    $"[DPR] platform={_platform}, skipped=pc, default={defaultDpr:F3}");
                 return defaultDpr;
             }
 
-            var scale = overall >= midThreshold || overall < 0 ? 0.7 : 0.5;
-            var targetDpr = defaultDpr * scale;
-            Debug.Log($"[DPR] overall={overall}, 默认DPR={defaultDpr}, 缩放={scale}, 目标DPR={targetDpr}");
-            TT.SetPreferredDevicePixelRatio((float)targetDpr);
+            var performanceScale = overall >= highThreshold
+                ? 1d
+                : overall >= midThreshold || overall < 0d
+                    ? 0.7d
+                    : 0.5d;
+            var performanceDpr = defaultDpr * performanceScale;
+            var targetDpr = DevicePixelRatioBudget.Limit(
+                performanceDpr,
+                logicalWidth,
+                logicalHeight,
+                _maxFramebufferPixels);
+
+            if (targetDpr < defaultDpr)
+            {
+                targetDpr = Math.Floor(targetDpr * 100d) / 100d;
+                TT.SetPreferredDevicePixelRatio((float)targetDpr);
+            }
+
+            Debug.Log(
+                $"[DPR] overall={overall}, screen={logicalWidth}x{logicalHeight}, " +
+                $"default={defaultDpr:F3}, performanceScale={performanceScale:F2}, " +
+                $"budget={_maxFramebufferPixels}, target={targetDpr:F3}");
             return targetDpr;
         }
 
         public bool IsPc()
         {
-            var platform = TT.GetSystemInfo().platform;
-            return platform == "windows" || platform == "mac";
+            return _platform == "windows" || _platform == "mac";
         }
 
         public int GetBenchmarkLevel() => _cachedInfo.BenchmarkLevel;

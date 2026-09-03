@@ -149,5 +149,79 @@ namespace July.Platform.Tests
             Assert.DoesNotThrow(() =>
                 registry.Register<IFirstService>(new RecordingService(events), replace: true));
         }
+
+        [Test]
+        public void DprBudget_HighResolutionPhone_IsLimitedToPixelBudget()
+        {
+            var dpr = DevicePixelRatioBudget.Limit(
+                performanceDpr: 3d,
+                logicalWidth: 360d,
+                logicalHeight: 800d,
+                maxFramebufferPixels: 864 * 1920);
+
+            Assert.That(dpr, Is.EqualTo(2.4d).Within(0.0001d));
+        }
+
+        [Test]
+        public void DprBudget_PerformanceTierBelowBudget_IsPreserved()
+        {
+            var dpr = DevicePixelRatioBudget.Limit(
+                performanceDpr: 2.1d,
+                logicalWidth: 360d,
+                logicalHeight: 800d,
+                maxFramebufferPixels: 864 * 1920);
+
+            Assert.That(dpr, Is.EqualTo(2.1d).Within(0.0001d));
+        }
+
+        [Test]
+        public void DprBudget_HighResolutionTablet_IsLimitedByTotalPixels()
+        {
+            const double logicalWidth = 574d;
+            const double logicalHeight = 826d;
+            const int maxPixels = 864 * 1920;
+
+            var dpr = DevicePixelRatioBudget.Limit(
+                performanceDpr: 2d,
+                logicalWidth,
+                logicalHeight,
+                maxPixels);
+
+            Assert.That(
+                logicalWidth * logicalHeight * dpr * dpr,
+                Is.EqualTo(maxPixels).Within(0.01d));
+        }
+
+        [Test]
+        public void DprBudget_InvalidWindowSize_FailsFast()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                DevicePixelRatioBudget.Limit(3d, 0d, 800d, 864 * 1920));
+        }
+
+        [Test]
+        public void DprBudget_PixelBudgetBelowOne_PreservesMinimumDpr()
+        {
+            var dpr = DevicePixelRatioBudget.Limit(
+                performanceDpr: 3d,
+                logicalWidth: 1920d,
+                logicalHeight: 1080d,
+                maxFramebufferPixels: 864 * 1920);
+
+            Assert.That(dpr, Is.EqualTo(1d));
+        }
+
+        [Test]
+        public void DprBudget_PerformanceTierBelowOne_PreservesMinimumDpr()
+        {
+            var dpr = DevicePixelRatioBudget.Limit(
+                performanceDpr: 0.5d,
+                logicalWidth: 360d,
+                logicalHeight: 800d,
+                maxFramebufferPixels: 864 * 1920);
+
+            Assert.That(dpr, Is.EqualTo(1d));
+        }
+
     }
 }

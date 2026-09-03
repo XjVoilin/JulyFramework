@@ -6,12 +6,18 @@ using WeChatWASM;
 
 namespace July.Platform
 {
-    public class WeChatDeviceService : IDeviceService, ICanEvent
+    internal sealed class WeChatDeviceService : IDeviceService, ICanEvent
     {
+        private readonly int _maxFramebufferPixels;
         private int _benchmarkLevel;
         private double _effectiveDpr;
         private DeviceInfoData _cachedInfo;
         private string _platform;
+
+        internal WeChatDeviceService(int maxFramebufferPixels)
+        {
+            _maxFramebufferPixels = maxFramebufferPixels;
+        }
 
         public void Init()
         {
@@ -28,7 +34,7 @@ namespace July.Platform
                 BenchmarkLevel = _benchmarkLevel
             };
 
-            _effectiveDpr = ApplyDpr(_benchmarkLevel, _platform);
+            _effectiveDpr = ApplyDpr(_benchmarkLevel);
         }
 
         public void DeferredInit()
@@ -37,23 +43,40 @@ namespace July.Platform
             _cachedInfo.Language = appBaseInfo.language;
         }
 
-        private static double ApplyDpr(int benchmarkLevel, string platform)
+        private double ApplyDpr(int benchmarkLevel)
         {
-            var isIOS = platform == "ios";
+            var isIOS = _platform == "ios";
             var highThreshold = isIOS ? 36 : 30;
             var midThreshold = isIOS ? 30 : 23;
-            var defaultDpr = WX.GetWindowInfo().pixelRatio;
-
-            if (benchmarkLevel >= highThreshold)
+            var windowInfo = WX.GetWindowInfo();
+            var defaultDpr = windowInfo.pixelRatio;
+            if (IsPc())
             {
-                Debug.Log($"[DPR] 高端设备 (platform={platform}, benchmarkLevel={benchmarkLevel})，保持默认 DPR");
+                Debug.Log(
+                    $"[DPR] platform={_platform}, skipped=pc, default={defaultDpr:F3}");
                 return defaultDpr;
             }
 
-            var scale = benchmarkLevel >= midThreshold || benchmarkLevel == -1 ? 0.7 : 0.5;
-            var targetDpr = defaultDpr * scale;
-            Debug.Log($"[DPR] platform={platform}, benchmarkLevel={benchmarkLevel}, 默认DPR={defaultDpr}, 缩放={scale}, 目标DPR={targetDpr}");
-            WXBase.SetDevicePixelRatio(targetDpr);
+            var performanceScale = benchmarkLevel >= highThreshold
+                ? 1d
+                : benchmarkLevel >= midThreshold || benchmarkLevel == -1
+                    ? 0.7d
+                    : 0.5d;
+            var performanceDpr = defaultDpr * performanceScale;
+            var targetDpr = DevicePixelRatioBudget.Limit(
+                performanceDpr,
+                windowInfo.windowWidth,
+                windowInfo.windowHeight,
+                _maxFramebufferPixels);
+
+            if (targetDpr < defaultDpr)
+                WXBase.SetDevicePixelRatio(targetDpr);
+
+            Debug.Log(
+                $"[DPR] platform={_platform}, benchmarkLevel={benchmarkLevel}, " +
+                $"window={windowInfo.windowWidth}x{windowInfo.windowHeight}, " +
+                $"default={defaultDpr:F3}, performanceScale={performanceScale:F2}, " +
+                $"budget={_maxFramebufferPixels}, target={targetDpr:F3}");
             return targetDpr;
         }
 
