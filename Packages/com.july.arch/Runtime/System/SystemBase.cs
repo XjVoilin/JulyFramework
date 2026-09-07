@@ -6,6 +6,8 @@ namespace July.Arch
 {
     /// <summary>
     /// 长期运行能力的统一基类。初始化完成表示该 System 已可供后续 System 使用。
+    /// System 管理业务过程及其运行数据的生命周期，可持有普通数据对象并提供查询入口。
+    /// 复杂逻辑可委托普通类处理，无需把运行数据统一放入 Store。
     /// </summary>
     public abstract class SystemBase : ICanGetStore, ICanEvent, ICanGetSystem, ICanGetView, ICanRunProcedure
     {

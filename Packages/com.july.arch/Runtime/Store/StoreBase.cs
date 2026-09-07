@@ -4,7 +4,8 @@ namespace July.Arch
 {
     /// <summary>
     /// Store 的非泛型基类，由 ArchContext 按具体类型管理。
-    /// Store 只负责持有领域状态，不参与异步生命周期，也不知道数据来自本地还是服务器。
+    /// Store 管理需要独立维护的业务数据，默认用于长期玩家数据；不限制数据生命周期。
+    /// 不参与异步生命周期，也不决定数据来自本地还是服务器。
     /// </summary>
     public abstract class StoreBase
     {
@@ -17,7 +18,9 @@ namespace July.Arch
     }
 
     /// <summary>
-    /// 领域状态的统一所有者。完整数据可以由外部替换，局部修改由具体 Store 封装。
+    /// 当前 TData 及其关联数据的所有者，不要求所有模块运行数据都放入 Store。
+    /// 完整数据可以由外部替换；简单数据可由 System 修改并按具体 Store 契约通知，
+    /// 涉及关联、索引或缓存的修改由 Store 或其数据对象提供完整操作。
     /// </summary>
     public abstract class StoreBase<TData> : StoreBase where TData : class, new()
     {
@@ -29,7 +32,8 @@ namespace July.Arch
         protected TData Data => _data;
 
         /// <summary>
-        /// 获取当前完整数据，供数据传输和持久化模块读取。
+        /// 获取当前完整数据的可变引用，用于业务读取、数据传输和持久化；不复制数据。
+        /// 修改须遵守具体 Store 的一致性与通知契约，直接修改不会自动标脏。
         /// </summary>
         public TData GetData() => Data;
 
