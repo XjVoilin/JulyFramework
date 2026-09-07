@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.6 - 2026-09-07
+
+- Added UIAlphaPulse for reusable Graphic alpha breathing with configurable range, timing, initial delay and easing. Stop and disable restore the original alpha.
+
 ## 0.2.5 - 2026-08-27
 
 - Added `UISlideIn` for reusable RectTransform entrance animations.
