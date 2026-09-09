@@ -38,6 +38,17 @@ SDK 适配使用独立的 Editor asmdef，**没有拆成额外 UPM 包**。公�
 
 目前提供 WeChat/TikTok 的平台宏、WebGL（团结为 MiniGame）设置及首包预下载策略。未来 Android 接入仍在此包增加原生构建适配、平台设置与相应配方；AB、版本、AOT、COS 和 CI 机制复用。本版本未宣称已经支持 Android，也不需要为 Android 再拆包。
 
+## 构建工具面板
+
+- 主界面选择平台、环境、Debug、全量/热更、QA 和上传。默认使用完整构建配方；需要重跑部分步骤时启用“自定义构建步骤”。旧的步骤偏好仅在自定义模式中生效。
+- 本次 CoreVersion、PlanVersion、本地目录、导出位置和上传范围由同一份构建选择生成，预览与执行一致。资源版本直接编辑配置资产；外部 Inspector 修改后会同步显示。
+- 热更构建与维护区的热更编译共用一个 AOT 基线，按平台/BuildTarget 保存选择。备份在目标变化、构建结束、项目资源变化或点击刷新时更新，不在每次绘制时遍历目录。
+- 线上版本查询使用本次预览的 CoreVersion，切换查询环境/平台/CoreVersion 后旧结果失效。QA 面板跳过查询，固定版本允许重复覆盖。
+- QA 全量构建只临时设置 PlayerSettings.bundleVersion，并在 finally 中恢复进入构建前的值，包括取消和失败路径；不将 PlanVersion 当作恢复值。
+- 上传开关统一控制 AB、微信 data、preload 的远端写入。关闭上传仍可出包、在有本次 AB 产物时生成本地 preload，并注入 game.js；该 CDN 模式产物运行前仍需通过其他流程将资源放到对应 CDN。共享 FullBuild 配方的 upload=false（包括 CI）同样不上传 data/preload。
+- 结果区显示最近构建的状态、耗时、实际版本和差异，并提供实际产物目录入口。取消/未执行 AB 的构建不显示之前的差异。
+- 维护与诊断默认折叠，保留 HybridCLR 单步、收集器初始化、配置检查、Hash 和本地清理。清理仅针对预览中的 Env/Platform/CoreVersion/PlanVersion，显示确切路径并保留删除确认；不清理其他版本或远端资源。
+
 ## 资源和版本契约
 
 - BootConfig.cdnUrl：**完整项目 CDN 根 URL**，允许路径前缀。
@@ -52,6 +63,16 @@ SDK 适配使用独立的 Editor asmdef，**没有拆成额外 UPM 包**。公�
 `POST /client_version` 的请求为 `{"CoreVersion":"..."}`，响应读取 `platforms.{platform}.PlanVersion`。运行时、编辑器版本查询、game.js 配置预请求共用这一契约，预请求使用 `July.Config` 的现有 JS 缓存桥接。
 
 FullBuild 以 PlanVersion 创建 CoreVersion 并设置主包版本；HotUpdate（CI 与面板）使用所选 AOT 备份的 CoreVersion，PlanVersion 可独立递增。单步入口 RunStep 优先采用已有参数 -aotBackupVersion，未指定时使用 PlayerSettings.bundleVersion，不修改主包版本。上传前的线上版本查询传入本次构建的 CoreVersion；独立版本查询按钮使用当前项目的主包版本。缺失 CoreVersion 的上下文在执行步骤前报错。YooAsset PackageVersion 继续使用原时间戳语义，Git tag 规则保持原样。
+
+## CI 强制重建
+
+`-forceRebuild` 是无值开关，适用于 FullBuild / HotUpdateBuild（以及 RunStep）和 Dev / Test / Prod 各环境。未传入时 `BuildContext.ForceRebuild` 为 false，不保存为面板偏好或配置资产。
+
+Jenkins `FORCE_REBUILD` 应每次默认关闭，仅本次勾选时给 Unity 添加 `-forceRebuild`。参数说明建议为：“强制重新构建并允许覆盖同版本或较低版本资源；支持全量、热更及所有环境，仅对本次构建生效，默认关闭。”shared-library 由打包机维护。
+
+强制模式跳过上传前的线上 PlanVersion 冲突检查，并记录环境、平台、CoreVersion、PlanVersion 和“强制重建，允许覆盖”。COS 配置/路径校验、AOT 检查和上传错误处理仍然执行。
+
+Git 发布主标签已存在时，仍按原规则创建带构建号的归档标签；若归档标签也已存在，仅在强制模式下保留该标签并跳过重复创建/推送。不会删除、移动或强推历史标签；Git 查询及新标签推送失败仍按原逻辑报错。
 
 ## AOT 与升级
 

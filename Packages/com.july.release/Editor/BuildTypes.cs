@@ -26,6 +26,8 @@ namespace July.Release.Editor
         public string CdnUrl { get; set; }
         public string AOTBackupVersion { get; set; }
         public bool IsQABuild { get; set; }
+        /// <summary>显式允许同版本/较低版本资源覆盖；每次构建默认关闭。</summary>
+        public bool ForceRebuild { get; set; } = false;
 
         public string PackageVersion { get; set; }
         public string ABOutputDir { get; set; }

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Simplify build UI into build, result and collapsed maintenance sections; retain custom steps and share AOT baseline selection.
+- Use one selection for preview and execution; refresh asset-backed values and context-specific version queries.
+- Restore the original player version in a finally block after QA builds; target local CDN tools at the selected environment/platform/version.
+- Make FullBuild upload=false suppress data/preload uploads too, retaining local preload generation and game.js injection.
+
 - Move BuildConfig and the build menu into release; discover the project asset lazily and let platform SDK adapters register themselves.
 - Replace project Configure bindings with the runtime IReleaseBootConfig contract and Inspector settings; this is a breaking integration change.
 - Share package name, resource tags and supplemental AOT assembly policy between build and runtime through the boot asset.

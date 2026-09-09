@@ -1,5 +1,5 @@
+using System;
 using System.IO;
-using July.Release;
 using UnityEditor;
 using UnityEngine;
 
@@ -7,248 +7,139 @@ namespace July.Release.Editor
 {
     public sealed class BuildPipelinePanel : IBuildToolPanel
     {
-        const string PrefKeyStepHybridCLR = "BuildTool_StepHybridCLR";
-        const string PrefKeyStepAB = "BuildTool_StepAB";
-        const string PrefKeyStepUpload = "BuildTool_StepUpload";
-        const string PrefKeyStepMiniGame = "BuildTool_StepMiniGame";
-        const string PrefKeyBuildMode = "BuildTool_BuildMode";
-        const string PrefKeyQABuild = "BuildTool_QABuild";
-
-        enum BuildMode { Full, HotUpdate }
-
-        static readonly string[] BuildModeLabels = { "全量构建", "热更构建" };
-
+        readonly VersionPanel _versions = new();
         BuildToolContext _ctx;
-        bool _stepHybridCLR, _stepAB, _stepUpload, _stepMiniGame;
-        bool _qaBuild;
-        BuildMode _buildMode;
-        int _backupVersionIndex;
+        BuildToolSelection Selection => _ctx.Selection;
 
         public void OnEnable(BuildToolContext ctx)
         {
             _ctx = ctx;
-            _stepHybridCLR = ProjectEditorPrefs.GetBool(PrefKeyStepHybridCLR, true);
-            _stepAB = ProjectEditorPrefs.GetBool(PrefKeyStepAB, true);
-            _stepUpload = ProjectEditorPrefs.GetBool(PrefKeyStepUpload, true);
-            _stepMiniGame = ProjectEditorPrefs.GetBool(PrefKeyStepMiniGame, false);
-            _buildMode = (BuildMode)ProjectEditorPrefs.GetInt(PrefKeyBuildMode, 0);
-            _qaBuild = ProjectEditorPrefs.GetBool(PrefKeyQABuild, false);
+            Selection.Mode = (ReleaseBuildMode)ProjectEditorPrefs.GetInt("BuildTool_BuildMode", 0);
+            Selection.QA = ProjectEditorPrefs.GetBool("BuildTool_QABuild", false);
+            Selection.Upload = ProjectEditorPrefs.GetBool("BuildTool_StepUpload", false);
+            Selection.CustomSteps = ProjectEditorPrefs.GetBool("BuildTool_CustomSteps", false);
+            Selection.HybridCLR = ProjectEditorPrefs.GetBool("BuildTool_StepHybridCLR", true);
+            Selection.AssetBundles = ProjectEditorPrefs.GetBool("BuildTool_StepAB", true);
+            Selection.MiniGame = ProjectEditorPrefs.GetBool("BuildTool_StepMiniGame", true);
+            _versions.OnEnable(ctx);
         }
 
         public void OnGUI()
         {
-            EditorGUILayout.LabelField("构建流程", EditorStyles.boldLabel);
-
+            EditorGUILayout.LabelField("构建", EditorStyles.boldLabel);
             EditorGUI.BeginChangeCheck();
-            _buildMode = (BuildMode)GUILayout.Toolbar((int)_buildMode, BuildModeLabels);
-            if (EditorGUI.EndChangeCheck())
-                ProjectEditorPrefs.SetInt(PrefKeyBuildMode, (int)_buildMode);
+            Selection.Mode = (ReleaseBuildMode)GUILayout.Toolbar((int)Selection.Mode, new[] { "全量构建", "热更构建" });
+            Selection.QA = EditorGUILayout.ToggleLeft(
+                new GUIContent("QA 测试版本（99.99.99）", "构建期间临时使用测试版本，结束后恢复原主包版本；不修改资源版本配置，不打 Git Tag。"), Selection.QA);
+            Selection.Upload = EditorGUILayout.ToggleLeft("上传本次资源到 COS", Selection.Upload);
+            Selection.CustomSteps = EditorGUILayout.ToggleLeft("自定义构建步骤", Selection.CustomSteps);
+            if (Selection.CustomSteps)
+            {
+                using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+                {
+                    if (Selection.Mode == ReleaseBuildMode.Full)
+                        Selection.HybridCLR = EditorGUILayout.ToggleLeft("HybridCLR Generate All + 拷贝 DLL", Selection.HybridCLR);
+                    Selection.AssetBundles = EditorGUILayout.ToggleLeft("构建 AB + 拷贝本地 CDN", Selection.AssetBundles);
+                    if (Selection.Mode == ReleaseBuildMode.Full)
+                        Selection.MiniGame = EditorGUILayout.ToggleLeft("平台出包 + 预下载注入", Selection.MiniGame);
+                }
+            }
+            if (EditorGUI.EndChangeCheck()) SaveSelection();
 
-            EditorGUILayout.Space(4);
+            if (Selection.Mode == ReleaseBuildMode.HotUpdate) DrawBaseline(_ctx);
+            _versions.OnGUI();
+            var preview = _ctx.Preview;
+            var error = preview.Validate();
+            if (Selection.Mode == ReleaseBuildMode.HotUpdate && string.IsNullOrEmpty(Selection.AotBaseline))
+                error = "没有可用 AOT 基线，请先执行全量构建。";
+            if (Selection.Mode == ReleaseBuildMode.HotUpdate && Selection.Upload && !Selection.BuildBundles)
+                error = "热更上传需要重新生成 preload.json，请启用 AB 构建。";
+            if (error == null) error = new PlatformDefinesValidationStep().Validate(preview);
+            var hasWork = Selection.Mode == ReleaseBuildMode.HotUpdate || !Selection.CustomSteps ||
+                          Selection.HybridCLR || Selection.AssetBundles || Selection.MiniGame || Selection.Upload;
+            if (!hasWork) error = "请至少选择一个构建步骤。";
 
-            if (_buildMode == BuildMode.Full)
-                DrawFullBuildUI();
-            else
-                DrawHotUpdateBuildUI();
+            if (BuildUtils.IsValidVersion(preview.CoreVersion) && BuildUtils.IsValidVersion(preview.PlanVersion))
+            {
+                var local = BuildUtils.GetCdnPath(preview.Env, preview.Platform, preview.CoreVersion, preview.PlanVersion);
+                EditorGUILayout.LabelField("本地资源", local, EditorStyles.wordWrappedLabel);
+                if (Selection.ExportPlayer)
+                    EditorGUILayout.LabelField("平台产物", PlatformBuildPaths.GetExportDirectory(preview), EditorStyles.wordWrappedLabel);
+                EditorGUILayout.LabelField("远端上传", DescribeUploads(preview), EditorStyles.wordWrappedLabel);
+                if (Selection.Upload)
+                    EditorGUILayout.LabelField("COS 项目根", preview.CloudUrl, EditorStyles.wordWrappedLabel);
+                if (Selection.BuildBundles && !Selection.QA && Directory.Exists(local))
+                    EditorGUILayout.HelpBox("本次资源目录已存在，构建会覆盖其中的同名文件。", MessageType.Info);
+            }
+            if (error != null) EditorGUILayout.HelpBox(error, MessageType.Warning);
+            using (new EditorGUI.DisabledScope(error != null))
+                if (GUILayout.Button(Selection.CustomSteps ? "执行所选步骤" : "开始构建", GUILayout.Height(32)))
+                    Execute(preview);
         }
 
-        void DrawFullBuildUI()
+        internal static void DrawBaseline(BuildToolContext ctx)
         {
-            DrawStepToggle(ref _stepHybridCLR, PrefKeyStepHybridCLR, "1. HybridCLR Generate All + 拷贝 DLL");
-            DrawStepToggle(ref _stepAB, PrefKeyStepAB, "2. AB 构建 + 拷贝到本地 CDN");
-            DrawStepToggle(ref _stepUpload, PrefKeyStepUpload, "3. 上传 CDN 到 COS");
-            DrawStepToggle(ref _stepMiniGame, PrefKeyStepMiniGame, "4. 小游戏出包");
-
-            if (_stepAB)
-                EditorGUILayout.HelpBox("全量构建完成后将自动备份 AOT 裁剪 DLL，供后续热更构建使用。",
-                    MessageType.Info);
-
-            var envName = _ctx.BootConfig != null
-                ? _ctx.BootConfig.EnvName
-                : "Dev";
-            var cdnDir = BuildUtils.GetCdnPath(
-                envName, _ctx.CurrentPlatform, PlayerSettings.bundleVersion, _ctx.BuildConfig.planVersion);
-            if (_stepAB && Directory.Exists(cdnDir))
-                EditorGUILayout.HelpBox("CDN 目录已存在，构建将覆盖现有内容", MessageType.Info);
-
-            EditorGUILayout.Space(4);
-            DrawQAToggle();
-
-            EditorGUILayout.Space(8);
-
-            var canBuild = _stepHybridCLR || _stepAB || _stepUpload || _stepMiniGame;
-            using (new EditorGUI.DisabledScope(!canBuild))
+            using (new EditorGUILayout.HorizontalScope())
             {
-                var label = _qaBuild ? "▶  执行选中步骤（全量 · QA）" : "▶  执行选中步骤（全量）";
-                if (GUILayout.Button(label, GUILayout.Height(32)))
-                    ExecuteFullBuild();
+                if (ctx.BackupVersions.Length == 0)
+                    EditorGUILayout.LabelField("热更基线", "无 AOT 备份");
+                else
+                {
+                    var index = Array.IndexOf(ctx.BackupVersions, ctx.Selection.AotBaseline);
+                    EditorGUI.BeginChangeCheck();
+                    var selected = EditorGUILayout.Popup("热更基线", index, ctx.BackupVersions);
+                    if (EditorGUI.EndChangeCheck()) ctx.SelectBaseline(ctx.BackupVersions[selected]);
+                }
+                if (GUILayout.Button("刷新", GUILayout.Width(60))) ctx.RefreshBackups();
             }
         }
 
-        void DrawHotUpdateBuildUI()
+        string DescribeUploads(BuildContext context)
         {
-            EditorGUILayout.HelpBox(
-                "热更构建：仅编译热更 DLL → 检测缺失元数据 → 从 AOT 备份拷贝并瘦身 → 构建 AB → 上传。",
-                MessageType.Info);
+            if (!Selection.Upload) return "关闭（仅生成本地文件）";
+            if (Selection.Mode == ReleaseBuildMode.HotUpdate) return "AB、preload.json";
+            if (!Selection.ExportPlayer) return "AB";
+            return context.Platform == July.Release.PlatformKeys.WeChat
+                ? "AB、微信首包 data、本次生成的 preload.json" : "AB、本次生成的 preload.json";
+        }
 
-            var target = EditorUserBuildSettings.activeBuildTarget;
-            var versions = HybridCLRBuildHelper.GetAvailableBackupVersions(target, EditorPlatformPref.Platform);
-
-            if (versions.Length == 0)
+        void Execute(BuildContext context)
+        {
+            var originalVersion = PlayerSettings.bundleVersion;
+            _ctx.LastDiff = null;
+            _ctx.LastPackageVersion = null;
+            _ctx.LastResult = null;
+            _ctx.LastBuild = context;
+            try
             {
-                EditorGUILayout.HelpBox("未找到 AOT 备份，请先执行一次全量构建。", MessageType.Error);
+                if (Selection.Mode == ReleaseBuildMode.Full)
+                    PlayerSettings.bundleVersion = context.CoreVersion;
+                var result = new July.Build.BuildRunner(new July.Build.UnityBuildHost()).Run(context, Selection.CreateSteps());
+                _ctx.LastResult = result;
+                _ctx.LastPackageVersion = context.PackageVersion;
+                if (context.CdnSnapshotBefore != null && context.CdnSnapshotAfter != null)
+                    _ctx.LastDiff = DiffResult.Compute(context.CdnSnapshotBefore, context.CdnSnapshotAfter);
+                var message = result.Succeeded ? "构建完成" : result.Outcome == July.Build.BuildOutcome.Cancelled
+                    ? "构建已取消" : $"构建失败：[{result.FailedStep}] {result.Error}";
+                _ctx.SetStatus(message, result.Succeeded ? MessageType.Info :
+                    result.Outcome == July.Build.BuildOutcome.Cancelled ? MessageType.Warning : MessageType.Error);
             }
-            else
+            finally
             {
-                _backupVersionIndex = Mathf.Clamp(_backupVersionIndex, 0, versions.Length - 1);
-                _backupVersionIndex = EditorGUILayout.Popup("AOT 备份版本", _backupVersionIndex, versions);
-            }
-
-            DrawStepToggle(ref _stepAB, PrefKeyStepAB, "构建 AB + 拷贝到本地 CDN");
-            DrawStepToggle(ref _stepUpload, PrefKeyStepUpload, "上传 CDN 到 COS");
-
-            EditorGUILayout.Space(4);
-            DrawQAToggle();
-
-            EditorGUILayout.Space(8);
-
-            using (new EditorGUI.DisabledScope(versions.Length == 0))
-            {
-                var label = _qaBuild ? "▶  执行热更构建（QA）" : "▶  执行热更构建";
-                if (GUILayout.Button(label, GUILayout.Height(32)))
-                    ExecuteHotUpdateBuild(versions[_backupVersionIndex]);
-            }
-        }
-
-        static void DrawStepToggle(ref bool value, string prefKey, string label)
-        {
-            EditorGUI.BeginChangeCheck();
-            value = EditorGUILayout.ToggleLeft(label, value);
-            if (EditorGUI.EndChangeCheck())
-                ProjectEditorPrefs.SetBool(prefKey, value);
-        }
-
-        void DrawQAToggle()
-        {
-            EditorGUI.BeginChangeCheck();
-            _qaBuild = EditorGUILayout.ToggleLeft(
-                $"QA 测试构建（版本覆盖为 {BuildUtils.QAPlanVersion}，不写入 BuildConfig）",
-                _qaBuild);
-            if (EditorGUI.EndChangeCheck())
-                ProjectEditorPrefs.SetBool(PrefKeyQABuild, _qaBuild);
-
-            if (_qaBuild)
-                EditorGUILayout.HelpBox(
-                    $"CoreVersion 和 PlanVersion 均临时覆盖为 {BuildUtils.QAPlanVersion}。\n" +
-                    "不修改 BuildConfig / PlayerSettings，不打 Git Tag。",
-                    MessageType.Warning);
-        }
-
-        BuildContext CreateBuildContext()
-        {
-            return new BuildContext
-            {
-                Target = EditorUserBuildSettings.activeBuildTarget,
-                Platform = _ctx.CurrentPlatform,
-                Env = _ctx.BootConfig != null
-                    ? _ctx.BootConfig.EnvName
-                    : "Dev",
-                CoreVersion = PlayerSettings.bundleVersion,
-                PlanVersion = _ctx.BuildConfig.planVersion,
-                Development = _ctx.DebugBuild,
-                CloudUrl = _ctx.BuildConfig.cloudUrl,
-                CdnUrl = _ctx.BootConfig != null ? _ctx.BootConfig.cdnUrl : null,
-            };
-        }
-
-        void ExecuteFullBuild()
-        {
-            var ctx = CreateBuildContext();
-
-            if (_qaBuild)
-            {
-                ApplyQAOverrides(ctx);
-                PlayerSettings.bundleVersion = BuildUtils.QAPlanVersion;
-            }
-            else
-            {
-                ctx.CoreVersion = ctx.PlanVersion;
-                if (PlayerSettings.bundleVersion != ctx.CoreVersion)
-                    PlayerSettings.bundleVersion = ctx.CoreVersion;
-            }
-
-            var steps = PipelinePresets.FullBuild(_stepHybridCLR, _stepAB, _stepUpload, _stepMiniGame);
-            var result = new July.Build.BuildRunner(new July.Build.UnityBuildHost())
-                .Run(ctx, steps);
-
-            if (_qaBuild)
-                RestoreBundleVersion(ctx);
-
-            HandleResult(result, ctx);
-        }
-
-        void ExecuteHotUpdateBuild(string aotBackupVersion)
-        {
-            var ctx = CreateBuildContext();
-            ctx.AOTBackupVersion = aotBackupVersion;
-            ctx.UseExistingCoreVersion(PlayerSettings.bundleVersion);
-
-            if (_qaBuild)
-                ApplyQAOverrides(ctx);
-
-            var steps = PipelinePresets.HotUpdate(_stepAB, _stepUpload);
-            HandleResult(new July.Build.BuildRunner(new July.Build.UnityBuildHost())
-                .Run(ctx, steps), ctx);
-        }
-
-        static void ApplyQAOverrides(BuildContext ctx)
-        {
-            ctx.IsQABuild = true;
-            ctx.CoreVersion = BuildUtils.QAPlanVersion;
-            ctx.PlanVersion = BuildUtils.QAPlanVersion;
-        }
-
-        /// <summary>QA FullBuild 后还原 bundleVersion 为 BuildConfig.planVersion（真实版本）。</summary>
-        void RestoreBundleVersion(BuildContext ctx)
-        {
-            var realVersion = _ctx.BuildConfig != null ? _ctx.BuildConfig.planVersion : "";
-            if (!string.IsNullOrEmpty(realVersion) && PlayerSettings.bundleVersion != realVersion)
-            {
-                PlayerSettings.bundleVersion = realVersion;
-                Debug.Log($"[BuildTool] QA 构建完成，bundleVersion 已还原为 {realVersion}");
+                if (context.IsQABuild) PlayerSettings.bundleVersion = originalVersion;
+                _ctx.RefreshBackups();
             }
         }
 
-        void HandleResult(July.Build.BuildResult result, BuildContext ctx)
+        void SaveSelection()
         {
-            if (result.Outcome == July.Build.BuildOutcome.Cancelled) return;
-
-            _ctx.LastPackageVersion = ctx.PackageVersion;
-
-            if (ctx.CdnSnapshotBefore != null && ctx.CdnSnapshotAfter != null)
-                _ctx.LastDiff = DiffResult.Compute(ctx.CdnSnapshotBefore, ctx.CdnSnapshotAfter);
-
-            if (result.Succeeded)
-            {
-                var msg = $"全部完成！平台: {ctx.Platform}  Plan: {ctx.PlanVersion}  " +
-                          $"耗时: {result.Elapsed.TotalSeconds:F1}s";
-                if (!string.IsNullOrEmpty(ctx.AOTBackupVersion))
-                    msg += $"  AOT基线: {ctx.AOTBackupVersion}";
-
-                _ctx.SetStatus(msg, MessageType.Info);
-
-                var pkgInfo = string.IsNullOrEmpty(ctx.PackageVersion) ? "" : $" Pkg:{ctx.PackageVersion}";
-                Debug.Log($"[BuildTool] 流程完成 平台:{ctx.Platform} " +
-                          $"Core:{ctx.CoreVersion} Plan:{ctx.PlanVersion}{pkgInfo}");
-            }
-            else
-            {
-                _ctx.SetStatus($"构建失败: [{result.FailedStep}] {result.Error}", MessageType.Error);
-            }
-        }
-
-        void RestoreBootConfigEnv()
-        {
+            ProjectEditorPrefs.SetInt("BuildTool_BuildMode", (int)Selection.Mode);
+            ProjectEditorPrefs.SetBool("BuildTool_QABuild", Selection.QA);
+            ProjectEditorPrefs.SetBool("BuildTool_StepUpload", Selection.Upload);
+            ProjectEditorPrefs.SetBool("BuildTool_CustomSteps", Selection.CustomSteps);
+            ProjectEditorPrefs.SetBool("BuildTool_StepHybridCLR", Selection.HybridCLR);
+            ProjectEditorPrefs.SetBool("BuildTool_StepAB", Selection.AssetBundles);
+            ProjectEditorPrefs.SetBool("BuildTool_StepMiniGame", Selection.MiniGame);
         }
     }
 }

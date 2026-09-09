@@ -1,113 +1,72 @@
+using System;
 using UnityEditor;
 using UnityEngine;
 
 namespace July.Release.Editor
 {
-    /// <summary>
-    /// HybridCLR 开发工具面板（默认折叠）。
-    /// 提供单独的编译、Generate All、AB 收集器初始化等快捷操作。
-    /// </summary>
     public sealed class HybridCLRPanel : IBuildToolPanel
     {
-        const string PrefKeyExpanded = "BuildTool_HybridCLRExpanded";
-
         BuildToolContext _ctx;
-        bool _expanded;
-
-        public void OnEnable(BuildToolContext ctx)
-        {
-            _ctx = ctx;
-            _expanded = ProjectEditorPrefs.GetBool(PrefKeyExpanded, false);
-        }
+        string _hash;
+        string _hashScope;
+        string _settingsStatus;
+        public void OnEnable(BuildToolContext context) => _ctx = context;
 
         public void OnGUI()
         {
-            EditorGUI.BeginChangeCheck();
-            _expanded = EditorGUILayout.Foldout(_expanded, "HybridCLR 工具", true, EditorStyles.foldoutHeader);
-            if (EditorGUI.EndChangeCheck())
-                ProjectEditorPrefs.SetBool(PrefKeyExpanded, _expanded);
-
-            if (!_expanded) return;
-
-            EditorGUI.indentLevel++;
-
+            EditorGUILayout.LabelField("HybridCLR", EditorStyles.boldLabel);
             var target = EditorUserBuildSettings.activeBuildTarget;
-
-            // ── 常用 ──
-            EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("编译热更 DLL 并拷贝"))
-                RunWithProgressBar(() =>
-                    HybridCLRBuildHelper.CompileAndCopyDlls(target, _ctx.DebugBuild));
-
-            if (GUILayout.Button("Generate All"))
+            var scope = _ctx.CurrentPlatform + "|" + target + "|" + _ctx.DebugBuild;
+            if (_hashScope != scope) { _hashScope = scope; _hash = null; _settingsStatus = null; }
+            // 主构建区和维护区共用所选基线，不另外默认选取最新备份。
+            if (_ctx.Selection.Mode != ReleaseBuildMode.HotUpdate) BuildPipelinePanel.DrawBaseline(_ctx);
+            else EditorGUILayout.LabelField("当前热更基线", _ctx.Selection.AotBaseline ?? "无");
+            var ready = new PlatformDefinesValidationStep().Validate(_ctx.CreatePreview()) == null;
+            using (new EditorGUI.DisabledScope(!ready))
             {
-                var ok = HybridCLRBuildHelper.GenerateAll();
-                _ctx.SetStatus(
-                    ok ? "Generate All 完成，请检查 AOTGenericReferences.cs" : "Generate All 失败，请查看 Console",
-                    ok ? MessageType.Info : MessageType.Error);
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    if (GUILayout.Button("编译 DLL 并拷贝")) Run(() => HybridCLRBuildHelper.CompileAndCopyDlls(target, _ctx.DebugBuild));
+                    if (GUILayout.Button("Generate All")) Run(HybridCLRBuildHelper.GenerateAll);
+                }
+                using (new EditorGUI.DisabledScope(string.IsNullOrEmpty(_ctx.Selection.AotBaseline)))
+                    if (GUILayout.Button("按所选基线编译热更 DLL"))
+                        Run(() => HybridCLRBuildHelper.CompileHotUpdateOnly(target, _ctx.CurrentPlatform, _ctx.Selection.AotBaseline, _ctx.DebugBuild));
             }
-
-            EditorGUILayout.EndHorizontal();
-
-            // ── 热更 ──
-            var platform = EditorPlatformPref.Platform;
-            var versions = HybridCLRBuildHelper.GetAvailableBackupVersions(target, platform);
-            using (new EditorGUI.DisabledScope(versions.Length == 0))
-            {
-                var label = versions.Length > 0
-                    ? $"热更编译（使用备份 {versions[0]}·{platform}）"
-                    : $"热更编译（无 AOT 备份·{platform}）";
-
-                if (GUILayout.Button(label))
-                    RunWithProgressBar(() =>
-                        HybridCLRBuildHelper.CompileHotUpdateOnly(target, platform, versions[0], _ctx.DebugBuild));
-            }
-
-            // ── 初始化 ──
-            EditorGUILayout.Space(4);
-            EditorGUILayout.LabelField("初始化", EditorStyles.miniLabel);
-
-            if (GUILayout.Button("初始化 AB 收集器（HotFix + AOTMeta）"))
+            if (!ready) EditorGUILayout.HelpBox("请先应用目标平台与 Debug 设置，再执行编译工具。", MessageType.Info);
+            if (GUILayout.Button("初始化 DLL 资源收集器"))
             {
                 HybridCLRBuildHelper.EnsureABCollector();
-                var ok = HybridCLRBuildHelper.HasRequiredABGroups();
-                _ctx.SetStatus(
-                    ok ? "HotFix + AOTMeta AB 分组已就绪" : "AB 分组配置失败",
-                    ok ? MessageType.Info : MessageType.Error);
+                CheckSettings();
             }
-
-            // ── 状态 ──
-            EditorGUILayout.Space(4);
-            var settingsOk = HybridCLRBuildHelper.ValidateSettings(logErrors: false);
-            var abGroupOk = HybridCLRBuildHelper.HasRequiredABGroups();
-
-            EditorGUILayout.LabelField("配置状态",
-                $"Settings: {(settingsOk ? "✓" : "✗")}   AB 分组: {(abGroupOk ? "✓" : "✗")}",
-                EditorStyles.miniLabel);
-
-            if (versions.Length > 0)
-                EditorGUILayout.LabelField("AOT 备份",
-                    $"{versions.Length} 个版本，最新: {versions[0]}",
-                    EditorStyles.miniLabel);
-            else
-                EditorGUILayout.LabelField("AOT 备份", "无（需先全量构建）", EditorStyles.miniLabel);
-
-            EditorGUI.indentLevel--;
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                if (GUILayout.Button("检查配置")) CheckSettings();
+                if (GUILayout.Button("计算当前 AOT Hash")) _hash = AotSourceHasher.ComputeHash();
+            }
+            if (_settingsStatus != null) EditorGUILayout.LabelField(_settingsStatus, EditorStyles.wordWrappedLabel);
+            if (_hash != null)
+            {
+                EditorGUILayout.SelectableLabel(_hash, EditorStyles.textField, GUILayout.Height(EditorGUIUtility.singleLineHeight));
+                EditorGUILayout.LabelField("此次计算结果；修改源码后需重新计算。热更执行时仍会自动检查 AOT Hash。", EditorStyles.wordWrappedMiniLabel);
+            }
         }
 
-        void RunWithProgressBar(System.Func<bool> action)
+        void CheckSettings()
+        {
+            var valid = HybridCLRBuildHelper.ValidateSettings();
+            _settingsStatus = valid ? "HybridCLR 与 DLL 收集器配置通过" : "配置未通过，请查看 Console";
+            _ctx.SetStatus(_settingsStatus, valid ? MessageType.Info : MessageType.Error);
+        }
+
+        void Run(Func<bool> action)
         {
             try
             {
                 var ok = action();
-                _ctx.SetStatus(
-                    ok ? "操作完成" : "操作失败，请查看 Console",
-                    ok ? MessageType.Info : MessageType.Error);
+                _ctx.SetStatus(ok ? "操作完成" : "操作失败，请查看 Console", ok ? MessageType.Info : MessageType.Error);
             }
-            finally
-            {
-                EditorUtility.ClearProgressBar();
-            }
+            finally { EditorUtility.ClearProgressBar(); _ctx.RefreshBackups(); }
         }
     }
 }

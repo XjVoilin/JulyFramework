@@ -17,6 +17,53 @@ namespace July.Release.Editor
         public IReleaseBuildConfig BuildConfig;
 
         // ── Platform（PlatformPanel 写 EditorPlatformPref.Platform，其余读）──
+        public readonly BuildToolSelection Selection = new();
+        public string[] BackupVersions = Array.Empty<string>();
+        string _backupScope;
+        public BuildContext Preview;
+        public BuildContext LastBuild;
+        public July.Build.BuildResult LastResult;
+
+        public void SyncConfiguration()
+        {
+            BootConfig = ReleaseProject.LoadBootConfig();
+            BuildConfig = ReleaseProject.LoadBuildConfig();
+            var scope = EditorUserBuildSettings.activeBuildTarget + ":" + CurrentPlatform;
+            if (_backupScope != scope)
+            {
+                _backupScope = scope;
+                Selection.AotBaseline = ProjectEditorPrefs.GetString("BuildTool_Baseline:" + scope, "");
+                RefreshBackups();
+            }
+        }
+
+        public void RefreshBackups()
+        {
+            BackupVersions = HybridCLRBuildHelper.GetAvailableBackupVersions(
+                EditorUserBuildSettings.activeBuildTarget, CurrentPlatform);
+            if (!BackupVersions.Contains(Selection.AotBaseline))
+                SelectBaseline(BackupVersions.FirstOrDefault());
+        }
+
+        public void SelectBaseline(string version)
+        {
+            Selection.AotBaseline = version;
+            ProjectEditorPrefs.SetString("BuildTool_Baseline:" + _backupScope, version ?? "");
+        }
+
+        public BuildContext CreatePreview()
+        {
+            var context = new BuildContext
+            {
+                Target = EditorUserBuildSettings.activeBuildTarget,
+                Platform = CurrentPlatform, Env = BootConfig.EnvName,
+                PlanVersion = BuildConfig.planVersion, Development = DebugBuild,
+                CloudUrl = BuildConfig.cloudUrl, CdnUrl = BootConfig.cdnUrl,
+            };
+            Selection.ApplyTo(context);
+            return Preview = context;
+        }
+
         public bool DebugBuild;
         public string CurrentPlatform => EditorPlatformPref.Platform;
 

@@ -12,12 +12,12 @@ namespace July.Release.Editor
     /// <para>
     /// 全量构建（CoreVersion 自动 = PlanVersion）:
     ///   Unity -batchmode -quit -executeMethod July.Release.Editor.BuildPipelineCI.FullBuild
-    ///         -platform WeChat -planVersion 1.0.0 [-development] [-miniGame]
+    ///         -platform WeChat -planVersion 1.0.0 [-development] [-miniGame] [-forceRebuild]
     /// </para>
     /// <para>
     /// 热更构建（CoreVersion 自动取 ≤ PlanVersion 的最大 AOT 备份版本）:
     ///   Unity -batchmode -quit -executeMethod July.Release.Editor.BuildPipelineCI.HotUpdateBuild
-    ///         -platform WeChat -planVersion 1.0.2 [-aotBackupVersion 1.0.0] [-development]
+    ///         -platform WeChat -planVersion 1.0.2 [-aotBackupVersion 1.0.0] [-development] [-forceRebuild]
     /// </para>
     /// <para>
     /// 单步 / 多步执行:
@@ -287,6 +287,9 @@ namespace July.Release.Editor
                     case "-development":
                         Debug.LogWarning("[CI] -development is deprecated, use -debug instead");
                         ctx.Development = true;
+                        break;
+                    case "-forceRebuild":
+                        ctx.ForceRebuild = true;
                         break;
                     case "-strictMetadataCheck":
                         ctx.StrictMetadataCheck = true;

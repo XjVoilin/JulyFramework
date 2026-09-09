@@ -84,6 +84,17 @@ namespace July.Release.Editor
         /// <returns>(线上版本, 冲突消息)。冲突消息为 null 表示无冲突。</returns>
         (string liveVersion, string message) CheckLiveVersion(BuildContext ctx)
         {
+            if (ctx.ForceRebuild)
+            {
+                Debug.Log($"[CloudUpload] 强制重建，允许覆盖：Env={ctx.Env} Platform={ctx.Platform} " +
+                          $"CoreVersion={ctx.CoreVersion} PlanVersion={ctx.PlanVersion}");
+                return (null, null);
+            }
+
+            // QA 固定版本允许反复覆盖，不查询线上版本或进行覆盖确认。
+            if (ctx.PlanVersion == BuildUtils.QAPlanVersion)
+                return (null, null);
+
             var bootConfig = ReleaseProject.LoadBootConfig();
             var configServerUrl = bootConfig != null
                 ? bootConfig.GetConfigServerUrl()

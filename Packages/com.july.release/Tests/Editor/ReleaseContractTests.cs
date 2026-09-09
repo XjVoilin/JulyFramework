@@ -11,6 +11,64 @@ namespace July.Release.Tests
     public sealed class ReleaseContractTests
     {
         [Test]
+        public void BuildPreviewResolvesFullHotUpdateAndQaVersions()
+        {
+            var selection = new BuildToolSelection();
+            var full = Context();
+            selection.ApplyTo(full);
+            Assert.AreEqual("1.6.1", full.CoreVersion);
+            Assert.IsNull(full.AOTBackupVersion);
+            selection.Mode = ReleaseBuildMode.HotUpdate;
+            selection.AotBaseline = "1.5.0";
+            var hot = Context();
+            selection.ApplyTo(hot);
+            Assert.AreEqual("1.5.0", hot.CoreVersion);
+            Assert.AreEqual("1.5.0", hot.AOTBackupVersion);
+            Assert.AreEqual("1.6.1", hot.PlanVersion);
+            selection.QA = true;
+            selection.ApplyTo(hot);
+            Assert.AreEqual(BuildUtils.QAPlanVersion, hot.CoreVersion);
+            Assert.AreEqual(BuildUtils.QAPlanVersion, hot.PlanVersion);
+            Assert.AreEqual("1.5.0", hot.AOTBackupVersion);
+            Assert.IsTrue(hot.IsQABuild);
+        }
+
+        [Test]
+        public void MissingHotUpdateBaselineDoesNotFallBackToCurrentPlayerVersion()
+        {
+            var selection = new BuildToolSelection { Mode = ReleaseBuildMode.HotUpdate };
+            var context = Context();
+            selection.ApplyTo(context);
+            Assert.IsNull(context.CoreVersion);
+            Assert.IsNotNull(context.Validate());
+        }
+
+        [Test]
+        public void LocalPlayerExportNeverUploadsDataOrPreload()
+        {
+            var steps = PipelinePresets.FullBuild(upload: false, miniGame: true);
+            Assert.IsTrue(steps.Any(step => step is MiniGameBuildStep));
+            Assert.IsFalse(steps.Any(step => step is CloudUploadStep || step is DataFileUploadStep || step is GitTagStep));
+            Assert.IsFalse(steps.OfType<PreloadInjectionStep>().Single().UploadEnabled);
+            var publishing = PipelinePresets.FullBuild(upload: true, miniGame: true);
+            Assert.IsTrue(publishing.Any(step => step is DataFileUploadStep));
+            Assert.IsTrue(publishing.OfType<PreloadInjectionStep>().Single().UploadEnabled);
+        }
+
+        [Test]
+        public void StandardBuildIgnoresStaleCustomStepPreferences()
+        {
+            var selection = new BuildToolSelection { HybridCLR = false, AssetBundles = false, MiniGame = false };
+            var standard = selection.CreateSteps();
+            Assert.IsTrue(standard.Any(step => step is HybridCLRGenerateAllStep));
+            Assert.IsTrue(standard.Any(step => step is AssetBundleBuildStep));
+            Assert.IsTrue(standard.Any(step => step is MiniGameBuildStep));
+            selection.CustomSteps = true;
+            var custom = selection.CreateSteps();
+            Assert.IsFalse(custom.Any(step => step is HybridCLRGenerateAllStep || step is AssetBundleBuildStep || step is MiniGameBuildStep));
+        }
+
+        [Test]
         public void PreloadSelectionTracksSharedResourceTags()
         {
             var resources = new ReleaseResourceSettings();

@@ -11,7 +11,6 @@ namespace July.Release.Editor
     public sealed class PlatformPanel : IBuildToolPanel
     {
         const string PrefKeyDebug = "BuildTool_DebugBuild";
-        const string PrefKeyEnv = "BuildTool_ReleaseEnvironment";
 
         internal static string[] BaseDefines => ReleaseProject.Profile.BaseDefines;
 
@@ -105,7 +104,7 @@ namespace July.Release.Editor
             _platformIndex = System.Array.IndexOf(PlatformKeys.Options, EditorPlatformPref.Platform);
             if (_platformIndex < 0) _platformIndex = 0;
             _ctx.DebugBuild = ProjectEditorPrefs.GetBool(PrefKeyDebug, true);
-            _envIndex = _ctx.BootConfig != null ? (int)_ctx.BootConfig.env : ProjectEditorPrefs.GetInt(PrefKeyEnv, 0);
+            _envIndex = (int)_ctx.BootConfig.env;
         }
 
         public void OnGUI()
@@ -124,21 +123,21 @@ namespace July.Release.Editor
 
             EditorGUILayout.BeginHorizontal();
 
+            _platformIndex = Array.IndexOf(PlatformKeys.Options, _ctx.CurrentPlatform);
             EditorGUI.BeginChangeCheck();
             _platformIndex = EditorGUILayout.Popup("目标平台", _platformIndex, PlatformKeys.Options);
             if (EditorGUI.EndChangeCheck())
                 EditorPlatformPref.Platform = PlatformKeys.Options[_platformIndex];
 
+            _envIndex = (int)_ctx.BootConfig.env;
             EditorGUI.BeginChangeCheck();
             _envIndex = EditorGUILayout.Popup(_envIndex, EnvLabels, GUILayout.Width(60));
             if (EditorGUI.EndChangeCheck())
             {
-                ProjectEditorPrefs.SetInt(PrefKeyEnv, _envIndex);
-                if (_ctx.BootConfig != null)
-                {
-                    _ctx.BootConfig.env = (ReleaseEnvironment)_envIndex;
-                    EditorUtility.SetDirty(_ctx.BootConfig.Asset);
-                }
+                Undo.RecordObject(_ctx.BootConfig.Asset, "修改构建环境");
+                _ctx.BootConfig.env = (ReleaseEnvironment)_envIndex;
+                EditorUtility.SetDirty(_ctx.BootConfig.Asset);
+                AssetDatabase.SaveAssetIfDirty(_ctx.BootConfig.Asset);
             }
 
             EditorGUI.BeginChangeCheck();
@@ -149,22 +148,16 @@ namespace July.Release.Editor
             EditorGUILayout.EndHorizontal();
 
             var targetPlatform = _ctx.CurrentPlatform;
-            var targetEnv = (ReleaseEnvironment)_envIndex;
             var needsSwitchDefines = currentTarget != PlatformBuildTarget
                                     || !AreDefinesCurrent(targetPlatform, _ctx.DebugBuild);
 
             if (needsSwitchDefines)
             {
                 EditorGUILayout.HelpBox("当前编译宏与目标不匹配，请先切换平台", MessageType.Warning);
-                if (GUILayout.Button("切换平台", GUILayout.Height(26)))
+                if (GUILayout.Button("应用平台与 Debug 设置", GUILayout.Height(26)))
                     SwitchPlatform(targetPlatform);
             }
-            else if (currentEnv != targetEnv)
-            {
-                EditorGUILayout.HelpBox(
-                    $"BootConfig 环境 ({currentEnv}) 与选择 ({targetEnv}) 不一致，已自动同步",
-                    MessageType.Info);
-            }
+
         }
 
         static (string platform, bool isDebug) DetectCurrentDefines()

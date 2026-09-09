@@ -78,6 +78,11 @@ namespace July.Release.Editor
             }
             if (tagExists)
             {
+                if (ctx.ForceRebuild)
+                {
+                    Debug.Log($"[GitTag] 强制重建，保留已有归档标签，跳过重复创建和推送: {tagName}");
+                    return true;
+                }
                 Debug.LogError($"[GitTag] 执行前复查发现标签已存在: {tagName}");
                 return false;
             }
@@ -125,7 +130,7 @@ namespace July.Release.Editor
             var buildKind = buildType == "HotUpdate" ? "hot" : "full";
             tagName = $"{mainName}+{buildKind}-b{buildNumber}";
             if (!TryTagExists(tagName, out var archiveExists, out error)) return false;
-            if (!archiveExists) return true;
+            if (!archiveExists || ctx.ForceRebuild) return true;
 
             error = $"归档标签已存在: {tagName}。请使用新的 Jenkins 构建号重试";
             return false;

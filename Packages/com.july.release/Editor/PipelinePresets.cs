@@ -30,8 +30,8 @@ namespace July.Release.Editor
             if (upload) steps.Add(new CloudUploadStep());
             if (miniGame) steps.Add(new WebGLDebugSymbolStep());
             if (miniGame) steps.Add(new MiniGameBuildStep());
-            if (miniGame) steps.Add(new DataFileUploadStep());
-            if (miniGame) steps.Add(new PreloadInjectionStep());
+            if (miniGame && upload) steps.Add(new DataFileUploadStep());
+            if (miniGame) steps.Add(new PreloadInjectionStep(upload));
             if (upload) steps.Add(new GitTagStep());     // CDN 上传成功后归档
             return steps;
         }

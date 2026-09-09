@@ -20,6 +20,9 @@ namespace July.Release.Editor
     public sealed class PreloadInjectionStep : BuildStep
     {
         public override string Name => "预下载注入";
+        public bool UploadEnabled { get; }
+        public PreloadInjectionStep() : this(true) { }
+        public PreloadInjectionStep(bool upload) => UploadEnabled = upload;
 
         const string WeChatStartGameMarker = "gameManager.startGame();";
         const string TikTokMainMarker = "main();";
@@ -50,9 +53,9 @@ namespace July.Release.Editor
                 if (bundleUrls.Count > 0)
                 {
                     var localPath = PreloadHelper.WritePreloadJson(ctx, bundleUrls);
-                    if (!PreloadHelper.UploadPreloadJson(ctx, localPath))
+                    if (UploadEnabled && !PreloadHelper.UploadPreloadJson(ctx, localPath))
                         return false;
-                    Debug.Log($"{Sentinel} preload.json 已生成并上传, {bundleUrls.Count} URLs");
+                    Debug.Log($"{Sentinel} preload.json 已生成{(UploadEnabled ? "并上传" : "（仅本地）")}, {bundleUrls.Count} URLs");
                 }
             }
             else
