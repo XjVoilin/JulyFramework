@@ -1,6 +1,6 @@
 {
   "name": "com.july.release",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "displayName": "July Release",
   "description": "Standard release pipeline, backend version protocol and project-bound platform SDK adapters.",
   "unity": "2022.3",

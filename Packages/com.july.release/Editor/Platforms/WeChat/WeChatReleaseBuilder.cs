@@ -7,6 +7,9 @@ namespace July.Release.Editor.WeChat
 {
     public sealed class WeChatReleaseBuilder : IReleasePlatformBuilder
     {
+        [InitializeOnLoadMethod]
+        static void Register() => ReleaseProject.RegisterPlatform(PlatformKeys.WeChat, () => new WeChatReleaseBuilder());
+
         public PlatformBuildArtifacts Build(BuildContext context) => BuildWeChat(context) ? LocateArtifacts(context) : null;
         public PlatformBuildArtifacts LocateArtifacts(BuildContext context)
         {

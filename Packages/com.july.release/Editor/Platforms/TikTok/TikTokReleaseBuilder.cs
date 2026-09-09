@@ -8,6 +8,9 @@ namespace July.Release.Editor.TikTok
 {
     public sealed class TikTokReleaseBuilder : IReleasePlatformBuilder
     {
+        [InitializeOnLoadMethod]
+        static void Register() => ReleaseProject.RegisterPlatform(PlatformKeys.TikTok, () => new TikTokReleaseBuilder());
+
         public PlatformBuildArtifacts Build(BuildContext context) => BuildTikTok(context) ? LocateArtifacts(context) : null;
         public PlatformBuildArtifacts LocateArtifacts(BuildContext context) => PlatformBuildPaths.Locate(context,
             PlatformBuildPaths.GetExportDirectory(context));

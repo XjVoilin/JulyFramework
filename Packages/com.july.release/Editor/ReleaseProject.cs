@@ -2,19 +2,10 @@ using System;
 using System.Collections.Generic;
 using July.Build;
 using UnityEngine;
+using UnityEditor;
 
 namespace July.Release.Editor
 {
-    public interface IReleaseBootConfig
-    {
-        UnityEngine.Object Asset { get; }
-        ReleaseEnvironment env { get; set; }
-        string cdnUrl { get; }
-        string EnvName { get; }
-        string GetConfigServerUrl();
-        string GetConfigServerUrl(ReleaseEnvironment environment);
-    }
-
     public interface IReleaseBuildConfig
     {
         UnityEngine.Object Asset { get; }
@@ -22,7 +13,7 @@ namespace July.Release.Editor
         string planVersion { get; set; }
     }
 
-    /// <summary>Project-owned paths and resources. This is an in-memory binding, not another config asset.</summary>
+    /// <summary>BuildConfig 和启动配置映射得到的构建参数，不另存配置资产。</summary>
     public sealed class ReleaseProjectProfile
     {
         public string BootConfigPath { get; set; }
@@ -41,6 +32,7 @@ namespace July.Release.Editor
         public string AotMetaGroup { get; set; }
         public string HotFixTag { get; set; }
         public string AotMetaTag { get; set; }
+        public string LobbyTag { get; set; }
         public string[] BaseDefines { get; set; }
         public string LaunchFontGuid { get; set; }
         public string SplashImagePath { get; set; }
@@ -56,27 +48,36 @@ namespace July.Release.Editor
         public string CoscliConfigPath { get; set; }
     }
 
-    /// <summary>The editor composition root. The project binds existing assets and installed platform SDKs once.</summary>
+    /// <summary>框架装配点：读取项目配置资产，平台 SDK 适配器自行注册。</summary>
     public static class ReleaseProject
     {
-        static ReleaseProjectProfile _profile;
-        static Func<IReleaseBootConfig> _loadBoot;
-        static Func<IReleaseBuildConfig> _loadBuild;
-        static Func<string, IReleasePlatformBuilder> _platform;
-        public static ReleaseProjectProfile Profile => _profile ?? throw new InvalidOperationException(
-            "Release project is not configured. Install the project's editor binding before running release tools.");
+        static BuildConfig _buildConfig;
+        static readonly Dictionary<string, Func<IReleasePlatformBuilder>> Platforms = new();
 
-        public static void Configure(ReleaseProjectProfile profile, Func<IReleaseBootConfig> loadBoot,
-            Func<IReleaseBuildConfig> loadBuild, Func<string, IReleasePlatformBuilder> platform)
+        public static ReleaseProjectProfile Profile => LoadBuildConfig().CreateProfile();
+        public static IReleaseBootConfig LoadBootConfig() => LoadBuildConfig().GetBootConfig();
+
+        public static BuildConfig LoadBuildConfig()
         {
-            _profile = profile ?? throw new ArgumentNullException(nameof(profile));
-            _loadBoot = loadBoot ?? throw new ArgumentNullException(nameof(loadBoot));
-            _loadBuild = loadBuild ?? throw new ArgumentNullException(nameof(loadBuild));
-            _platform = platform ?? throw new ArgumentNullException(nameof(platform));
+            if (_buildConfig != null) return _buildConfig;
+            var guids = AssetDatabase.FindAssets("t:BuildConfig", new[] { "Assets" });
+            if (guids.Length != 1)
+                throw new InvalidOperationException($"项目 Assets 下必须有且仅有一个 July Release BuildConfig 资产，当前找到 {guids.Length} 个。请通过 Create > JulyGF > Build Config 创建，或移除重复资产。");
+            _buildConfig = AssetDatabase.LoadAssetAtPath<BuildConfig>(AssetDatabase.GUIDToAssetPath(guids[0]));
+            if (_buildConfig == null)
+                throw new InvalidOperationException("找到的 BuildConfig 资产类型不属于 July.Release.Editor.BuildConfig，请检查脚本引用。");
+            return _buildConfig;
         }
-        public static IReleaseBootConfig LoadBootConfig() { _ = Profile; return _loadBoot(); }
-        public static IReleaseBuildConfig LoadBuildConfig() { _ = Profile; return _loadBuild(); }
-        public static IReleasePlatformBuilder PlatformBuilder(string platform) { _ = Profile; return _platform(platform); }
+
+        public static void RegisterPlatform(string platform, Func<IReleasePlatformBuilder> factory)
+            => Platforms.Add(platform, factory);
+
+        public static IReleasePlatformBuilder PlatformBuilder(string platform)
+        {
+            if (!Platforms.TryGetValue(platform, out var factory))
+                throw new InvalidOperationException($"平台 {platform} 的构建适配未启用。请先切换平台编译宏，并确认项目已安装对应 SDK。");
+            return factory();
+        }
     }
 
     public interface IReleasePlatformBuilder

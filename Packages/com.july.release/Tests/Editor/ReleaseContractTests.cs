@@ -10,6 +10,18 @@ namespace July.Release.Tests
 {
     public sealed class ReleaseContractTests
     {
+        [Test]
+        public void PreloadSelectionTracksSharedResourceTags()
+        {
+            var resources = new ReleaseResourceSettings();
+            resources.aotMetaTag = "Metadata";
+            resources.hotUpdateTag = "Code";
+            resources.lobbyTag = "Home";
+            CollectionAssert.AreEqual(new[] { "Metadata", "Code", "Home" }, resources.RequiredPreloadTags);
+            resources.lobbyTag = "Start";
+            CollectionAssert.AreEqual(new[] { "Metadata", "Code", "Start" }, resources.RequiredPreloadTags);
+        }
+
         static BuildContext Context(string prefix = "SampleProject") => new BuildContext
         {
             CdnUrl = "https://cdn.example.com/" + prefix,

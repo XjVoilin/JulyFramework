@@ -19,15 +19,15 @@ namespace July.Release.Editor
 
         private const string BuildinGroupName = "Buildin";
         private const string LobbyGroupName = "Lobby";
-        private const string BuildinTag = "Buildin";
-        private const string LobbyTag = "Lobby";
+        private static string BuildinTag => ReleaseProject.Profile.BuildinTag;
+        private static string LobbyTag => ReleaseProject.Profile.LobbyTag;
 
         private static readonly HashSet<string> ExcludedDirs = new() { "Base" };
 
-        private static readonly HashSet<string> ProtectedGroupNames = new()
+        private static HashSet<string> ProtectedGroupNames => new()
         {
             BuildinGroupName, LobbyGroupName,
-            "HotFix", "AOTMeta", "Default Group"
+            ReleaseProject.Profile.HotFixGroup, ReleaseProject.Profile.AotMetaGroup, "Default Group"
         };
 
         [MenuItem("JulyGF/资源管理/同步 AB 分组（Buildin + Lobby + 小游戏）", priority = 60)]
@@ -95,8 +95,9 @@ namespace July.Release.Editor
 
         private static bool EnsureBuildinGroup(AssetBundleCollectorPackage package)
         {
-            if (package.Groups.Any(g => g.GroupName == BuildinGroupName))
-                return false;
+            var existing = package.Groups.FirstOrDefault(g => g.GroupName == BuildinGroupName);
+            if (existing != null)
+                return SyncGroupTag(existing, BuildinTag);
 
             var group = CreateGroup(BuildinGroupName, "首包启动资源（Launch 场景）", BuildinTag);
             group.Collectors.Add(CreateCollector(
@@ -110,8 +111,9 @@ namespace July.Release.Editor
 
         private static bool EnsureLobbyGroup(AssetBundleCollectorPackage package)
         {
-            if (package.Groups.Any(g => g.GroupName == LobbyGroupName))
-                return false;
+            var existing = package.Groups.FirstOrDefault(g => g.GroupName == LobbyGroupName);
+            if (existing != null)
+                return SyncGroupTag(existing, LobbyTag);
 
             var group = CreateGroup(LobbyGroupName, "大厅资源（启动后下载）", LobbyTag);
 
@@ -134,6 +136,17 @@ namespace July.Release.Editor
             var insertIdx = package.Groups.FindIndex(g => g.GroupName == BuildinGroupName);
             package.Groups.Insert(insertIdx < 0 ? 0 : insertIdx + 1, group);
             Debug.Log($"[MiniGameCollector] 创建分组: {LobbyGroupName}");
+            return true;
+        }
+
+        // 这些分组的下载标签由启动配置决定，保留收集器自行添加的其他标签。
+        private static bool SyncGroupTag(AssetBundleCollectorGroup group, string tag)
+        {
+            if (group.AssetTags == tag) return false;
+            var previous = group.AssetTags;
+            group.AssetTags = tag;
+            foreach (var collector in group.Collectors)
+                if (collector.AssetTags == previous) collector.AssetTags = tag;
             return true;
         }
 

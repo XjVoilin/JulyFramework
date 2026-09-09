@@ -14,6 +14,7 @@ namespace July.Release.Editor
         IBuildToolPanel[] _panels;
         Vector2 _scrollPos;
 
+        [MenuItem("JulyGF/构建/构建工具", priority = 50)]
         public static void ShowWindow()
         {
             var window = GetWindow<BuildToolWindow>("Build Tool");
@@ -72,6 +73,12 @@ namespace July.Release.Editor
                 }
 
                 return;
+            }
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                if (GUILayout.Button("构建配置")) Selection.activeObject = _ctx.BuildConfig.Asset;
+                if (GUILayout.Button("启动配置")) Selection.activeObject = _ctx.BootConfig.Asset;
             }
 
             _scrollPos = EditorGUILayout.BeginScrollView(_scrollPos);

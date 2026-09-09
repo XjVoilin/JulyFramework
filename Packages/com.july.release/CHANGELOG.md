@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Move BuildConfig and the build menu into release; discover the project asset lazily and let platform SDK adapters register themselves.
+- Replace project Configure bindings with the runtime IReleaseBootConfig contract and Inspector settings; this is a breaking integration change.
+- Share package name, resource tags and supplemental AOT assembly policy between build and runtime through the boot asset.
+
 - Resolve CoreVersion for CI single-step runs and selected AOT baselines in the hot-update panel.
 - Query live PlanVersion using the build context CoreVersion; reject contexts without a CoreVersion before executing steps.
 
