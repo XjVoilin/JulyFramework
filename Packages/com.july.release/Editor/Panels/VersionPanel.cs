@@ -104,7 +104,7 @@ namespace July.Release.Editor
                     ? _ctx.BootConfig.GetConfigServerUrl()
                     : null;
                 _liveVersion = EditorConfigService.FetchLivePlanVersion(
-                    configServerUrl, _ctx.CurrentPlatform);
+                    configServerUrl, _ctx.CurrentPlatform, PlayerSettings.bundleVersion);
                 _liveVersionQueried = true;
             }
 

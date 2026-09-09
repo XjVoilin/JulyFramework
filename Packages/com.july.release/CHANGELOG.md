@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Resolve CoreVersion for CI single-step runs and selected AOT baselines in the hot-update panel.
+- Query live PlanVersion using the build context CoreVersion; reject contexts without a CoreVersion before executing steps.
+
 ## 0.1.0
 
 - Extract standard release UI, CI, pipeline steps, COS uploads, resource collectors and project-bound build helpers.

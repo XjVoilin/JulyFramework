@@ -95,6 +95,45 @@ namespace July.Release.Tests
         }
 
         [Test]
+        public void MissingCoreVersionFailsBeforeStepsRun()
+        {
+            var ctx = Context();
+            foreach (var invalid in new[] { null, "", "  " })
+            {
+                ctx.CoreVersion = invalid;
+                Assert.AreEqual("Core version is required.", ctx.Validate());
+            }
+        }
+
+        [Test]
+        public void SingleStepKeepsCurrentCoreInsteadOfUsingPlanVersion()
+        {
+            var ctx = Context();
+            ctx.CoreVersion = null;
+            ctx.PlanVersion = "1.6.2";
+            ctx.UseExistingCoreVersion("1.6.0");
+            Assert.IsNull(ctx.Validate());
+            Assert.AreEqual("cos://bucket/SampleProject/Dev/WeChat/1.6.0/1.6.2",
+                BuildUtils.BuildCosObjectUrl("bucket", "SampleProject", ctx.Env, ctx.Platform, ctx.CoreVersion, ctx.PlanVersion));
+            Assert.AreEqual("https://cdn.example.com/SampleProject/Dev/WeChat/1.6.0/preload.json",
+                PreloadHelper.BuildPreloadJsonUrl(ctx));
+        }
+
+        [Test]
+        public void SelectedAotBaselineOverridesCurrentCoreForPathsAndRequests()
+        {
+            var ctx = Context();
+            ctx.CoreVersion = "1.7.0";
+            ctx.AOTBackupVersion = "1.6.0";
+            ctx.UseExistingCoreVersion("1.7.0");
+            Assert.IsNull(ctx.Validate());
+            Assert.AreEqual("1.6.1", ctx.PlanVersion);
+            Assert.AreEqual("https://cdn.example.com/SampleProject/Dev/WeChat/1.6.0/1.6.1",
+                ResourceUrls.PlanRoot(ctx.CdnUrl, ctx.Env, ctx.Platform, ctx.CoreVersion, ctx.PlanVersion));
+            Assert.AreEqual("1.6.0", (string)JsonMapper.ToObject(ClientVersionProtocol.RequestJson(ctx.CoreVersion))["CoreVersion"]);
+        }
+
+        [Test]
         public void PresetsRetainFullBuildAndHotUpdateOrdering()
         {
             CollectionAssert.AreEqual(new[] { "PlatformDefinesValidationStep", "HybridCLRInstallStep", "HybridCLRGenerateAllStep",

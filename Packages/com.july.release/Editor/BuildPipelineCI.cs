@@ -88,6 +88,8 @@ namespace July.Release.Editor
 
         /// <summary>
         /// 单步 / 多步执行入口。通过 -step Name 或 -steps A,B,C 指定。
+        /// CoreVersion 使用 -aotBackupVersion（若指定），否则沿用 PlayerSettings.bundleVersion。
+        /// 此入口不改变主包版本；创建新主包请使用 FullBuild。
         /// </summary>
         public static void RunStep()
         {
@@ -131,7 +133,8 @@ namespace July.Release.Editor
                 steps.Add(step);
             }
 
-            Debug.Log($"[CI] 单步执行: {string.Join(" → ", names)}");
+            ctx.UseExistingCoreVersion(PlayerSettings.bundleVersion);
+            Debug.Log($"[CI] 单步执行: {string.Join(" → ", names)} CoreVersion={ctx.CoreVersion} PlanVersion={ctx.PlanVersion}");
             RunAndExit(ctx, steps);
         }
 

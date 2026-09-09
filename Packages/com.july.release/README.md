@@ -47,7 +47,7 @@ SDK 适配使用独立的 Editor asmdef，**没有拆成额外 UPM 包**。公�
 
 `POST /client_version` 的请求为 `{"CoreVersion":"..."}`，响应读取 `platforms.{platform}.PlanVersion`。运行时、编辑器版本查询、game.js 配置预请求共用这一契约，预请求使用 `July.Config` 的现有 JS 缓存桥接。
 
-FullBuild 以 PlanVersion 创建 CoreVersion 并设置主包版本；HotUpdate 使用所选 AOT 备份的 CoreVersion，PlanVersion 可独立递增。YooAsset PackageVersion 继续使用原时间戳语义，Git tag 规则保持原样。
+FullBuild 以 PlanVersion 创建 CoreVersion 并设置主包版本；HotUpdate（CI 与面板）使用所选 AOT 备份的 CoreVersion，PlanVersion 可独立递增。单步入口 RunStep 优先采用已有参数 -aotBackupVersion，未指定时使用 PlayerSettings.bundleVersion，不修改主包版本。上传前的线上版本查询传入本次构建的 CoreVersion；独立版本查询按钮使用当前项目的主包版本。缺失 CoreVersion 的上下文在执行步骤前报错。YooAsset PackageVersion 继续使用原时间戳语义，Git tag 规则保持原样。
 
 ## AOT 与升级
 

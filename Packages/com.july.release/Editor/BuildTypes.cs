@@ -35,6 +35,12 @@ namespace July.Release.Editor
         public string DataFilePath { get; set; }
         public PlatformBuildArtifacts Artifacts { get; set; }
 
+        /// <summary>单步重跑或热更沿用已有主包；显式 AOT 基线优先于项目当前版本。</summary>
+        internal void UseExistingCoreVersion(string currentCoreVersion)
+        {
+            CoreVersion = string.IsNullOrEmpty(AOTBackupVersion) ? currentCoreVersion : AOTBackupVersion;
+        }
+
         public override string Validate()
         {
             if (string.IsNullOrWhiteSpace(Platform))
@@ -43,8 +49,9 @@ namespace July.Release.Editor
                 return "Plan version is required.";
             if (!BuildUtils.IsValidVersion(PlanVersion))
                 return $"Plan version is invalid: {PlanVersion}";
-            if (!string.IsNullOrWhiteSpace(CoreVersion) &&
-                !BuildUtils.IsValidVersion(CoreVersion))
+            if (string.IsNullOrWhiteSpace(CoreVersion))
+                return "Core version is required.";
+            if (!BuildUtils.IsValidVersion(CoreVersion))
                 return $"Core version is invalid: {CoreVersion}";
             return null;
         }

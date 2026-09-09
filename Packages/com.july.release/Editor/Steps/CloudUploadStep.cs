@@ -89,7 +89,7 @@ namespace July.Release.Editor
                 ? bootConfig.GetConfigServerUrl()
                 : null;
             var liveVersion = EditorConfigService.FetchLivePlanVersion(
-                configServerUrl, ctx.Platform);
+                configServerUrl, ctx.Platform, ctx.CoreVersion);
 
             if (liveVersion == null)
             {

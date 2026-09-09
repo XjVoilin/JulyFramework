@@ -19,12 +19,12 @@ namespace July.Release.Editor
         private const string ClientVersionPath = ClientVersionProtocol.Path;
 
         /// <summary>
-        /// 拉取指定平台的线上 PlanVersion（服务端 JSON 字段名仍是 <c>PlanVersion</c>，此处做内部语义映射）。
+        /// 拉取指定 CoreVersion 和平台的线上 PlanVersion（服务端 JSON 字段名仍是 <c>PlanVersion</c>，此处做内部语义映射）。
         /// 返回 null 表示失败（网络不可达 / 响应格式错误 / 无该平台配置）。
         /// </summary>
-        public static string FetchLivePlanVersion(string configServerUrl, string platform)
+        public static string FetchLivePlanVersion(string configServerUrl, string platform, string coreVersion)
         {
-            var json = FetchConfigJson(configServerUrl);
+            var json = FetchConfigJson(configServerUrl, coreVersion);
             if (json == null) return null;
 
             var root = JsonMapper.ToObject(json);
@@ -34,7 +34,7 @@ namespace July.Release.Editor
             return BuildUtils.IsValidVersion(version) ? version : null;
         }
 
-        private static string FetchConfigJson(string configServerUrl)
+        private static string FetchConfigJson(string configServerUrl, string coreVersion)
         {
             if (string.IsNullOrEmpty(configServerUrl))
             {
@@ -43,7 +43,7 @@ namespace July.Release.Editor
             }
 
             var url = configServerUrl.TrimEnd('/') + ClientVersionPath;
-            var body = ClientVersionProtocol.RequestJson(Application.version);
+            var body = ClientVersionProtocol.RequestJson(coreVersion);
             var bodyBytes = Encoding.UTF8.GetBytes(body);
 
             using var req = new UnityWebRequest(url, UnityWebRequest.kHttpVerbPOST)

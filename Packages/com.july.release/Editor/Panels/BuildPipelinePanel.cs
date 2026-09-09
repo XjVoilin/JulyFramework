@@ -191,6 +191,7 @@ namespace July.Release.Editor
         {
             var ctx = CreateBuildContext();
             ctx.AOTBackupVersion = aotBackupVersion;
+            ctx.UseExistingCoreVersion(PlayerSettings.bundleVersion);
 
             if (_qaBuild)
                 ApplyQAOverrides(ctx);
