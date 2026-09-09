@@ -1,0 +1,19 @@
+{
+  "name": "July.Release.Runtime",
+  "rootNamespace": "July.Release",
+  "references": [
+    "July.Config",
+    "July.Logging",
+    "July.Persistence",
+    "UniTask"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

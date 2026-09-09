@@ -1,0 +1,24 @@
+{
+  "name": "July.Release.WeChat.Editor",
+  "rootNamespace": "July.Release",
+  "references": [
+    "July.Release.Runtime",
+    "July.Release.Editor",
+    "July.Build.Editor",
+    "WxEditor",
+    "Wx"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [
+    "JULYGF_WX_MINIGAME"
+  ],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

@@ -1,0 +1,25 @@
+{
+  "name": "July.Release.Editor",
+  "rootNamespace": "July.Release",
+  "references": [
+    "July.Release.Runtime",
+    "July.Build.Editor",
+    "July.Build.HybridCLR.Editor",
+    "July.Resource.YooAsset.Editor",
+    "HybridCLR.Editor",
+    "YooAsset",
+    "YooAsset.Editor",
+    "Unity.TextMeshPro"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

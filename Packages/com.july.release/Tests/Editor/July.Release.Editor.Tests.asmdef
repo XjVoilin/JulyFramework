@@ -1,0 +1,18 @@
+{
+  "name": "July.Release.Editor.Tests",
+  "references": [
+    "July.Release.Runtime",
+    "July.Release.Editor",
+    "July.Build.Editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "autoReferenced": false,
+  "defineConstraints": [
+    "UNITY_INCLUDE_TESTS"
+  ]
+}

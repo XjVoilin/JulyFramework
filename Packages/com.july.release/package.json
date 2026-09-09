@@ -1,0 +1,23 @@
+{
+  "name": "com.july.release",
+  "version": "0.1.0",
+  "displayName": "July Release",
+  "description": "Standard release pipeline, backend version protocol and project-bound platform SDK adapters.",
+  "unity": "2022.3",
+  "dependencies": {
+    "com.july.build": "0.3.0",
+    "com.july.build.hybridclr": "0.1.0",
+    "com.july.config": "0.2.0",
+    "com.july.json": "0.1.0",
+    "com.july.logging": "0.1.0",
+    "com.july.persistence": "0.3.1",
+    "com.july.resource.yooasset": "0.2.3",
+    "com.unity.textmeshpro": "3.0.9",
+    "com.cysharp.unitask": "2.5.10",
+    "com.code-philosophy.hybridclr": "8.7.0",
+    "com.tuyoogame.yooasset": "2.3.12"
+  },
+  "author": {
+    "name": "July"
+  }
+}

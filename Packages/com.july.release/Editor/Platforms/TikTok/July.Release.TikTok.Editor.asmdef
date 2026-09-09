@@ -1,0 +1,23 @@
+{
+  "name": "July.Release.TikTok.Editor",
+  "rootNamespace": "July.Release",
+  "references": [
+    "July.Release.Runtime",
+    "July.Release.Editor",
+    "July.Build.Editor",
+    "com.bytedance.ttsdk-editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [
+    "JULYGF_DY_MINIGAME"
+  ],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

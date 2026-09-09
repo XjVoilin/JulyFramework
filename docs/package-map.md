@@ -53,6 +53,7 @@ July uses package seams only where a capability has an independent installation 
 | --- | --- |
 | `com.july.build` | Vendor-neutral reusable editor build pipeline. |
 | `com.july.build.hybridclr` | Strongly typed HybridCLR 8.7 build mechanics. |
+| `com.july.release` | Standard project release orchestration, editor/CI tools, backend version protocol, COS paths and optional project-installed platform SDK adapters. |
 
 The external `Template_2022.3` repository owns the game composition root, scenes, project policy, generated configuration, and fixed third-party tooling. It also verifies that the packages work together in a real Unity project.
 
