@@ -12,12 +12,12 @@ namespace July.Release.Editor
     /// <para>
     /// 全量构建（CoreVersion 自动 = PlanVersion）:
     ///   Unity -batchmode -quit -executeMethod July.Release.Editor.BuildPipelineCI.FullBuild
-    ///         -platform WeChat -planVersion 1.0.0 [-development] [-miniGame] [-forceRebuild]
+    ///         -platform WeChat -planVersion 1.0.0 [-development] [-miniGame] [-forceRebuild] [-aotBackupOutputPath "D:/AOT/full/aot"]
     /// </para>
     /// <para>
-    /// 热更构建（CoreVersion 自动取 ≤ PlanVersion 的最大 AOT 备份版本）:
+    /// 热更构建（显式输入从清单识别 CoreVersion；没有输入路径和版本时才自动选择本地备份）:
     ///   Unity -batchmode -quit -executeMethod July.Release.Editor.BuildPipelineCI.HotUpdateBuild
-    ///         -platform WeChat -planVersion 1.0.2 [-aotBackupVersion 1.0.0] [-development] [-forceRebuild]
+    ///         -platform WeChat -planVersion 1.0.2 [-aotBackupVersion 1.0.0] [-development] [-forceRebuild] [-aotBackupInputPath "D:/AOT/full/aot"]
     /// </para>
     /// <para>
     /// 单步 / 多步执行:
@@ -38,7 +38,7 @@ namespace July.Release.Editor
     {
         public static void FullBuild()
         {
-            var ctx = ParseContext();
+            var ctx = ParseContext(nameof(FullBuild));
             if (ctx == null) return;
 
             // FullBuild 无条件同步 CoreVersion = PlanVersion（见 spec §4.4.1）
@@ -64,11 +64,21 @@ namespace July.Release.Editor
 
         public static void HotUpdateBuild()
         {
-            var ctx = ParseContext();
+            var ctx = ParseContext(nameof(HotUpdateBuild));
             if (ctx == null) return;
 
-            // 若显式传 -aotBackupVersion，沿用；否则自动选（取 ≤ PlanVersion 的最大备份）
-            if (string.IsNullOrEmpty(ctx.AOTBackupVersion))
+            if (ctx.AotBackupInputPath != null)
+            {
+                try { AotBackupStore.SelectInput(ctx); }
+                catch (Exception exception) when (exception is System.IO.InvalidDataException || exception is System.IO.IOException || exception is ArgumentException || exception is UnauthorizedAccessException)
+                {
+                    Debug.LogError($"[CI] 指定 AOT 备份无效: {exception.Message}");
+                    EditorApplication.Exit(1);
+                    return;
+                }
+            }
+            // 只有未指定持久输入路径时才沿用本地自动选择规则。
+            else if (string.IsNullOrEmpty(ctx.AOTBackupVersion))
             {
                 if (!AutoSelectBackupVersion(ctx)) return; // 失败时内部已 Exit
             }
@@ -93,7 +103,7 @@ namespace July.Release.Editor
         /// </summary>
         public static void RunStep()
         {
-            var ctx = ParseContext();
+            var ctx = ParseContext(nameof(RunStep));
             if (ctx == null) return;
             var args = Environment.GetCommandLineArgs();
             string stepArg = null;
@@ -256,13 +266,15 @@ namespace July.Release.Editor
             AssetDatabase.SaveAssets();
         }
 
-        static BuildContext ParseContext()
+        static BuildContext ParseContext(string entryPoint)
         {
             var args = Environment.GetCommandLineArgs();
             var ctx = new BuildContext
             {
                 Target = EditorUserBuildSettings.activeBuildTarget,
             };
+
+            if (!TryApplyAotArguments(args, entryPoint, ctx)) return null;
 
             for (var i = 0; i < args.Length; i++)
             {
@@ -361,6 +373,7 @@ namespace July.Release.Editor
         /// </summary>
         public static void SyncPlatformDefines()
         {
+            if (!TryApplyAotArguments(Environment.GetCommandLineArgs(), nameof(SyncPlatformDefines), new BuildContext())) return;
             var args = Environment.GetCommandLineArgs();
             string platform = null;
             bool debug = false;
@@ -404,6 +417,17 @@ namespace July.Release.Editor
             PlayerSettings.SetScriptingDefineSymbolsForGroup(
                 PlatformPanel.PlatformBuildTargetGroup, targetDefines);
             AssetDatabase.SaveAssets();
+        }
+
+        static bool TryApplyAotArguments(string[] args, string entryPoint, BuildContext context)
+        {
+            try { AotBackupArguments.Apply(args, entryPoint, context); return true; }
+            catch (Exception exception) when (exception is ArgumentException || exception is System.IO.IOException || exception is UnauthorizedAccessException || exception is NotSupportedException)
+            {
+                Debug.LogError($"[CI] AOT 路径参数错误: {exception.Message}");
+                EditorApplication.Exit(1);
+                return false;
+            }
         }
 
         static string SafeNextArg(string[] args, ref int i, string flag)

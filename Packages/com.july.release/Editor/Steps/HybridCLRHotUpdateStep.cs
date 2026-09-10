@@ -17,6 +17,10 @@ namespace July.Release.Editor
             if (string.IsNullOrEmpty(ctx.AOTBackupVersion))
                 return "未指定 AOT 备份版本";
 
+            // BuildRunner 先执行全部 Validate；此时工作目录尚未恢复。
+            // 指定输入已由 AOTBackupRestoreStep.Validate 校验，不检查旧目录或旧归档。
+            if (ctx.AotBackupInputPath != null) return null;
+
             var backupDir = HybridCLRBuildHelper.GetAOTBackupDir(ctx.Target, ctx.Platform, ctx.AOTBackupVersion);
             if (!Directory.Exists(backupDir) && !Directory.Exists(
                     BuildUtils.GetAOTArchiveDir(ctx.Target, ctx.Platform, ctx.AOTBackupVersion)))
@@ -27,6 +31,11 @@ namespace July.Release.Editor
 
         public override bool Execute(BuildContext ctx)
         {
+            if (ctx.AotBackupInputPath != null)
+            {
+                var workspace = HybridCLRBuildHelper.GetAOTBackupDir(ctx.Target, ctx.Platform, ctx.AOTBackupVersion);
+                AotBackupStore.ValidateRestored(ctx, workspace, ReleaseProject.Profile.HybridCLR.MandatoryAotAssemblies);
+            }
             return HybridCLRBuildHelper.CompileHotUpdateOnly(
                 ctx.Target, ctx.Platform, ctx.AOTBackupVersion, ctx.Development, ctx.StrictMetadataCheck);
         }

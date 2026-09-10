@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.4
+
+- Add explicit full-build AOT output and hot-update AOT input paths, with strict entry-point and path validation.
+- Publish immutable AOT archives with platform, BuildTarget, CoreVersion, required assemblies and SHA-256 file inventory; reject incomplete or corrupt archives.
+- Restore the explicitly selected baseline even when a workspace exists, assert an optional requested backup version, and prohibit automatic selection or legacy fallback for explicit inputs.
+- Preserve local archive/restore behavior when paths are omitted, without changing the build runner or publishing pipeline.
+
 ## Unreleased
 
 - Simplify build UI into build, result and collapsed maintenance sections; retain custom steps and share AOT baseline selection.

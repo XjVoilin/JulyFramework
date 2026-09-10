@@ -1,11 +1,9 @@
-using System.IO;
 using UnityEngine;
 
 namespace July.Release.Editor
 {
     /// <summary>
-    /// 热更构建前检查 workspace 内 AOT 备份是否存在，缺失时从项目同级持久目录恢复。
-    /// 路径：{项目根}/../AOTBackup/{项目名}/{target}/{version}/
+    /// 热更构建前校验并恢复指定持久备份；没有显式路径时沿用本地工作副本及归档规则。
     /// </summary>
     public sealed class AOTBackupRestoreStep : BuildStep
     {
@@ -15,31 +13,21 @@ namespace July.Release.Editor
         {
             if (string.IsNullOrEmpty(ctx.Platform))
                 return "ctx.Platform 为空，无法定位平台对应的 AOT 备份";
+            if (ctx.AotBackupInputPath != null)
+            {
+                AotBackupStore.RequireDisjoint(ctx.AotBackupInputPath, ReleaseProject.Profile.HybridCLR.AotBackupRoot);
+                var workspace = HybridCLRBuildHelper.GetAOTBackupDir(ctx.Target, ctx.Platform, ctx.AOTBackupVersion);
+                AotBackupStore.ValidateInput(ctx, workspace, ReleaseProject.Profile.HybridCLR.MandatoryAotAssemblies);
+            }
             return null;
         }
 
         public override bool Execute(BuildContext ctx)
         {
             var localDir = HybridCLRBuildHelper.GetAOTBackupDir(ctx.Target, ctx.Platform, ctx.AOTBackupVersion);
-            if (Directory.Exists(localDir))
-            {
-                Debug.Log($"[AOTRestore] workspace 内备份已存在，跳过: {localDir} (Platform={ctx.Platform})");
-                return true;
-            }
-
-            var archiveDir = BuildUtils.GetAOTArchiveDir(ctx.Target, ctx.Platform, ctx.AOTBackupVersion);
-            if (!Directory.Exists(archiveDir))
-            {
-                Debug.LogError(
-                    $"[AOTRestore] AOT 备份不存在 (Platform={ctx.Platform}):\n" +
-                    $"  workspace: {localDir}\n" +
-                    $"  持久目录:  {archiveDir}\n" +
-                    "请先执行一次全量构建");
-                return false;
-            }
-
-            BuildUtils.CopyDirectory(archiveDir, localDir);
-            Debug.Log($"[AOTRestore] 已从持久目录恢复 AOT 备份: {archiveDir} → {localDir} (Platform={ctx.Platform})");
+            var archiveDir = ctx.AotBackupInputPath ?? BuildUtils.GetAOTArchiveDir(ctx.Target, ctx.Platform, ctx.AOTBackupVersion);
+            AotBackupStore.Restore(ctx, localDir, archiveDir, ReleaseProject.Profile.HybridCLR.MandatoryAotAssemblies);
+            Debug.Log($"[AOTRestore] AOT 工作副本已就绪: {localDir} (Platform={ctx.Platform}, CoreVersion={ctx.AOTBackupVersion}, Input={ctx.AotBackupInputPath ?? "本地规则"})");
             return true;
         }
     }

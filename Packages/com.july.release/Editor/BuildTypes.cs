@@ -26,6 +26,12 @@ namespace July.Release.Editor
         public string CdnUrl { get; set; }
         public string AOTBackupVersion { get; set; }
         public bool IsQABuild { get; set; }
+        /// <summary>全量构建的持久备份输出绝对目录；null 使用本地归档规则。</summary>
+        public string AotBackupOutputPath { get; set; }
+        /// <summary>热更必须使用的持久备份绝对目录；null 使用本地恢复规则。</summary>
+        public string AotBackupInputPath { get; set; }
+        internal AotBackupSnapshot ExplicitAotBackup { get; set; }
+        internal bool ExplicitAotBackupRestored { get; set; }
         /// <summary>显式允许同版本/较低版本资源覆盖；每次构建默认关闭。</summary>
         public bool ForceRebuild { get; set; } = false;
 

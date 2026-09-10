@@ -95,7 +95,7 @@ namespace July.Release.Editor
     {
         public string cdnRoot = "CDN";
         public string exportRoot = "../Build";
-        [Tooltip("归档父目录，框架自动追加当前项目文件夹名，保持现有本地归档结构。")]
+        [Tooltip("未指定 AOT 输入/输出路径时使用的本地归档父目录；框架自动追加当前项目文件夹名。")]
         public string aotArchiveParent = "../AOTBackup";
         public string aotSourceDirectory = "Assets/Game/ScriptsAot";
         public string[] aotHashExclusions = { "HybridCLR" };

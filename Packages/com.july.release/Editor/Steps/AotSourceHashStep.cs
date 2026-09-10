@@ -26,6 +26,11 @@ namespace July.Release.Editor
             var archivedHash = AotSourceHasher.ReadHash(ctx.Target, ctx.Platform, ctx.AOTBackupVersion);
             if (string.IsNullOrEmpty(archivedHash))
             {
+                if (ctx.AotBackupInputPath != null)
+                {
+                    Debug.LogError("[AotSourceHash] 指定 AOT 备份缺少源码 hash，禁止按旧格式放行。");
+                    return false;
+                }
                 Debug.LogWarning(
                     $"[AotSourceHash] AOT 备份 {ctx.AOTBackupVersion} (Platform={ctx.Platform}) 没有 {AotSourceHasher.HashFileName}，" +
                     "可能是旧版本构建系统产出的遗留备份。本次放行；下次 FullBuild 会补上 hash 文件。\n" +

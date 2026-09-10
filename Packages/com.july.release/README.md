@@ -64,6 +64,10 @@ SDK 适配使用独立的 Editor asmdef，**没有拆成额外 UPM 包**。公�
 
 FullBuild 以 PlanVersion 创建 CoreVersion 并设置主包版本；HotUpdate（CI 与面板）使用所选 AOT 备份的 CoreVersion，PlanVersion 可独立递增。单步入口 RunStep 优先采用已有参数 -aotBackupVersion，未指定时使用 PlayerSettings.bundleVersion，不修改主包版本。上传前的线上版本查询传入本次构建的 CoreVersion；独立版本查询按钮使用当前项目的主包版本。缺失 CoreVersion 的上下文在执行步骤前报错。YooAsset PackageVersion 继续使用原时间戳语义，Git tag 规则保持原样。
 
+## 显式 AOT 备份目录
+
+从 0.1.4 起，FullBuild 可传 `-aotBackupOutputPath`，HotUpdateBuild 可传 `-aotBackupInputPath`。目录直接指向备份本身，框架负责保存、完整性校验和工作副本恢复。热更清单中的版本必须符合同时传入的 `-aotBackupVersion` 断言，平台和 BuildTarget 必须符合本次请求。显式路径失败不会使用本地备份兜底；不传路径时保留原有开发机行为。详见 [AOT 备份接口](Documentation~/aot-backups.md)。
+
 ## CI 强制重建
 
 `-forceRebuild` 是无值开关，适用于 FullBuild / HotUpdateBuild（以及 RunStep）和 Dev / Test / Prod 各环境。未传入时 `BuildContext.ForceRebuild` 为 false，不保存为面板偏好或配置资产。
