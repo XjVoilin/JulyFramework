@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.5
+
+- Normalize the internal AOT workspace path before post-restore validation, fixing hot-update builds with a relative backup root. External backup paths still require absolute paths; the backup format is unchanged.
+- Add a regression test covering relative workspace restoration, post-restore integrity checking and rejection of external relative paths.
+
 ## 0.1.4
 
 - Add explicit full-build AOT output and hot-update AOT input paths, with strict entry-point and path validation.

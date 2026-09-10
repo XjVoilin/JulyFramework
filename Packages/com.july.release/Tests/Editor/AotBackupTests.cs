@@ -226,6 +226,32 @@ namespace July.Release.Tests
         }
 
         [Test]
+        public void RelativeWorkspaceCanBeRestoredAndValidatedWithoutRelaxingExternalPaths()
+        {
+            var relativeWorkspace = Path.Combine("Temp", "JulyAotRelativeTests-" + Guid.NewGuid().ToString("N"));
+            var absoluteWorkspace = Path.GetFullPath(relativeWorkspace);
+            Assert.AreEqual(Path.GetFullPath("Temp"), Path.GetDirectoryName(absoluteWorkspace));
+            try
+            {
+                Save();
+                var ctx = Select();
+                WriteWorkspace(relativeWorkspace);
+                File.WriteAllText(Path.Combine(relativeWorkspace, "obsolete.dll"), "old workspace residue");
+                AotBackupStore.ValidateInput(ctx, relativeWorkspace, Mandatory);
+                AotBackupStore.Restore(ctx, relativeWorkspace, legacy, Mandatory);
+                Assert.IsFalse(File.Exists(Path.Combine(relativeWorkspace, "obsolete.dll")));
+                Assert.Throws<ArgumentException>(() => AotBackupStore.Read(relativeWorkspace, "WeChat", "WebGL", "1.6.0"));
+                AotBackupStore.ValidateRestored(ctx, relativeWorkspace, Mandatory);
+                File.WriteAllText(Path.Combine(relativeWorkspace, "System.dll"), "damaged restored file");
+                Assert.Throws<InvalidDataException>(() => AotBackupStore.ValidateRestored(ctx, relativeWorkspace, Mandatory));
+            }
+            finally
+            {
+                if (Directory.Exists(absoluteWorkspace)) Directory.Delete(absoluteWorkspace, true);
+            }
+        }
+
+        [Test]
         public void PreflightUsesExplicitBackupBeforeAnyWorkspaceExists()
         {
             Save();

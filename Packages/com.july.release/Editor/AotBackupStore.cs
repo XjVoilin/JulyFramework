@@ -238,7 +238,7 @@ namespace July.Release.Editor
         {
             if (!context.ExplicitAotBackupRestored || context.AOTBackupVersion != context.CoreVersion)
                 throw new InvalidDataException("指定 AOT 备份尚未恢复或热更基线发生变化，禁止继续编译。");
-            Validate(workspaceDirectory, context.ExplicitAotBackup, context.Platform, context.Target.ToString(), context.CoreVersion, mandatoryAssemblies);
+            Validate(Path.GetFullPath(workspaceDirectory), context.ExplicitAotBackup, context.Platform, context.Target.ToString(), context.CoreVersion, mandatoryAssemblies);
         }
 
         static void VerifyPayload(string directory, AotBackupManifest manifest, IReadOnlyList<string> mandatoryAssemblies)
