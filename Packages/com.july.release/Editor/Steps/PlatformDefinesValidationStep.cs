@@ -16,13 +16,13 @@ namespace July.Release.Editor
             if (ctx.Platform != PlatformKeys.WeChat && ctx.Platform != PlatformKeys.TikTok)
                 return $"不支持的平台: {ctx.Platform}";
 
-            if (EditorUserBuildSettings.activeBuildTarget != PlatformPanel.PlatformBuildTarget)
+            if (EditorUserBuildSettings.activeBuildTarget != PlatformPreparation.PlatformBuildTarget)
             {
                 return $"当前 BuildTarget 为 {EditorUserBuildSettings.activeBuildTarget}，" +
-                       $"目标应为 {PlatformPanel.PlatformBuildTarget}。请先切换平台。";
+                       $"目标应为 {PlatformPreparation.PlatformBuildTarget}。请先切换平台。";
             }
 
-            var mismatch = PlatformPanel.DescribeDefineMismatch(ctx.Platform, ctx.Development);
+            var mismatch = PlatformPreparation.DescribeDefineMismatch(ctx.Platform, ctx.Development);
             return string.IsNullOrEmpty(mismatch)
                 ? null
                 : $"当前编译宏与 {ctx.Platform}{(ctx.Development ? " Debug" : string.Empty)} 标准集合不一致（{mismatch}）。" +

@@ -25,16 +25,10 @@ namespace July.Release.Editor
         public string AotSourceDirectory { get; set; }
         public string[] AotHashExclusions { get; set; }
         public HybridCLRBuildProfile HybridCLR { get; set; }
-        public string CollectorSettingPath { get; set; }
-        public string MiniGamesRoot { get; set; }
-        public string ResourcesRoot { get; set; }
-        public string HotFixGroup { get; set; }
-        public string AotMetaGroup { get; set; }
+        public bool MergeSharedBundles { get; set; }
         public string HotFixTag { get; set; }
         public string AotMetaTag { get; set; }
-        public string LobbyTag { get; set; }
         public string[] BaseDefines { get; set; }
-        public string LaunchFontGuid { get; set; }
         public string SplashImagePath { get; set; }
         public bool DisableUnitySplash { get; set; }
         public int SharedBundleMergeDepth { get; set; }
@@ -44,8 +38,6 @@ namespace July.Release.Editor
         public long MaxPreloadBytes { get; set; }
         public IReadOnlyCollection<string> RequiredPreloadTags { get; set; }
         public string BuildinTag { get; set; }
-        public string CoscliPath { get; set; }
-        public string CoscliConfigPath { get; set; }
     }
 
     /// <summary>框架装配点：读取项目配置资产，平台 SDK 适配器自行注册。</summary>
@@ -68,6 +60,8 @@ namespace July.Release.Editor
                 throw new InvalidOperationException("找到的 BuildConfig 资产类型不属于 July.Release.Editor.BuildConfig，请检查脚本引用。");
             return _buildConfig;
         }
+
+        internal static bool HasPlatformBuilder(string platform) => Platforms.ContainsKey(platform);
 
         public static void RegisterPlatform(string platform, Func<IReleasePlatformBuilder> factory)
             => Platforms.Add(platform, factory);

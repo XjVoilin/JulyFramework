@@ -35,6 +35,7 @@ namespace July.Release.Editor
         /// <summary>显式允许同版本/较低版本资源覆盖；每次构建默认关闭。</summary>
         public bool ForceRebuild { get; set; } = false;
 
+        public string SavedAotBackupPath { get; set; }
         public string PackageVersion { get; set; }
         public string ABOutputDir { get; set; }
         public string CdnOutputDir { get; set; }

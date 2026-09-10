@@ -3,7 +3,11 @@
   "references": [
     "July.Release.Runtime",
     "July.Release.Editor",
-    "July.Build.Editor"
+    "July.Build.Editor",
+    "HybridCLR.Editor",
+    "YooAsset.Editor",
+    "July.Build.HybridCLR.Editor",
+    "Unity.TextMeshPro"
   ],
   "includePlatforms": [
     "Editor"
@@ -14,5 +18,10 @@
   "autoReferenced": false,
   "defineConstraints": [
     "UNITY_INCLUDE_TESTS"
+  ],
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "nunit.framework.dll",
+    "LitJson.dll"
   ]
 }

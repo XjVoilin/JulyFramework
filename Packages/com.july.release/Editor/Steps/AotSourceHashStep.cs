@@ -52,7 +52,7 @@ namespace July.Release.Editor
             }
 
             var currentDefines = PlayerSettings.GetScriptingDefineSymbolsForGroup(
-                PlatformPanel.PlatformBuildTargetGroup);
+                PlatformPreparation.PlatformBuildTargetGroup);
             Debug.LogError(
                 "[AotSourceHash] AOT 环境不一致，必须使用 FullBuild。\n" +
                 "  可能原因：ScriptsAot 源码变更、平台宏切换（WeChat↔TikTok）、或 JULYGF_DEBUG 状态变更。\n" +

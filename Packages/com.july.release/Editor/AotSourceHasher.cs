@@ -9,7 +9,7 @@ namespace July.Release.Editor
         public const string HashFileName = July.Build.AotSourceHasher.HashFileName;
 
         public static string ComputeHash() => July.Build.AotSourceHasher.ComputeHash(
-            ScriptsAotDir, PlatformPanel.PlatformBuildTargetGroup, ReleaseProject.Profile.AotHashExclusions);
+            ScriptsAotDir, PlatformPreparation.PlatformBuildTargetGroup, ReleaseProject.Profile.AotHashExclusions);
 
         public static string GetHashFilePath(BuildTarget target, string platform,
             string coreVersion) => July.Build.AotSourceHasher.GetHashFilePath(

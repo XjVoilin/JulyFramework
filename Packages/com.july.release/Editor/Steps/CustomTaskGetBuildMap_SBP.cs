@@ -59,7 +59,7 @@ namespace July.Release.Editor
 
             dir = dir.Replace('\\', '/');
             string[] segments = dir.Split('/');
-            int configuredDepth = assetPath.StartsWith(
+            int configuredDepth = !string.IsNullOrEmpty(FontRoot) && assetPath.StartsWith(
                 FontRoot, StringComparison.OrdinalIgnoreCase)
                 ? FontMergeDepth
                 : MergeDepth;

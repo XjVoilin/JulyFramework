@@ -10,11 +10,11 @@ namespace July.Release.Editor
         BuildToolContext _ctx;
         PlatformPanel _platform;
         BuildPipelinePanel _build;
-        HybridCLRPanel _hybrid;
-        ToolsPanel _tools;
         DiffPanel _diff;
         Vector2 _scroll;
-        bool _maintenance;
+        bool _showConfiguration;
+        UnityEditor.Editor _buildEditor;
+        UnityEditor.Editor _runtimeEditor;
         bool _refreshRequested;
 
         [MenuItem("JulyGF/构建/构建工具", priority = 50)]
@@ -28,38 +28,47 @@ namespace July.Release.Editor
         {
             _ctx = new BuildToolContext { Repaint = Repaint };
             _platform = null;
-            _maintenance = ProjectEditorPrefs.GetBool("BuildTool_Maintenance", false);
             EditorApplication.projectChanged += OnProjectChanged;
         }
 
-        void OnDisable() => EditorApplication.projectChanged -= OnProjectChanged;
+        void OnDisable()
+        {
+            EditorApplication.projectChanged -= OnProjectChanged;
+            if (_buildEditor != null) DestroyImmediate(_buildEditor);
+            if (_runtimeEditor != null) DestroyImmediate(_runtimeEditor);
+        }
         void OnProjectChanged() { _refreshRequested = true; Repaint(); }
 
         void OnGUI()
         {
-            // 配置资产缺失/类型不符是编辑器接入阶段的可恢复状态；展示框架边界错误。
+            BuildConfig config;
+            try { config = ReleaseProject.LoadBuildConfig(); }
+            catch (InvalidOperationException exception)
+            {
+                EditorGUILayout.HelpBox(exception.Message, MessageType.Error);
+                if (GUILayout.Button("创建发布配置"))
+                    ProjectWindowUtil.CreateAsset(CreateInstance<BuildConfig>(), "BuildConfig.asset");
+                return;
+            }
+            _scroll = EditorGUILayout.BeginScrollView(_scroll);
+            DrawConfiguration(config);
+            // 配置不完整时仍允许编辑原资产，不要求先通过 Profile 的校验。
             try { _ctx.SyncConfiguration(); }
             catch (InvalidOperationException exception)
             {
                 EditorGUILayout.HelpBox(exception.Message, MessageType.Error);
-                if (GUILayout.Button("刷新配置")) Repaint();
+                EditorGUILayout.EndScrollView();
                 return;
             }
             if (_platform == null)
             {
                 _platform = new PlatformPanel(); _build = new BuildPipelinePanel();
-                _hybrid = new HybridCLRPanel(); _tools = new ToolsPanel(); _diff = new DiffPanel();
-                foreach (var panel in new IBuildToolPanel[] { _platform, _build, _hybrid, _tools, _diff })
+                _diff = new DiffPanel();
+                foreach (var panel in new IBuildToolPanel[] { _platform, _build, _diff })
                     panel.OnEnable(_ctx);
             }
             if (_refreshRequested) { _refreshRequested = false; _ctx.RefreshBackups(); }
 
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                if (GUILayout.Button("构建配置")) Selection.activeObject = _ctx.BuildConfig.Asset;
-                if (GUILayout.Button("启动配置")) Selection.activeObject = _ctx.BootConfig.Asset;
-            }
-            _scroll = EditorGUILayout.BeginScrollView(_scroll);
             _platform.OnGUI();
             _ctx.SyncConfiguration();
             EditorGUILayout.Space(8);
@@ -67,16 +76,30 @@ namespace July.Release.Editor
             EditorGUILayout.Space(8);
             DrawResult();
             EditorGUILayout.Space(8);
-            EditorGUI.BeginChangeCheck();
-            _maintenance = EditorGUILayout.Foldout(_maintenance, "维护与诊断", true, EditorStyles.foldoutHeader);
-            if (EditorGUI.EndChangeCheck()) ProjectEditorPrefs.SetBool("BuildTool_Maintenance", _maintenance);
-            if (_maintenance)
-            {
-                _hybrid.OnGUI();
-                EditorGUILayout.Space(8);
-                _tools.OnGUI();
-            }
             EditorGUILayout.EndScrollView();
+        }
+
+        void DrawConfiguration(BuildConfig config)
+        {
+            _showConfiguration = EditorGUILayout.Foldout(_showConfiguration, "项目与发布配置", true, EditorStyles.foldoutHeader);
+            if (!_showConfiguration)
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    if (GUILayout.Button("发布配置")) Selection.activeObject = config;
+                    if (GUILayout.Button("运行配置")) Selection.activeObject = config.bootConfig;
+                }
+                return;
+            }
+            UnityEditor.Editor.CreateCachedEditor(config, null, ref _buildEditor);
+            _buildEditor.OnInspectorGUI();
+            if (config.bootConfig != null)
+            {
+                EditorGUILayout.Space(8);
+                EditorGUILayout.LabelField("运行配置（直接编辑原资产）", EditorStyles.boldLabel);
+                UnityEditor.Editor.CreateCachedEditor(config.bootConfig, null, ref _runtimeEditor);
+                _runtimeEditor.OnInspectorGUI();
+            }
         }
 
         void DrawResult()

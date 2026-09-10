@@ -31,7 +31,7 @@ namespace July.Release.Editor
             Selection.Mode = (ReleaseBuildMode)GUILayout.Toolbar((int)Selection.Mode, new[] { "全量构建", "热更构建" });
             Selection.QA = EditorGUILayout.ToggleLeft(
                 new GUIContent("QA 测试版本（99.99.99）", "构建期间临时使用测试版本，结束后恢复原主包版本；不修改资源版本配置，不打 Git Tag。"), Selection.QA);
-            Selection.Upload = EditorGUILayout.ToggleLeft("上传本次资源到 COS", Selection.Upload);
+            Selection.Upload = EditorGUILayout.ToggleLeft("上传本次资源到 CDN（COS）", Selection.Upload);
             Selection.CustomSteps = EditorGUILayout.ToggleLeft("自定义构建步骤", Selection.CustomSteps);
             if (Selection.CustomSteps)
             {
@@ -70,6 +70,17 @@ namespace July.Release.Editor
                     EditorGUILayout.LabelField("COS 项目根", preview.CloudUrl, EditorStyles.wordWrappedLabel);
                 if (Selection.BuildBundles && !Selection.QA && Directory.Exists(local))
                     EditorGUILayout.HelpBox("本次资源目录已存在，构建会覆盖其中的同名文件。", MessageType.Info);
+            }
+            if (GUILayout.Button("检查本次构建接入"))
+            {
+                var errors = ReleaseConfigurationCheck.Inspect(ReleaseProject.LoadBuildConfig(), preview,
+                    Selection.BuildBundles, Selection.Mode == ReleaseBuildMode.HotUpdate || !Selection.CustomSteps || Selection.HybridCLR,
+                    Selection.ExportPlayer, Selection.Upload);
+                var defineError = new PlatformDefinesValidationStep().Validate(preview);
+                var report = string.Join("\n", errors);
+                if (defineError != null) report += "\n" + defineError;
+                _ctx.SetStatus(report.Length == 0 ? "接入检查通过（未编译、未联网、未上传）。" : report.Trim(),
+                    report.Length == 0 ? MessageType.Info : MessageType.Error);
             }
             if (error != null) EditorGUILayout.HelpBox(error, MessageType.Warning);
             using (new EditorGUI.DisabledScope(error != null))

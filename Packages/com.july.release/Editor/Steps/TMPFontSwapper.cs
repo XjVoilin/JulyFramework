@@ -27,10 +27,11 @@ namespace July.Release.Editor
         public static void SwapToLaunchFont()
         {
             if (_depth > 0) { _depth++; return; }
+            var configuredFont = ReleaseProject.LoadBuildConfig().launchFont;
+            if (configuredFont == null) return; // 未启用字体替换，保持 TMP 项目配置。
             var settings = TMP_Settings.instance;
             if (settings == null) throw new InvalidOperationException("TMP Settings is missing.");
-            var font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
-                AssetDatabase.GUIDToAssetPath(ReleaseProject.Profile.LaunchFontGuid));
+            var font = configuredFont;
             if (font == null) throw new InvalidOperationException("The configured launch font does not exist.");
             var serialized = new SerializedObject(settings);
             var defaultFont = serialized.FindProperty("m_defaultFontAsset");

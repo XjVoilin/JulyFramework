@@ -1,3 +1,4 @@
+using static July.Release.Editor.PlatformPreparation;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,87 +13,8 @@ namespace July.Release.Editor
     {
         const string PrefKeyDebug = "BuildTool_DebugBuild";
 
-        internal static string[] BaseDefines => ReleaseProject.Profile.BaseDefines;
-
-        internal static readonly string[] DebugDefines = { "JULYGF_DEBUG" };
-
-        internal static readonly Dictionary<string, string[]> PlatformDefineMap = new()
-        {
-            { PlatformKeys.WeChat, new[] { "JULYGF_WX_MINIGAME" } },
-            { PlatformKeys.TikTok, CreateTikTokDefines() },
-        };
-
-        static string[] CreateTikTokDefines()
-        {
-            var defines = new List<string> { "JULYGF_DY_MINIGAME" };
-#if TUANJIE_1_5_OR_NEWER
-            // BuildForTuanjie 会注入该宏。提前纳入标准集合，确保 HybridCLR、
-            // AOT hash 和最终小游戏主包始终使用同一编译环境。
-            defines.Add("TTSDK_MIX_ENGINE");
-#endif
-            return defines.ToArray();
-        }
-
-        internal static string[] GetExpectedDefines(string platform, bool debug)
-        {
-            var defines = new List<string>(BaseDefines);
-            if (PlatformDefineMap.TryGetValue(platform, out var platformDefines))
-                defines.AddRange(platformDefines);
-            if (debug)
-                defines.AddRange(DebugDefines);
-
-            return defines
-                .Distinct(StringComparer.Ordinal)
-                .OrderBy(value => value, StringComparer.Ordinal)
-                .ToArray();
-        }
-
-        internal static bool AreDefinesCurrent(string platform, bool debug)
-        {
-            var current = GetCurrentDefines();
-            var expected = new HashSet<string>(
-                GetExpectedDefines(platform, debug), StringComparer.Ordinal);
-            return current.SetEquals(expected);
-        }
-
-        internal static string DescribeDefineMismatch(string platform, bool debug)
-        {
-            var current = GetCurrentDefines();
-            var expected = new HashSet<string>(
-                GetExpectedDefines(platform, debug), StringComparer.Ordinal);
-
-            if (current.SetEquals(expected))
-                return null;
-
-            var missing = expected.Except(current).OrderBy(value => value, StringComparer.Ordinal).ToArray();
-            var extra = current.Except(expected).OrderBy(value => value, StringComparer.Ordinal).ToArray();
-            var details = new List<string>();
-            if (missing.Length > 0)
-                details.Add($"缺少: {string.Join(", ", missing)}");
-            if (extra.Length > 0)
-                details.Add($"多余: {string.Join(", ", extra)}");
-            return string.Join("；", details);
-        }
-
-        static HashSet<string> GetCurrentDefines()
-        {
-            var defines = PlayerSettings.GetScriptingDefineSymbolsForGroup(PlatformBuildTargetGroup);
-            return new HashSet<string>(
-                defines.Split(';').Where(value => !string.IsNullOrWhiteSpace(value)),
-                StringComparer.Ordinal);
-        }
-
         static readonly string[] EnvLabels = { "Dev", "Test", "Prod" };
 
-#if TUANJIE_1_5_OR_NEWER
-        internal static BuildTarget PlatformBuildTarget => BuildTarget.MiniGame;
-        internal static BuildTargetGroup PlatformBuildTargetGroup => BuildTargetGroup.MiniGame;
-        const string PlatformBuildTargetLabel = "MiniGame";
-#else
-        internal static BuildTarget PlatformBuildTarget => BuildTarget.WebGL;
-        internal static BuildTargetGroup PlatformBuildTargetGroup => BuildTargetGroup.WebGL;
-        const string PlatformBuildTargetLabel = "WebGL";
-#endif
 
         BuildToolContext _ctx;
         int _platformIndex;
@@ -190,23 +112,7 @@ namespace July.Release.Editor
                     "确认切换", "取消"))
                 return;
 
-            var defines = GetExpectedDefines(platform, _ctx.DebugBuild);
-
-            PlayerSettings.SetScriptingDefineSymbolsForGroup(
-                PlatformBuildTargetGroup, string.Join(";", defines));
-
-            PlayerSettings.SetUseDefaultGraphicsAPIs(PlatformBuildTarget, false);
-            PlayerSettings.SetGraphicsAPIs(PlatformBuildTarget, new[] { GraphicsDeviceType.OpenGLES3 });
-
-            PlayerSettings.SetScriptingBackend(PlatformBuildTargetGroup, ScriptingImplementation.IL2CPP);
-
-            EditorPlatformPref.Platform = platform;
-
-            Debug.Log($"[BuildTool] 平台环境已设置: {platform}{(_ctx.DebugBuild ? " · Debug" : "")} " +
-                      $"Defines: {string.Join(";", defines)}");
-
-            if (EditorUserBuildSettings.activeBuildTarget != PlatformBuildTarget)
-                EditorUserBuildSettings.SwitchActiveBuildTarget(PlatformBuildTargetGroup, PlatformBuildTarget);
+            PlatformPreparation.Apply(platform, _ctx.DebugBuild);
         }
     }
 }

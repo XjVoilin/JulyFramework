@@ -48,7 +48,7 @@ namespace July.Release.Tests
         {
             var steps = PipelinePresets.FullBuild(upload: false, miniGame: true);
             Assert.IsTrue(steps.Any(step => step is MiniGameBuildStep));
-            Assert.IsFalse(steps.Any(step => step is CloudUploadStep || step is DataFileUploadStep || step is GitTagStep));
+            Assert.IsFalse(steps.Any(step => step is CloudUploadStep || step is DataFileUploadStep));
             Assert.IsFalse(steps.OfType<PreloadInjectionStep>().Single().UploadEnabled);
             var publishing = PipelinePresets.FullBuild(upload: true, miniGame: true);
             Assert.IsTrue(publishing.Any(step => step is DataFileUploadStep));
@@ -206,14 +206,14 @@ namespace July.Release.Tests
         [Test]
         public void PresetsRetainFullBuildAndHotUpdateOrdering()
         {
-            CollectionAssert.AreEqual(new[] { "PlatformDefinesValidationStep", "HybridCLRInstallStep", "HybridCLRGenerateAllStep",
-                "AssetBundleBuildStep", "AOTBackupStep", "AOTBackupArchiveStep", "CloudUploadStep", "WebGLDebugSymbolStep",
-                "MiniGameBuildStep", "DataFileUploadStep", "PreloadInjectionStep", "GitTagStep" },
+            CollectionAssert.AreEqual(new[] { "ReleaseConfigurationStep", "PlatformDefinesValidationStep", "HybridCLRInstallStep", "HybridCLRGenerateAllStep",
+                "AssetBundleBuildStep", "AOTBackupStep", "AOTBackupArchiveStep", "WebGLDebugSymbolStep",
+                "MiniGameBuildStep", "CloudUploadStep", "DataFileUploadStep", "PreloadInjectionStep" },
                 PipelinePresets.FullBuild(upload: true, miniGame: true).Select(s => s.GetType().Name));
-            CollectionAssert.AreEqual(new[] { "PlatformDefinesValidationStep", "AOTBackupRestoreStep", "AotSourceHashStep", "HybridCLRHotUpdateStep",
-                "AssetBundleBuildStep", "CloudUploadStep", "PreloadJsonUpdateStep", "GitTagStep" },
+            CollectionAssert.AreEqual(new[] { "ReleaseConfigurationStep", "PlatformDefinesValidationStep", "AOTBackupRestoreStep", "AotSourceHashStep", "HybridCLRHotUpdateStep",
+                "AssetBundleBuildStep", "CloudUploadStep", "PreloadJsonUpdateStep" },
                 PipelinePresets.HotUpdate(upload: true).Select(s => s.GetType().Name));
-            Assert.IsFalse(PipelinePresets.FullBuild().Any(s => s is CloudUploadStep || s is GitTagStep));
+            Assert.IsFalse(PipelinePresets.FullBuild().Any(s => s is CloudUploadStep));
         }
     }
 }

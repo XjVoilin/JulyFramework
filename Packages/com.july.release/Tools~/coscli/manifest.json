@@ -1,0 +1,15 @@
+{
+  "version": "1.0.8",
+  "files": [
+    {
+      "path": "windows-x64/coscli.exe",
+      "sha256": "74f3b5ebbe89be2c013f9d3b2d8968691372801f2671bb31548eab4476fe9179",
+      "source": "https://github.com/tencentyun/coscli/releases/download/v1.0.8/coscli-v1.0.8-windows-amd64.exe"
+    },
+    {
+      "path": "macos-arm64/coscli",
+      "sha256": "df0018fbf78b552cbe875ebe26e8bdf7938c7f4394959f913dfc2ea4d1252568",
+      "source": "https://github.com/tencentyun/coscli/releases/download/v1.0.8/coscli-v1.0.8-darwin-arm64"
+    }
+  ]
+}

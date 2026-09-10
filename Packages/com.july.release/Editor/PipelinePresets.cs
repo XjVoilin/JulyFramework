@@ -13,6 +13,7 @@ namespace July.Release.Editor
         {
             var steps = new List<BuildStep>
             {
+                new ReleaseConfigurationStep(ab, hybridCLR, miniGame, upload),
                 new PlatformDefinesValidationStep(),
             };
             if (hybridCLR)
@@ -27,12 +28,11 @@ namespace July.Release.Editor
                 steps.Add(new AOTBackupArchiveStep());
             }
 
-            if (upload) steps.Add(new CloudUploadStep());
             if (miniGame) steps.Add(new WebGLDebugSymbolStep());
             if (miniGame) steps.Add(new MiniGameBuildStep());
+            if (upload) steps.Add(new CloudUploadStep());
             if (miniGame && upload) steps.Add(new DataFileUploadStep());
             if (miniGame) steps.Add(new PreloadInjectionStep(upload));
-            if (upload) steps.Add(new GitTagStep());     // CDN 上传成功后归档
             return steps;
         }
 
@@ -40,6 +40,7 @@ namespace July.Release.Editor
         {
             var steps = new List<BuildStep>
             {
+                new ReleaseConfigurationStep(ab, true, false, upload),
                 new PlatformDefinesValidationStep(),
                 new AOTBackupRestoreStep(),
                 new AotSourceHashStep(),
@@ -48,7 +49,6 @@ namespace July.Release.Editor
             if (ab) steps.Add(new AssetBundleBuildStep());
             if (upload) steps.Add(new CloudUploadStep());
             if (upload) steps.Add(new PreloadJsonUpdateStep());
-            if (upload) steps.Add(new GitTagStep());
             return steps;
         }
     }

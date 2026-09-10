@@ -40,6 +40,7 @@ namespace July.Release.Editor
                           $"coreVersion={ctx.CoreVersion} files={snapshot.Manifest.files.Length} manifestSha256={snapshot.ManifestSha256}");
             else
                 Debug.Log($"[AOTArchive] 已归档 AOT 备份 → {dst} (Platform={ctx.Platform})");
+            ctx.SavedAotBackupPath = Path.GetFullPath(dst);
             return true;
         }
     }

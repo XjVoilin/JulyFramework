@@ -14,6 +14,7 @@ namespace July.Release.Editor
         }
         public override bool Execute(BuildContext context)
         {
+            PlatformBuildPaths.CleanExportDirectory(ReleaseConventions.ExportRoot, context.Platform, context.CoreVersion);
             CleanBurstCache();
             PlatformBuildArtifacts artifacts;
             using (TMPFontSwapper.UseLaunchFont())

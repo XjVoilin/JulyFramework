@@ -12,12 +12,12 @@ namespace July.Release.Editor
     /// <para>
     /// 全量构建（CoreVersion 自动 = PlanVersion）:
     ///   Unity -batchmode -quit -executeMethod July.Release.Editor.BuildPipelineCI.FullBuild
-    ///         -platform WeChat -planVersion 1.0.0 [-development] [-miniGame] [-forceRebuild] [-aotBackupOutputPath "D:/AOT/full/aot"]
+    ///         -platform WeChat -planVersion 1.0.0 [-debug] [-uploadCdn] [-miniGame] [-forceRebuild] [-aotBackupOutputPath "D:/AOT/full/aot"]
     /// </para>
     /// <para>
     /// 热更构建（显式输入从清单识别 CoreVersion；没有输入路径和版本时才自动选择本地备份）:
     ///   Unity -batchmode -quit -executeMethod July.Release.Editor.BuildPipelineCI.HotUpdateBuild
-    ///         -platform WeChat -planVersion 1.0.2 [-aotBackupVersion 1.0.0] [-development] [-forceRebuild] [-aotBackupInputPath "D:/AOT/full/aot"]
+    ///         -platform WeChat -planVersion 1.0.2 [-aotBackupVersion 1.0.0] [-debug] [-uploadCdn] [-forceRebuild] [-aotBackupInputPath "D:/AOT/full/aot"]
     /// </para>
     /// <para>
     /// 单步 / 多步执行:
@@ -31,13 +31,14 @@ namespace July.Release.Editor
     ///   PlanVersion 通过 -planVersion 必填。
     /// </para>
     /// <para>
-    /// COS 上传凭证从 Tools/coscli/.cos.yaml 读取（随 git 提交），无需命令行传参。
+    /// 使用 -uploadCdn 明确要求 CDN 上传；凭证由本机配置或 CI 注入，不提交到 Git。
     /// </para>
     /// </summary>
     public static class BuildPipelineCI
     {
         public static void FullBuild()
         {
+            ReleaseBuildReport.Clear();
             var ctx = ParseContext(nameof(FullBuild));
             if (ctx == null) return;
 
@@ -57,13 +58,14 @@ namespace July.Release.Editor
             Debug.Log($"[CI] FullBuild: CoreVersion={ctx.CoreVersion}  PlanVersion={ctx.PlanVersion}  Platform={ctx.Platform}");
 
             var steps = PipelinePresets.FullBuild(
-                upload: HasCoscliConfig(),
+                upload: HasFlag("-uploadCdn"),
                 miniGame: HasFlag("-miniGame"));
-            RunAndExit(ctx, steps);
+            RunAndExit(ctx, steps, nameof(FullBuild));
         }
 
         public static void HotUpdateBuild()
         {
+            ReleaseBuildReport.Clear();
             var ctx = ParseContext(nameof(HotUpdateBuild));
             if (ctx == null) return;
 
@@ -92,8 +94,8 @@ namespace July.Release.Editor
                 $"[CI] HotUpdateBuild: CoreVersion={ctx.CoreVersion}  PlanVersion={ctx.PlanVersion}  " +
                 $"Platform={ctx.Platform}  AOTBackup={ctx.AOTBackupVersion}");
 
-            var steps = PipelinePresets.HotUpdate(upload: HasCoscliConfig());
-            RunAndExit(ctx, steps);
+            var steps = PipelinePresets.HotUpdate(upload: HasFlag("-uploadCdn"));
+            RunAndExit(ctx, steps, nameof(HotUpdateBuild));
         }
 
         /// <summary>
@@ -103,6 +105,7 @@ namespace July.Release.Editor
         /// </summary>
         public static void RunStep()
         {
+            ReleaseBuildReport.Clear();
             var ctx = ParseContext(nameof(RunStep));
             if (ctx == null) return;
             var args = Environment.GetCommandLineArgs();
@@ -145,14 +148,14 @@ namespace July.Release.Editor
 
             ctx.UseExistingCoreVersion(PlayerSettings.bundleVersion);
             Debug.Log($"[CI] 单步执行: {string.Join(" → ", names)} CoreVersion={ctx.CoreVersion} PlanVersion={ctx.PlanVersion}");
-            RunAndExit(ctx, steps);
+            RunAndExit(ctx, steps, nameof(RunStep));
         }
 
         static readonly string[] StepNames =
         {
             "HybridCLRInstall", "HybridCLR", "AB",
             "AOTBackup", "AOTArchive", "AOTRestore", "AotHash", "HotUpdate",
-            "Upload", "MiniGame", "DataFileUpload", "PreloadInjection", "PreloadJsonUpdate", "GitTag",
+            "Upload", "MiniGame", "DataFileUpload", "PreloadInjection", "PreloadJsonUpdate",
         };
 
         static BuildStep ResolveStep(string name) => name switch
@@ -170,7 +173,6 @@ namespace July.Release.Editor
             "DataFileUpload"   => new DataFileUploadStep(),
             "PreloadInjection" => new PreloadInjectionStep(),
             "PreloadJsonUpdate"=> new PreloadJsonUpdateStep(),
-            "GitTag"           => new GitTagStep(),
             _                  => null,
         };
 
@@ -226,11 +228,13 @@ namespace July.Release.Editor
             return true;
         }
 
-        static void RunAndExit(BuildContext ctx, IReadOnlyList<BuildStep> steps)
+        static void RunAndExit(BuildContext ctx, IReadOnlyList<BuildStep> steps, string buildType)
         {
             ctx.Interactive = false;
             var result = new July.Build.BuildRunner(new July.Build.UnityBuildHost())
                 .Run(ctx, steps);
+
+            ReleaseBuildReport.Save(ctx, result, buildType, HasFlag("-uploadCdn"));
 
             if (result.Succeeded)
             {
@@ -241,11 +245,6 @@ namespace July.Release.Editor
                 Debug.LogError($"[CI] 构建失败: [{result.FailedStep}] {result.Error}");
                 EditorApplication.Exit(1);
             }
-        }
-
-        static bool HasCoscliConfig()
-        {
-            return System.IO.File.Exists(BuildUtils.GetCoscliConfigPath());
         }
 
         static bool HasFlag(string flag)
@@ -278,7 +277,7 @@ namespace July.Release.Editor
 
             for (var i = 0; i < args.Length; i++)
             {
-                if (args[i][0] != '-') continue;
+                if (string.IsNullOrEmpty(args[i]) || args[i][0] != '-') continue;
 
                 switch (args[i])
                 {
@@ -333,6 +332,15 @@ namespace July.Release.Editor
                 return null;
             }
 
+            if (!string.IsNullOrEmpty(ctx.Platform) && !PlatformKeys.Options.Contains(ctx.Platform))
+                throw new ArgumentException($"Unsupported platform: {ctx.Platform}");
+            if (!string.IsNullOrEmpty(ctx.Env))
+            {
+                if (!Enum.TryParse<ReleaseEnvironment>(ctx.Env, true, out var environment) ||
+                    !Enum.IsDefined(typeof(ReleaseEnvironment), environment))
+                    throw new ArgumentException($"Unsupported environment: {ctx.Env}");
+                ctx.Env = environment.ToString();
+            }
             if (!string.IsNullOrEmpty(ctx.Platform))
                 EditorPlatformPref.Platform = ctx.Platform;
             else
@@ -401,22 +409,7 @@ namespace July.Release.Editor
                 return;
             }
 
-            var defines = PlatformPanel.GetExpectedDefines(platform, debug);
-
-            var targetDefines = string.Join(";", defines);
-            var currentDefines = PlayerSettings.GetScriptingDefineSymbolsForGroup(
-                PlatformPanel.PlatformBuildTargetGroup);
-
-            if (PlatformPanel.AreDefinesCurrent(platform, debug))
-            {
-                Debug.Log($"[CI] SyncPlatformDefines: already up to date ({currentDefines})");
-                return;
-            }
-
-            Debug.Log($"[CI] SyncPlatformDefines: {currentDefines} → {targetDefines}");
-            PlayerSettings.SetScriptingDefineSymbolsForGroup(
-                PlatformPanel.PlatformBuildTargetGroup, targetDefines);
-            AssetDatabase.SaveAssets();
+            PlatformPreparation.Apply(platform, debug);
         }
 
         static bool TryApplyAotArguments(string[] args, string entryPoint, BuildContext context)

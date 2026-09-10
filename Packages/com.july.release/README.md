@@ -7,14 +7,14 @@
 - `com.july.build`：通用步骤契约、执行器、Unity 构建宿主、AOT 源码哈希算法。
 - `com.july.build.hybridclr`：依赖 HybridCLR SDK 的编译、备份、元数据检查实现。
 - `com.july.release`：标准发布策略与编排；依赖以上能力及 YooAsset、July.Config、持久化和日志能力。
-- 项目：现有 BootConfig/BuildConfig 资产、项目目录/字体/启动图/程序集清单，由 Inspector 填写。项目内不再需要构建代码或装配入口。
+- 项目：提供运行配置与唯一 BuildConfig，引用既有收集配置（DLL 组统一 HotFix / AOTMeta）。框架管理目录约定；项目策略明确启用。
 
 ```text
 com.july.release/
   Runtime/                 启动配置契约、共享资源配置、后台版本协议、资源 URL
   Editor/                  BuildConfig 配置资产类型、自动装配、上下文、CI、面板、工具
-    Panels/                平台、版本、构建、差异、HybridCLR 面板
-    Steps/                 AB、HybridCLR、AOT 归档、COS、Git、预下载
+    Panels/                平台、版本、构建与结果差异；配置和接入检查集中在构建窗口
+    Steps/                 AB、HybridCLR、AOT 归档、COS、预下载
     Platforms/WeChat/      微信 SDK 构建适配
     Platforms/TikTok/      抖音 SDK 构建适配
   Tests/Editor/            路径、版本契约、JS 预请求和编排回归测试
@@ -26,17 +26,16 @@ SDK 适配使用独立的 Editor asmdef，**没有拆成额外 UPM 包**。公�
 
 ## 接入
 
-1. 项目 AOT asmdef 引用 `July.Release.Runtime`；现有 BootConfig 实现 `IReleaseBootConfig`，并序列化一个 `ReleaseResourceSettings` 字段。它保存包名、下载标签、补充 AOT 程序集清单，构建和运行时从同一份数据读取。
-2. 通过 Create → JulyGF → Build Config 创建框架 `BuildConfig` 资产，项目 Assets 下保留唯一一份。在 Inspector 的 Boot Config 字段拖入项目启动配置资产。
-3. 在 BuildConfig Inspector 填写 COS 根地址、版本、路径、宏、分组、预下载限制，拖入启动字体和图片。路径相对 Unity 项目根；AOT Archive Parent 自动追加当前项目文件夹名。COS CLI 路径不含扩展名，Windows 自动追加 `.exe`。
-4. 原菜单 JulyGF → 构建 → 构建工具由框架直接提供；窗口顶部“构建配置”“启动配置”按钮打开对应 Inspector。构建时根据资产内容生成内存中的 `ReleaseProjectProfile`，不另外保存 CDN/COS 根、项目名或重复资源清单。
-5. 配置首次使用时由框架查找；没有配置、存在多份配置或启动配置类型错误时明确报错。SDK 适配程序集通过 `InitializeOnLoadMethod` 自行注册。项目 Editor asmdef 不需要引用 release 或平台适配器，也不需要 `ProjectBuildBinding`。
-6. CI 直接使用 `July.Release.Editor.BuildPipelineCI` 的 `FullBuild`、`HotUpdateBuild`、`RunStep`、`SyncPlatformDefines`。已有项目应同步替换 Jenkins/shared-library 的 `-executeMethod` 完整方法名；其他参数保持原样。仍需在单独一轮 Unity 中同步平台宏，编译完成后再调用构建入口。
+1. 项目运行配置实现 `IReleaseBootConfig`，提供环境、CDN 和后台地址；无需命名为 BootConfig。MableSorting 已将启动配置合并到 GameConfig。
+2. 创建唯一 BuildConfig，引用运行配置，填写 COS 项目根、版本和公共宏；平台产物固定输出到 ../Build。
+3. 引用已有 YooAsset 收集资产，DLL 分组统一命名为 HotFix / AOTMeta。DLL 输出目录读取分组唯一 CollectPath；泛型引用路径读取 HybridCLR Settings。不会自动重写现有资源分组。
+4. 项目若已经在运行时使用 `ReleaseResourceSettings`，可实现独立的 `IReleaseResourceConfig` 共享同一份数据；否则资源构建参数由 BuildConfig 保存，不要求运行配置承担构建策略。
+5. 在 JulyGF → 构建 → 构建工具中编辑原配置、选择平台与构建类型，执行“检查本次构建接入”。检查不联网、不构建、不上传、不自动修改收集器；真正构建仍执行 AOT、版本和上传校验。
+6. 小游戏分组同步、目录共享包合并默认关闭，启动字体留空表示不替换。没有“维护与诊断”面板；编译和 AOT Hash 检查由标准流程负责，产物目录在结果区打开。
+7. 平台 SDK 继续由项目安装。CDN 和出包路径由框架同步；项目 AppID 等在 SDK 自身配置中维护。
+8. CI 继续使用 `July.Release.Editor.BuildPipelineCI.FullBuild` / `HotUpdateBuild` / `RunStep` / `SyncPlatformDefines`；版本语义保持，上传须显式传 -uploadCdn，完整接口见发布配置文档。
 
-已有项目迁移 BuildConfig 脚本时保留原脚本 `.meta` GUID，保留配置资产身份及已有字段值。项目运行时 BootConfig 可以继续保留自己的环境枚举、统计配置等内容，通过接口映射即可。热更业务程序集加载顺序仍属于项目启动代码。
-改变包名或 DLL 收集路径后，应同步 YooAsset 收集器；HybridCLR 收集器不匹配时构建预检报错，可使用现有初始化 AB 收集器操作更新。静态 Buildin/Lobby 分组标签随共享资源配置同步。
-
-目前提供 WeChat/TikTok 的平台宏、WebGL（团结为 MiniGame）设置及首包预下载策略。未来 Android 接入仍在此包增加原生构建适配、平台设置与相应配方；AB、版本、AOT、COS 和 CI 机制复用。本版本未宣称已经支持 Android，也不需要为 Android 再拆包。
+具体字段归属见 [发布配置](Documentation~/configuration.md)。0.2.0 直接采用新结构，不提供旧 Paths、旧入口或旧配置格式的兼容层。
 
 ## 构建工具面板
 
@@ -76,7 +75,7 @@ Jenkins `FORCE_REBUILD` 应每次默认关闭，仅本次勾选时给 Unity 添�
 
 强制模式跳过上传前的线上 PlanVersion 冲突检查，并记录环境、平台、CoreVersion、PlanVersion 和“强制重建，允许覆盖”。COS 配置/路径校验、AOT 检查和上传错误处理仍然执行。
 
-Git 发布主标签已存在时，仍按原规则创建带构建号的归档标签；若归档标签也已存在，仅在强制模式下保留该标签并跳过重复创建/推送。不会删除、移动或强推历史标签；Git 查询及新标签推送失败仍按原逻辑报错。
+Git 标签由 Jenkins 创建。主标签存在时使用带构建号的归档标签；补发确认已有远端标签指向原提交则成功，否则拒绝覆盖。强制重建不允许移动或强推历史标签。
 
 ## AOT 与升级
 
@@ -92,3 +91,7 @@ EditorPrefs 按项目目录隔离，首次接入会使用新的构建面板偏�
 真实 SDK 导出、IL2CPP 与在线后台/COS 集成需要在目标 Unity/团结环境做完整构建验收。
 
 本地开发可用 `file:` 引用此包。正式共享到 CI 时，按仓库的独立包版本规则发布新的不可变包版本 tag（本次装配 API 调整建议发布 `com.july.release@0.2.0`），并将项目依赖固定到该 tag；不要让 CI 依赖开发机绝对路径。
+
+CI 平台准备、显式 -uploadCdn、release-build-result.json 及项目/框架职责见 [发布配置](Documentation~/configuration.md)。发布标签由 Jenkins 维护。
+
+COSCLI v1.0.8 随本包 Tools~/coscli 分发（Windows x64/macOS ARM64），项目只提供 Tools/coscli/.cos.yaml 凭证。来源和许可见 THIRD-PARTY-NOTICES.md。

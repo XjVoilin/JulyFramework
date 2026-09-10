@@ -14,7 +14,7 @@ namespace July.Release.Editor
     /// </summary>
     public static class BuildUtils
     {
-        public static string CdnRoot => ReleaseProject.Profile.CdnRoot;
+        public static string CdnRoot => BuildConfig.CdnDirectory;
         public const string QAPlanVersion = "99.99.99";
         public static string PackageName => ReleaseProject.Profile.PackageName;
         public static string BootConfigPath => ReleaseProject.Profile.BootConfigPath;
@@ -154,8 +154,8 @@ namespace July.Release.Editor
             return $"{bytes / (1024f * 1024f):F2} MB";
         }
 
-        public static string GetCoscliPath() => Path.GetFullPath(ReleaseProject.Profile.CoscliPath);
-        public static string GetCoscliConfigPath() => Path.GetFullPath(ReleaseProject.Profile.CoscliConfigPath);
+        public static string GetCoscliPath() => Path.GetFullPath(ReleaseConventions.CoscliExecutable);
+        public static string GetCoscliConfigPath() => Path.GetFullPath(ReleaseConventions.CoscliConfig);
 
         /// <summary>
         /// 校验 COS 上传所需的环境（项目资源根 URL、凭证、coscli 工具）。
@@ -173,17 +173,17 @@ namespace July.Release.Editor
                 return $"coscli 未找到: {coscliPath}";
 
             var configPath = GetCoscliConfigPath();
-            return !File.Exists(configPath) ? $"coscli 配置未找到: {configPath}，请确认已提交到 git" : null;
+            return !File.Exists(configPath) ? $"coscli 配置未找到: {configPath}，请由本机或 CI 提供私有凭证文件" : null;
         }
 
         /// <summary>
         /// 执行 coscli 命令并返回结果。自动通过 -c 指定项目内配置文件 Tools/coscli/.cos.yaml。
-        /// macOS/Linux 下自动确保可执行权限（Unity 操作可能重置文件权限）。
+        /// macOS 使用可执行工作副本，不修改 UPM 包或 PackageCache。
         /// </summary>
         public static (int exitCode, string stdout, string stderr) RunCoscli(
             string coscliPath, string args)
         {
-            EnsureExecutable(coscliPath);
+            coscliPath = BundledCoscli.PrepareExecutable(coscliPath);
             var configPath = GetCoscliConfigPath();
             var fullArgs = $"-c \"{configPath}\" {args}";
 
@@ -209,24 +209,5 @@ namespace July.Release.Editor
             return (proc.ExitCode, stdout, stderr);
         }
 
-        /// <summary>macOS/Linux: 确保文件有可执行权限。Windows 上无操作。</summary>
-        private static void EnsureExecutable(string path)
-        {
-#if UNITY_EDITOR_OSX || UNITY_EDITOR_LINUX
-            try
-            {
-                var psi = new ProcessStartInfo
-                {
-                    FileName = "chmod",
-                    Arguments = $"+x \"{path}\"",
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                };
-                using var p = Process.Start(psi);
-                p?.WaitForExit(3000);
-            }
-            catch { /* 权限修复失败不阻断，后续 Process.Start 会报原始错误 */ }
-#endif
-        }
     }
 }

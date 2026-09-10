@@ -18,12 +18,8 @@ namespace July.Release.Editor
 
         public override string Validate(BuildContext ctx)
         {
-            if (!MiniGameCollectorHelper.ValidateAndSync())
-                return "AB 收集器分组同步失败，请检查日志";
-
-            return HybridCLRBuildHelper.HasRequiredABGroups()
-                ? null
-                : "YooAsset 中未找到 HotFix/AOTMeta 分组，请先执行 JulyGF → HybridCLR → 初始化 AB 收集器";
+            HybridCLRBuildHelper.ValidateCollectorDirectories();
+            return null;
         }
 
         public override bool Execute(BuildContext ctx)
@@ -58,6 +54,9 @@ namespace July.Release.Editor
             Debug.Log($"[AB] 构建完成 Pkg:{ctx.PackageVersion} → {ctx.CdnOutputDir}");
             return true;
         }
+
+        internal static IBuildTask CreateBuildMapTask(bool mergeSharedBundles) =>
+            mergeSharedBundles ? (IBuildTask)new CustomTaskGetBuildMap_SBP() : new TaskGetBuildMap_SBP();
 
         private static BuildResult RunBuild(BuildContext ctx,
             EBuildinFileCopyOption copyOption, string copyParams)
@@ -99,7 +98,7 @@ namespace July.Release.Editor
             var pipeline = new List<IBuildTask>
             {
                 new TaskPrepare_SBP(),
-                new CustomTaskGetBuildMap_SBP(),
+                CreateBuildMapTask(ReleaseProject.Profile.MergeSharedBundles),
                 new TaskBuilding_SBP(),
                 new TaskVerifyBuildResult_SBP(),
                 new TaskEncryption_SBP(),
