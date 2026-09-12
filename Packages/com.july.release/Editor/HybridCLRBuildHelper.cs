@@ -13,12 +13,19 @@ namespace July.Release.Editor
             return HybridCLRBuildService.ValidateSettings(logErrors);
         }
 
-        public static bool CompileAndCopyDlls(BuildTarget target, bool development) =>
-            CompleteArtifacts(ValidateSettings() && HybridCLRBuildService.CompileAndCopyDlls(
-                Profile, target, development));
+        public static bool CompileAndCopyDlls(BuildTarget target, bool development)
+        {
+            if (!ValidateSettings()) return false;
+            var success = HybridCLRBuildService.CompileAndCopyDlls(Profile, target, development, out var artifacts);
+            return CompleteArtifacts(success, artifacts);
+        }
 
-        public static bool GenerateAllAndCopyDlls(BuildTarget target) =>
-            CompleteArtifacts(ValidateSettings() && HybridCLRBuildService.GenerateAllAndCopyDlls(Profile, target));
+        public static bool GenerateAllAndCopyDlls(BuildTarget target)
+        {
+            if (!ValidateSettings()) return false;
+            var success = HybridCLRBuildService.GenerateAllAndCopyDlls(Profile, target, out var artifacts);
+            return CompleteArtifacts(success, artifacts);
+        }
 
         public static bool GenerateAll() => HybridCLRBuildService.GenerateAll();
 
@@ -43,14 +50,23 @@ namespace July.Release.Editor
 
         public static bool CompileHotUpdateOnly(BuildTarget target, string platform,
             string aotBackupVersion, bool development, bool strictMetadataCheck = false,
-            bool stripAOT = true) =>
-            CompleteArtifacts(ValidateSettings() && HybridCLRBuildService.CompileHotUpdateOnly(
-                Profile, target, platform, aotBackupVersion, development,
-                strictMetadataCheck, stripAOT));
-
-        static bool CompleteArtifacts(bool success)
+            bool stripAOT = true)
         {
-            if (success) HybridClrAssemblyManifest.WriteForProject();
+            if (!ValidateSettings()) return false;
+            var success = HybridCLRBuildService.CompileHotUpdateOnly(
+                Profile, target, platform, aotBackupVersion, development,
+                out var artifacts, strictMetadataCheck, stripAOT);
+            return CompleteArtifacts(success, artifacts);
+        }
+
+        static bool CompleteArtifacts(bool success, HybridCLRBuildArtifacts artifacts)
+        {
+            if (success)
+            {
+                HybridClrAssemblyManifest.Write(Profile.HotUpdateDllDirectory,
+                    artifacts.HotUpdateAssemblies, artifacts.AotMetadataAssemblies);
+                AssetDatabase.Refresh();
+            }
             return success;
         }
     }

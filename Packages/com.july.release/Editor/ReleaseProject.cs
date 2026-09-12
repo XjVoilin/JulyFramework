@@ -26,8 +26,6 @@ namespace July.Release.Editor
         public string[] AotHashExclusions { get; set; }
         public HybridCLRBuildProfile HybridCLR { get; set; }
         public bool MergeSharedBundles { get; set; }
-        public string HotFixTag { get; set; }
-        public string AotMetaTag { get; set; }
         public string[] BaseDefines { get; set; }
         public string SplashImagePath { get; set; }
         public bool DisableUnitySplash { get; set; }
@@ -37,7 +35,6 @@ namespace July.Release.Editor
         public int MaxPreloadCount { get; set; }
         public long MaxPreloadBytes { get; set; }
         public IReadOnlyCollection<string> RequiredPreloadTags { get; set; }
-        public string BuildinTag { get; set; }
     }
 
     /// <summary>框架装配点：读取项目配置资产，平台 SDK 适配器自行注册。</summary>

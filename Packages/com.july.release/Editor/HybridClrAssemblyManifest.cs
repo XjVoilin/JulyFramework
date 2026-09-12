@@ -1,8 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using UnityEditor;
-using UnityEngine;
+using HybridCLR.Editor.Meta;
+using LitJson;
 
 namespace July.Release.Editor
 {
@@ -11,27 +12,34 @@ namespace July.Release.Editor
         [Serializable]
         internal sealed class Manifest
         {
+            public int formatVersion;
             public string[] hotUpdateAssemblies;
             public string[] aotMetadataAssemblies;
         }
 
-        internal static void WriteForProject()
+        internal static void Write(string hotUpdateDirectory, IEnumerable<string> hotUpdateAssemblies,
+            IEnumerable<string> aotMetadataAssemblies)
         {
-            var profile = ReleaseProject.Profile.HybridCLR;
-            Write(profile.HotUpdateDllDirectory, profile.AotMetadataDirectory);
-            AssetDatabase.Refresh();
-        }
-
-        internal static void Write(string hotUpdateDirectory, string metadataDirectory)
-        {
-            var hotNames = Names(hotUpdateDirectory);
+            var hotNames = hotUpdateAssemblies.OrderBy(name => name, StringComparer.Ordinal).ToArray();
             if (hotNames.Length == 0) throw new InvalidOperationException("没有生成的热更 DLL，无法写入程序集清单。");
-            var manifest = new Manifest { hotUpdateAssemblies = hotNames, aotMetadataAssemblies = Names(metadataDirectory) };
-            File.WriteAllText(Path.Combine(hotUpdateDirectory, "hybridclr-manifest.json"), JsonUtility.ToJson(manifest, true));
+            var ordered = AssemblySorter.SortAssemblyByReferenceOrder(hotNames, new CopiedAssemblyResolver(hotUpdateDirectory));
+            var manifest = new Manifest { formatVersion = HybridClrManifest.FormatVersion, hotUpdateAssemblies = ordered.ToArray(),
+                aotMetadataAssemblies = aotMetadataAssemblies.OrderBy(name => name, StringComparer.Ordinal).ToArray() };
+            File.WriteAllText(Path.Combine(hotUpdateDirectory, HybridClrManifest.FileName), JsonMapper.ToJson(manifest));
         }
 
-        static string[] Names(string directory) => Directory.GetFiles(directory, "*.dll.bytes")
-            .Select(path => Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(path)))
-            .OrderBy(name => name, StringComparer.Ordinal).ToArray();
+        /// <summary>只解析本次复制的 DLL 资源，不受编辑器已加载程序集或遗留 .dll 文件影响。</summary>
+        private sealed class CopiedAssemblyResolver : IAssemblyResolver
+        {
+            private readonly string _directory;
+            internal CopiedAssemblyResolver(string directory) => _directory = directory;
+            public string ResolveAssembly(string assemblyName, bool throwExIfNotFind)
+            {
+                var path = Path.Combine(_directory, assemblyName + ".dll.bytes");
+                if (File.Exists(path)) return path;
+                if (throwExIfNotFind) throw new FileNotFoundException($"本次热更产物缺少程序集 {assemblyName}。", path);
+                return null;
+            }
+        }
     }
 }

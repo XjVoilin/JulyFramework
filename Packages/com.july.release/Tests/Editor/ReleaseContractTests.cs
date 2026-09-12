@@ -72,12 +72,10 @@ namespace July.Release.Tests
         public void PreloadSelectionTracksSharedResourceTags()
         {
             var resources = new ReleaseResourceSettings();
-            resources.aotMetaTag = "Metadata";
-            resources.hotUpdateTag = "Code";
-            resources.lobbyTag = "Home";
-            CollectionAssert.AreEqual(new[] { "Metadata", "Code", "Home" }, resources.RequiredPreloadTags);
-            resources.lobbyTag = "Start";
-            CollectionAssert.AreEqual(new[] { "Metadata", "Code", "Start" }, resources.RequiredPreloadTags);
+            resources.StartupDownloadTags = new[] { "Home", "HotFix" };
+            CollectionAssert.AreEqual(new[] { "AotMeta", "HotFix", "Home" }, resources.RequiredDownloadTags);
+            resources.StartupDownloadTags = new[] { "Start" };
+            CollectionAssert.AreEqual(new[] { "AotMeta", "HotFix", "Start" }, resources.RequiredDownloadTags);
         }
 
         static BuildContext Context(string prefix = "SampleProject") => new BuildContext
@@ -155,7 +153,7 @@ namespace July.Release.Tests
         {
             foreach (var platform in new[] { "WeChat", "TikTok" })
             {
-                var snippet = PreloadInjectionStep.BuildConfigPrefetchSnippet(platform, "https://config.example.com/", "1.6.0");
+                var snippet = PreloadInjectionStep.BuildConfigPrefetchSnippet(platform, "https://config.example.com/", "1.6.0", "Dev");
                 StringAssert.Contains("https://config.example.com/client_version", snippet);
                 StringAssert.Contains("JSON.stringify(" + ClientVersionProtocol.RequestJson("1.6.0") + ")", snippet);
                 StringAssert.Contains(platform == "WeChat" ? "wx.request" : "tt.request", snippet);

@@ -44,7 +44,7 @@ namespace July.Release
         public ReleaseConfigSnapshot(ReleaseEnvironment environment, string cdnUrl,
             Func<ReleaseEnvironment, string> configServerUrl, string platform)
         {
-            _env = ResolveEnv(environment);
+            _env = ResolveEnvironment(environment);
             _envName = _env.ToString();
             _platformKey = platform;
             _cdnUrl = cdnUrl;
@@ -104,6 +104,7 @@ namespace July.Release
                 return "响应为空";
 
             var root = JsonMapper.ToObject(json);
+            if (root == null || !root.IsObject) return "响应不是 JSON 对象";
 
             var serverUrl = root.GetString("serverUrl");
             if (string.IsNullOrEmpty(serverUrl))
@@ -136,7 +137,11 @@ namespace July.Release
             if (string.IsNullOrEmpty(json))
                 return false;
 
-            var error = TryParse(json);
+            if (!ClientVersionProtocol.TryReadPrefetch(json, _configServerUrl.TrimEnd('/') + ClientVersionProtocol.Path,
+                    _envName, _platformKey, Application.version, out var response)) return false;
+            string error;
+            try { error = TryParse(response); }
+            catch (JsonException) { return false; }
             if (error != null)
             {
                 JLogger.LogWarning($"[ConfigSnapshot] JS 缓存解析失败: {error}");
@@ -149,7 +154,7 @@ namespace July.Release
             return true;
         }
 
-        #region CDN URL
+        #region CDN 地址
 
         /// <summary>
         /// 拼接 CDN 主 URL，路径约定：{cdn}/{env}/{platform}/{CoreVersion}/{PlanVersion}
@@ -185,7 +190,7 @@ namespace July.Release
 #endif
         }
 
-        private static ReleaseEnvironment ResolveEnv(ReleaseEnvironment bootEnv)
+        public static ReleaseEnvironment ResolveEnvironment(ReleaseEnvironment bootEnv)
         {
 #if JULYGF_DEBUG
             var ov = PlatformPreferences.GetInt(EnvOverrideKey, -1);

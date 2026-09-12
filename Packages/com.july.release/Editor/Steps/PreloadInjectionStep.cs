@@ -95,7 +95,7 @@ namespace July.Release.Editor
                 return true;
             }
 
-            var configSnippet = BuildConfigPrefetchSnippet(ctx.Platform, configServerUrl, coreVersion);
+            var configSnippet = BuildConfigPrefetchSnippet(ctx.Platform, configServerUrl, coreVersion, ctx.Env);
 
             string injection;
             if (ctx.Platform == PlatformKeys.WeChat)
@@ -141,7 +141,7 @@ namespace July.Release.Editor
             return writer.ToString();
         }
 
-        internal static string BuildConfigPrefetchSnippet(string platform, string configServerUrl, string coreVersion)
+        internal static string BuildConfigPrefetchSnippet(string platform, string configServerUrl, string coreVersion, string environment)
         {
             if (string.IsNullOrEmpty(configServerUrl) || string.IsNullOrEmpty(coreVersion))
                 return "";
@@ -151,7 +151,7 @@ namespace July.Release.Editor
             var globalObj = platform == PlatformKeys.WeChat ? "window" : "GameGlobal";
 
             return
-                $"// {Sentinel} Config pre-fetch (fire-and-forget)\n" +
+                $"// {Sentinel} 预取配置（发起后不阻塞启动）\n" +
                 $"{requestFn}({{\n" +
                 $"    url: {QuoteJavascriptString(url)},\n" +
                 "    method: 'POST',\n" +
@@ -160,7 +160,13 @@ namespace July.Release.Editor
                 "    timeout: 5000,\n" +
                 "    success: function(res) {\n" +
                 "        if (res.statusCode === 200 && res.data) {\n" +
-                $"            {globalObj}.__JULY_CONFIG_CACHE = JSON.stringify(res.data);\n" +
+                $"            {globalObj}.__JULY_CONFIG_CACHE = JSON.stringify({{\n" +
+                $"                requestUrl: {QuoteJavascriptString(url)},\n" +
+                $"                environment: {QuoteJavascriptString(environment)},\n" +
+                $"                platform: {QuoteJavascriptString(platform)},\n" +
+                $"                coreVersion: {QuoteJavascriptString(coreVersion)},\n" +
+                "                responseJson: JSON.stringify(res.data)\n" +
+                "            });\n" +
                 "            console.log('[ConfigPreFetch] cached');\n" +
                 "        }\n" +
                 "    },\n" +
@@ -273,10 +279,9 @@ namespace July.Release.Editor
         static int MaxPreloadCount => ReleaseProject.Profile.MaxPreloadCount;
         static long MaxPreloadBytes => ReleaseProject.Profile.MaxPreloadBytes; // 官方建议 3~5MB
 
-        // 启动后必须立即下载的 tag（HotUpdateLoader 流程：AOTMeta → HotFix → Lobby）。
+        // 启动必需资源：框架代码标签加项目启动下载标签，与运行时使用同一份规则。
         // 预下载这些包能让启动 / 进大厅时缓存命中，体感秒进。
         static HashSet<string> RequiredTags => new(ReleaseProject.Profile.RequiredPreloadTags, StringComparer.Ordinal);
-        static string BuildinTag => ReleaseProject.Profile.BuildinTag;
 
         public static List<string> CollectBundleUrls(BuildContext ctx)
         {
@@ -392,7 +397,7 @@ namespace July.Release.Editor
                 Directory.GetFiles(ctx.CdnOutputDir).Select(Path.GetFileName),
                 StringComparer.Ordinal);
 
-            int skipBuildin = 0, skipUntagged = 0, skipMissing = 0;
+            int skipUntagged = 0, skipMissing = 0;
 
             foreach (var b in dto.BundleList)
             {
@@ -402,19 +407,7 @@ namespace July.Release.Editor
                     continue;
                 }
 
-                bool hasRequired = false;
-                bool hasBuildin = false;
-                foreach (var t in b.Tags)
-                {
-                    if (RequiredTags.Contains(t)) hasRequired = true;
-                    if (t == BuildinTag) hasBuildin = true;
-                }
-
-                if (!hasRequired && hasBuildin)
-                {
-                    skipBuildin++;
-                    continue;
-                }
+                bool hasRequired = b.Tags.Any(RequiredTags.Contains);
 
                 var fileName = BuildBundleFileName(b.BundleName, b.FileHash, dto.OutputNameStyle);
                 if (!existing.Contains(fileName))
@@ -429,13 +422,13 @@ namespace July.Release.Editor
             }
 
             Debug.Log($"[Preload] manifest 分类 → 必须 {required.Count} / 非必须 {optional.Count}" +
-                      $" (跳过: Buildin {skipBuildin}, 无 Tag {skipUntagged}, 物理缺失 {skipMissing})");
+                      $" (跳过: 无 Tag {skipUntagged}, 物理缺失 {skipMissing})");
             return required.Count > 0 || optional.Count > 0;
         }
 
         static string FindManifestJson(BuildContext ctx)
         {
-            // YooAssetSettingsData.GetManifestJsonFileName: {PackageName}_{PackageVersion}.json
+            // YooAssetSettingsData.GetManifestJsonFileName 返回的文件名格式：{PackageName}_{PackageVersion}.json
             var preferred = Path.Combine(ctx.CdnOutputDir,
                 $"{BuildUtils.PackageName}_{ctx.PackageVersion}.json");
             if (File.Exists(preferred))

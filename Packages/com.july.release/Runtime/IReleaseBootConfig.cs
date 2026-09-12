@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace July.Release
@@ -17,5 +18,7 @@ namespace July.Release
     public interface IReleaseResourceConfig
     {
         ReleaseResourceSettings Resources { get; }
+        /// <summary>项目额外需要补充元数据的 AOT 程序集清单；构建不另存副本。</summary>
+        IReadOnlyList<string> AdditionalAotMetadataAssemblies { get; }
     }
 }

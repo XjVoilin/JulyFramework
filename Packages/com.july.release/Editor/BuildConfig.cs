@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Collections.Generic;
 using System.Linq;
 using HybridCLR.Editor;
 using July.Build;
@@ -52,16 +53,27 @@ namespace July.Release.Editor
         internal ReleaseResourceSettings ResourceSettings =>
             GetBootConfig() is IReleaseResourceConfig shared ? shared.Resources : resources;
 
+        internal IReadOnlyList<string> AdditionalAotMetadataAssemblies =>
+            GetBootConfig() is IReleaseResourceConfig shared ? shared.AdditionalAotMetadataAssemblies : aot.AdditionalAotMetadataAssemblies;
+
         internal string GetCollectorDirectory(string groupName)
         {
             if (collectorSettings == null)
                 throw new InvalidOperationException("请在 BuildConfig 中引用项目现有 YooAsset 收集配置。");
-            var package = collectorSettings.Packages.SingleOrDefault(x => x.PackageName == ResourceSettings.packageName);
+            var package = collectorSettings.Packages.SingleOrDefault(x => x.PackageName == ResourceSettings.PackageName);
             if (package == null)
-                throw new InvalidOperationException($"收集配置中没有资源包 {ResourceSettings.packageName}。");
+                throw new InvalidOperationException($"收集配置中没有资源包 {ResourceSettings.PackageName}。");
             var group = package.Groups.SingleOrDefault(x => x.GroupName == groupName);
             if (group == null || group.Collectors.Count != 1)
                 throw new InvalidOperationException($"分组 {groupName} 必须有且仅有一个 DLL 收集目录；请在收集配置中按框架约定设置 HotFix / AOTMeta 分组。");
+            var requiredTag = groupName == ReleaseConventions.HotFixGroup ? ReleaseResourceConventions.HotUpdateTag
+                : groupName == ReleaseConventions.AotMetaGroup ? ReleaseResourceConventions.AotMetadataTag : null;
+            var collector = group.Collectors[0];
+            var tags = EditorTools.StringToStringList(collector.AssetTags, ';');
+            if (collector.CollectorType == ECollectorType.MainAssetCollector)
+                tags.AddRange(EditorTools.StringToStringList(group.AssetTags, ';'));
+            if (requiredTag != null && !tags.Contains(requiredTag))
+                throw new InvalidOperationException($"DLL 分组 {groupName} 或其收集器必须包含框架资源标签 {requiredTag}。");
             var path = group.Collectors[0].CollectPath;
             if (string.IsNullOrWhiteSpace(path))
                 throw new InvalidOperationException($"DLL 分组 {groupName} 的收集路径不能为空。");
@@ -88,17 +100,15 @@ namespace July.Release.Editor
             {
                 BootConfigPath = AssetDatabase.GetAssetPath(boot.Asset),
                 BuildConfigPath = AssetDatabase.GetAssetPath(this),
-                PackageName = resource.packageName,
+                PackageName = resource.PackageName,
                 CdnRoot = CdnDirectory,
                 ExportRoot = ReleaseConventions.ExportRoot,
                 AotArchiveRoot = Path.Combine(projectDirectory, ReleaseConventions.LocalAotArchiveParent, new DirectoryInfo(projectDirectory).Name),
                 AotSourceDirectory = aot.sourceDirectory,
                 AotHashExclusions = aot.hashExclusions,
                 HybridCLR = new HybridCLRBuildProfile(hotUpdateDirectory, metadataDirectory, AotWorkspaceDirectory,
-                    Path.Combine("Assets", SettingsUtil.HybridCLRSettings.outputAOTGenericReferenceFile), resource.mandatoryAotAssemblies),
+                    Path.Combine("Assets", SettingsUtil.HybridCLRSettings.outputAOTGenericReferenceFile), AdditionalAotMetadataAssemblies),
                 MergeSharedBundles = sharedBundles.enabled,
-                HotFixTag = resource.hotUpdateTag,
-                AotMetaTag = resource.aotMetaTag,
                 BaseDefines = baseDefines,
                 SplashImagePath = AssetDatabase.GetAssetPath(splashImage),
                 DisableUnitySplash = disableUnitySplash,
@@ -107,8 +117,7 @@ namespace July.Release.Editor
                 FontMergeDepth = sharedBundles.fontMergeDepth,
                 MaxPreloadCount = maxPreloadCount,
                 MaxPreloadBytes = maxPreloadBytes,
-                RequiredPreloadTags = resource.RequiredPreloadTags,
-                BuildinTag = resource.buildinTag,
+                RequiredPreloadTags = resource.RequiredDownloadTags,
             };
         }
 
@@ -125,6 +134,8 @@ namespace July.Release.Editor
     {
         [Tooltip("参与热更安全检查的项目 AOT 源码目录。")]
         public string sourceDirectory = "Assets/Game/ScriptsAot";
+        [Tooltip("仅在运行配置不提供共享资源契约时使用；列出自动生成清单之外额外需要补充元数据的 AOT 程序集。")]
+        public string[] AdditionalAotMetadataAssemblies = Array.Empty<string>();
         public string[] hashExclusions = { "HybridCLR" };
     }
 

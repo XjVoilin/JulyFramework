@@ -22,14 +22,20 @@ namespace July.Release.Editor
                 var config = (BuildConfig)target;
                 if (config.bootConfig is IReleaseResourceConfig shared)
                 {
-                    EditorGUILayout.HelpBox("资源包、标签和必需 AOT 程序集读取运行配置中的共享数据。", MessageType.Info);
+                    EditorGUILayout.HelpBox("资源包、项目资源标签和补充 AOT 清单读取运行配置；代码资源标签固定为 HotFix / AotMeta。", MessageType.Info);
                     if (GUILayout.Button("定位共享配置")) Selection.activeObject = config.bootConfig;
                 }
                 else Field("resources", "构建资源参数");
                 EditorGUILayout.HelpBox("DLL 目录读取所选分组；泛型引用路径读取 HybridCLR 设置。接入检查只读，不自动改写资源收集规则。", MessageType.Info);
             }
             _aot = EditorGUILayout.Foldout(_aot, "AOT", true);
-            if (_aot) Field("aot", "源码校验");
+            if (_aot)
+            {
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("aot.sourceDirectory"), new GUIContent("AOT 源码目录"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("aot.hashExclusions"), new GUIContent("哈希检查排除项"), true);
+                if (((BuildConfig)target).bootConfig is not IReleaseResourceConfig)
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty("aot.AdditionalAotMetadataAssemblies"), new GUIContent("额外补充元数据的 AOT 程序集"), true);
+            }
             EditorGUILayout.HelpBox("平台产物：../Build/平台/核心版本\n本机 AOT：../AOTBackup/工程目录名\nCOS 工具：Release 包内置\nCOS 凭证：Tools/coscli/.cos.yaml\n以上由框架约定，无需项目配置。", MessageType.Info);
             _policies = EditorGUILayout.Foldout(_policies, "可选构建策略", true);
             if (_policies)

@@ -26,10 +26,12 @@ SDK 适配使用独立的 Editor asmdef，**没有拆成额外 UPM 包**。公�
 
 ## 接入
 
+热更程序集的唯一配置入口是 HybridCLR Settings。Release 根据本次复制 DLL 的真实依赖生成 formatVersion 为 1 的 hybridclr-manifest.json，Bootstrap 下载后读取，不在 GameConfig 重复保存名单。旧清单需要通过当前构建流程重新生成。
+
 1. 项目运行配置实现 `IReleaseBootConfig`，提供环境、CDN 和后台地址；无需命名为 BootConfig。MableSorting 已将启动配置合并到 GameConfig。
 2. 创建唯一 BuildConfig，引用运行配置，填写 COS 项目根、版本和公共宏；平台产物固定输出到 ../Build。
-3. 引用已有 YooAsset 收集资产，DLL 分组统一命名为 HotFix / AOTMeta。DLL 输出目录读取分组唯一 CollectPath；泛型引用路径读取 HybridCLR Settings。不会自动重写现有资源分组。
-4. 项目若已经在运行时使用 `ReleaseResourceSettings`，可实现独立的 `IReleaseResourceConfig` 共享同一份数据；否则资源构建参数由 BuildConfig 保存，不要求运行配置承担构建策略。
+3. 引用已有 YooAsset 收集资产，DLL 分组统一命名为 HotFix / AOTMeta，资源标签分别为框架固定的 HotFix / AotMeta。DLL 输出目录读取分组唯一 CollectPath；泛型引用路径读取 HybridCLR Settings。不会自动重写现有资源分组。
+4. 项目若已经在运行时使用 `ReleaseResourceSettings`，可实现独立的 `IReleaseResourceConfig`，共享资源设置实例和热更配置中的 AdditionalAotMetadataAssemblies；否则资源参数由 BuildConfig.resources、补充 AOT 清单由 BuildConfig.aot.AdditionalAotMetadataAssemblies 保存，不要求运行配置承担构建策略。
 5. 在 JulyGF → 构建 → 构建工具中编辑原配置、选择平台与构建类型，执行“检查本次构建接入”。检查不联网、不构建、不上传、不自动修改收集器；真正构建仍执行 AOT、版本和上传校验。
 6. 小游戏分组同步、目录共享包合并默认关闭，启动字体留空表示不替换。没有“维护与诊断”面板；编译和 AOT Hash 检查由标准流程负责，产物目录在结果区打开。
 7. 平台 SDK 继续由项目安装。CDN 和出包路径由框架同步；项目 AppID 等在 SDK 自身配置中维护。

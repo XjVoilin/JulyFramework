@@ -6,7 +6,9 @@
 | --- | --- |
 | 环境、后台地址、项目 CDN 根 | 项目运行配置，IReleaseBootConfig |
 | 内容版本、COS 根、公共宏 | BuildConfig |
-| 资源包、标签、必要 AOT 程序集 | 有运行时共享需求时来自 IReleaseResourceConfig；否则来自 BuildConfig.resources |
+| 资源包、项目启动下载标签 | IReleaseResourceConfig.Resources；未提供共享契约时来自 BuildConfig.resources |
+| 补充 AOT 程序集 | IReleaseResourceConfig.AdditionalAotMetadataAssemblies；未提供共享契约时来自 BuildConfig.aot.AdditionalAotMetadataAssemblies |
+| 热更和 AOT 资源标签 | ReleaseResourceConventions 固定为 HotFix / AotMeta，不在项目配置中重复填写 |
 | DLL 输出位置 | YooAsset 的 HotFix / AOTMeta 分组唯一 CollectPath，必须在 Assets 子目录且两组不重叠 |
 | 泛型引用文件 | HybridCLR Settings.outputAOTGenericReferenceFile |
 | AOT 源码检查范围、生成代码排除项 | BuildConfig.aot |
@@ -17,13 +19,13 @@
 
 ## 项目策略
 
-资源分组由项目维护，Release 的本机及 CI 构建均消费已保存的 YooAsset 收集配置，不自动同步分组。GooseMarket 保留项目 Editor 的“JulyGF/资源管理/同步 AB 分组（Buildin + Lobby + 小游戏）”菜单；修改小游戏目录后使用菜单同步，检查并提交收集配置。MableSorting 无需此工具或配置。通用构建校验不负责识别未加入收集配置的新小游戏。
+资源分组由项目维护，Release 的本机及 CI 构建均消费已保存的 YooAsset 收集配置，不自动同步分组。GooseMarket 保留项目 Editor 的“JulyGF/资源管理/同步 AB 分组（Lobby + 小游戏）”菜单；修改小游戏目录后使用菜单同步，检查并提交收集配置。MableSorting 无需此工具或配置。通用构建校验不负责识别未加入收集配置的新小游戏。
 
 sharedBundles.enabled 控制自定义目录合包；关闭时使用 YooAsset 标准 TaskGetBuildMap_SBP。fontDirectory 留空时不应用字体专用深度。
 
 launchFont 留空保持 TMP 默认字体及 fallback；设置资产才会在构建作用域内替换并恢复。
 
-HybridCLR 编译拷贝完成后统一生成 hotUpdateDllDirectory/hybridclr-manifest.json：hotUpdateAssemblies、aotMetadataAssemblies 为排序后的程序集名（不含 .dll.bytes）。MableSorting 的现有运行时消费此清单；不再依赖旧 TemplateBuild 入口。
+HybridCLR 编译拷贝完成后统一生成 hotUpdateDllDirectory/hybridclr-manifest.json。formatVersion 为 1；hotUpdateAssemblies 根据本次实际 DLL 的引用关系按依赖顺序排列，aotMetadataAssemblies 按名称排列。名称不含 .dll 后缀，内容仅记录本次产物，不扫描遗留文件。Bootstrap Player 读取该清单加载热更 DLL，项目只在 HybridCLR Settings 配置热更名单。MableSorting 的旧运行时也读取同名文件，但尚未切换新 Bootstrap。
 
 ## 面板与校验
 
@@ -66,3 +68,5 @@ com.july.release 内置现有 COSCLI v1.0.8（Windows x64、macOS ARM64），SHA
 凭证仍由本机或 Jenkins 提供到 Tools/coscli/.cos.yaml，Jenkins 注入流程无需更改。macOS 在 Library/July.Release/Tools 中创建可执行工作副本；包目录和 PackageCache 保持只读。其他编辑器主机平台/架构暂未提供，上传时明确报错，本地不上传的构建无需此工具。
 
 工具版本、来源、许可证见 Tools~/coscli/README.md 与 THIRD-PARTY-NOTICES.md。GooseMarket 原二进制已移入包；原凭证和日志未迁移或修改。遗留 Tools/upload_cdn.sh 不属于当前构建流程。
+
+Launch 由 Unity 构建场景列表随主包携带，不再放入 YooAsset 收集分组。Release 不再维护 BuiltInTag，也不按 Buildin 标签跳过预下载；YooAsset 的实际内置文件复制设置继续由其自身构建设置决定。

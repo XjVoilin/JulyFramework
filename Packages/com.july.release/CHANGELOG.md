@@ -1,35 +1,44 @@
-# Changelog
+# 更新记录
+
+## 0.3.0 - 2026-09-12
+
+- 新增 ReleaseSettings 与公共资源配置协议，构建读取项目同一份配置；无需新增运行时 System。
+- 接口变更：IReleaseResourceConfig 提供 AdditionalAotMetadataAssemblies；移除 BuiltInTag，统一 HotFix / AotMeta 标签约定。
+- HybridCLR Settings 作为热更程序集名单的唯一来源，基于实际复制 DLL 的依赖关系生成 formatVersion=1 的有序清单。
+- 新增运行时清单校验，在程序集装载前报告无效清单及缺失入口。构建依赖 com.july.build.hybridclr 0.1.1。
+- 预取配置携带请求身份，匹配当前环境、平台及版本后才采用；移除仅凭 Buildin 标签跳过预下载的判断。
+- 本次涉及 AOT 接口和清单格式变化，项目升级后需要重新完整构建主包与资源。
+
+## 0.2.0
+
+- 构建界面简化为构建、结果和可折叠维护区域；保留自定义步骤并共用 AOT 基线选择。
+- 预览与执行共用同一份选择，刷新配置资产中的值及当前上下文的版本查询。
+- 测试构建后在 finally 中恢复原始应用版本；本地 CDN 工具使用所选环境、平台和版本。
+- FullBuild 的 upload=false 同时禁用数据和预载文件上传，保留本地预载生成及 game.js 注入。
+
+- 将 BuildConfig 和构建菜单移入 Release，按需查找项目配置资产，平台 SDK 适配器自行注册。
+- 通过运行时 IReleaseBootConfig 协议和 Inspector 配置替代项目 Configure 绑定；此变更不兼容旧接入方式。
+- 通过启动配置资产，让构建与运行时共用包名、资源标签和补充 AOT 程序集策略。
+
+- 为 CI 单步执行和热更面板所选 AOT 基线解析 CoreVersion。
+- 使用构建上下文中的 CoreVersion 查询远端 PlanVersion；执行步骤前拒绝缺少 CoreVersion 的上下文。
 
 ## 0.1.5
 
-- Normalize the internal AOT workspace path before post-restore validation, fixing hot-update builds with a relative backup root. External backup paths still require absolute paths; the backup format is unchanged.
-- Add a regression test covering relative workspace restoration, post-restore integrity checking and rejection of external relative paths.
+- 恢复后校验之前，先规范化内部 AOT 工作目录路径，修复备份根目录为相对路径时的热更构建问题。外部备份仍要求绝对路径，备份格式保持不变。
+- 新增回归测试，覆盖相对工作目录恢复、恢复后完整性检查，以及拒绝外部相对路径。
 
 ## 0.1.4
 
-- Add explicit full-build AOT output and hot-update AOT input paths, with strict entry-point and path validation.
-- Publish immutable AOT archives with platform, BuildTarget, CoreVersion, required assemblies and SHA-256 file inventory; reject incomplete or corrupt archives.
-- Restore the explicitly selected baseline even when a workspace exists, assert an optional requested backup version, and prohibit automatic selection or legacy fallback for explicit inputs.
-- Preserve local archive/restore behavior when paths are omitted, without changing the build runner or publishing pipeline.
-
-## Unreleased
-
-- Simplify build UI into build, result and collapsed maintenance sections; retain custom steps and share AOT baseline selection.
-- Use one selection for preview and execution; refresh asset-backed values and context-specific version queries.
-- Restore the original player version in a finally block after QA builds; target local CDN tools at the selected environment/platform/version.
-- Make FullBuild upload=false suppress data/preload uploads too, retaining local preload generation and game.js injection.
-
-- Move BuildConfig and the build menu into release; discover the project asset lazily and let platform SDK adapters register themselves.
-- Replace project Configure bindings with the runtime IReleaseBootConfig contract and Inspector settings; this is a breaking integration change.
-- Share package name, resource tags and supplemental AOT assembly policy between build and runtime through the boot asset.
-
-- Resolve CoreVersion for CI single-step runs and selected AOT baselines in the hot-update panel.
-- Query live PlanVersion using the build context CoreVersion; reject contexts without a CoreVersion before executing steps.
+- 新增完整构建的 AOT 输出路径和热更的 AOT 输入路径，并严格校验入口与路径。
+- 发布不可变 AOT 归档，包含平台、BuildTarget、CoreVersion、必需程序集和文件 SHA-256 清单；拒绝不完整或损坏的归档。
+- 即使工作目录已存在，也恢复明确选择的基线，并校验可选的指定备份版本；显式输入不允许自动选择或回退到旧版路径。
+- 省略路径时保留本地归档与恢复行为，构建执行器和发布流水线保持不变。
 
 ## 0.1.0
 
-- Extract standard release UI, CI, pipeline steps, COS uploads, resource collectors and project-bound build helpers.
-- Isolate WeChat/TikTok SDK adapters by editor assembly without repackaging vendor SDKs.
-- Share CoreVersion/PlanVersion backend protocol and runtime resource URL semantics.
-- Preserve project CDN/COS URL prefixes, local output layout and existing version/tag rules.
-- Keep AOT checking scoped to project source/macros; package upgrades require a full build by policy.
+- 提取标准发布界面、CI、流水线步骤、COS 上传、资源收集器和依赖项目的构建辅助工具。
+- 通过独立编辑器程序集隔离微信和抖音 SDK 适配器，不重新打包厂商 SDK。
+- 共用 CoreVersion/PlanVersion 后端协议和运行时资源地址语义。
+- 保留项目 CDN/COS 地址前缀、本地输出布局及现有版本和标签规则。
+- AOT 检查范围限定为项目源码和宏定义；按发布策略，升级包必须完整构建。
