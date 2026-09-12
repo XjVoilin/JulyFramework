@@ -15,14 +15,21 @@ namespace July.Arch
         private bool _initialized;
 
         internal bool IsInitialized => _initialized;
+        protected CancellationToken InitializationToken { get; private set; }
 
         internal void SetContext(ArchContext context) => _architecture = context;
 
-        internal async UniTask InitializeAsync()
+        internal async UniTask InitializeAsync(CancellationToken ct = default)
         {
             if (_initialized) return;
-            await OnInitializeAsync();
-            _initialized = true;
+            ct.ThrowIfCancellationRequested();
+            InitializationToken = ct;
+            try
+            {
+                await OnInitializeAsync();
+                _initialized = true;
+            }
+            finally { InitializationToken = default; }
         }
 
         internal void Shutdown()

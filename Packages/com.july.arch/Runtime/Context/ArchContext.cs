@@ -150,7 +150,7 @@ namespace July.Arch
             foreach (var system in _systems)
             {
                 ct.ThrowIfCancellationRequested();
-                await system.InitializeAsync();
+                await system.InitializeAsync(ct);
             }
 
             _initialized = true;
@@ -162,12 +162,14 @@ namespace July.Arch
 
             for (var i = 0; i < _updateSystems.Count; i++)
             {
+                // 后续注册的系统必须完成自身初始化，才能接收逐帧更新。
+                if (!((SystemBase)_updateSystems[i]).IsInitialized) continue;
                 try { _updateSystems[i].OnUpdate(deltaTime); }
                 catch (Exception ex) { JLogger.LogException(ex); }
             }
         }
 
-        #region Public API
+        #region 公共接口
 
         public T GetStore<T>() where T : StoreBase
         {
