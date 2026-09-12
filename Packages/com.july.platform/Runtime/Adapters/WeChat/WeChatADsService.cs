@@ -9,6 +9,8 @@ namespace July.Platform
     {
         private WXRewardedVideoAd _videoAd;
         private bool _isLoaded;
+        private readonly string _adUnitId;
+        public WeChatADsService(string adUnitId) => _adUnitId = adUnitId;
         private bool _isPlaying;
 
         public void Init()
@@ -17,8 +19,8 @@ namespace July.Platform
 
         public void DeferredInit()
         {
-            if (_videoAd != null) return;
-            var param = new WXCreateRewardedVideoAdParam { adUnitId = "adunit-9f95df6f408c8ad7" };
+            if (_videoAd != null || string.IsNullOrWhiteSpace(_adUnitId)) return;
+            var param = new WXCreateRewardedVideoAdParam { adUnitId = _adUnitId };
             _videoAd = WX.CreateRewardedVideoAd(param);
             _videoAd.OnLoad(OnAdLoaded);
             _videoAd.OnError(OnAdError);

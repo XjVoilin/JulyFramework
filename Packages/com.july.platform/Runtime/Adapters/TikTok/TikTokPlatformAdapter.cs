@@ -6,22 +6,24 @@ using TTSDK;
 
 namespace July.Platform
 {
-    /// <summary>TikTok Mini Game SDK adapter. The SDK is supplied by the host project.</summary>
+    /// <summary>抖音小游戏 SDK 适配器；SDK 由接入项目提供。</summary>
     public sealed class TikTokPlatformAdapter : IPlatformAdapter
     {
         private readonly int _platformType;
         private readonly int _maxFramebufferLongEdge;
+        private readonly string _rewardedAdUnitId;
         private IDeviceService _device;
 
         public int PlatformType => _platformType;
 
-        public TikTokPlatformAdapter(int platformType, int maxFramebufferLongEdge)
+        public TikTokPlatformAdapter(int platformType, int maxFramebufferLongEdge, string rewardedAdUnitId)
         {
             if (maxFramebufferLongEdge <= 0)
                 throw new ArgumentOutOfRangeException(nameof(maxFramebufferLongEdge));
 
             _platformType = platformType;
             _maxFramebufferLongEdge = maxFramebufferLongEdge;
+            _rewardedAdUnitId = rewardedAdUnitId;
         }
 
         public async UniTask ConfigureAsync(
@@ -36,7 +38,7 @@ namespace July.Platform
             await completion.Task;
             cancellationToken.ThrowIfCancellationRequested();
 
-            registry.Register<IADsService>(new TikTokADsService());
+            registry.Register<IADsService>(new TikTokADsService(_rewardedAdUnitId));
             registry.Register<IAuthorizeService>(new TikTokAuthorizeService());
             registry.Register<IShareService>(new TikTokShareService());
             registry.Register<IDeviceService>(

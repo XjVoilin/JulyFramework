@@ -5,7 +5,7 @@ namespace July.Platform
     public interface ILoginService : IPlatformService
     {
         string Code { get; }
-        UniTask LoginAsync();
+        UniTask LoginAsync(System.Threading.CancellationToken ct = default);
     }
 }
 

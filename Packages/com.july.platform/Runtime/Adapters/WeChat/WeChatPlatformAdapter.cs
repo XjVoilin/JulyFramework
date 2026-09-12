@@ -6,22 +6,24 @@ using WeChatWASM;
 
 namespace July.Platform
 {
-    /// <summary>WeChat Mini Game SDK adapter. The SDK is supplied by the host project.</summary>
+    /// <summary>微信小游戏 SDK 适配器；SDK 由接入项目提供。</summary>
     public sealed class WeChatPlatformAdapter : IPlatformAdapter
     {
         private readonly int _platformType;
         private readonly int _maxFramebufferLongEdge;
+        private readonly string _rewardedAdUnitId;
         private IDeviceService _device;
 
         public int PlatformType => _platformType;
 
-        public WeChatPlatformAdapter(int platformType, int maxFramebufferLongEdge)
+        public WeChatPlatformAdapter(int platformType, int maxFramebufferLongEdge, string rewardedAdUnitId)
         {
             if (maxFramebufferLongEdge <= 0)
                 throw new ArgumentOutOfRangeException(nameof(maxFramebufferLongEdge));
 
             _platformType = platformType;
             _maxFramebufferLongEdge = maxFramebufferLongEdge;
+            _rewardedAdUnitId = rewardedAdUnitId;
         }
 
         public async UniTask ConfigureAsync(
@@ -37,7 +39,7 @@ namespace July.Platform
             cancellationToken.ThrowIfCancellationRequested();
             JsBridge.Init();
 
-            registry.Register<IADsService>(new WeChatADsService());
+            registry.Register<IADsService>(new WeChatADsService(_rewardedAdUnitId));
             registry.Register<IAuthorizeService>(new WeChatAuthorizeService());
             registry.Register<IShareService>(new WeChatShareService());
             registry.Register<IDeviceService>(

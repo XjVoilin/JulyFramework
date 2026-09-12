@@ -7,10 +7,11 @@ namespace July.Platform
     {
         public string Code { get; private set; }
 
-        public UniTask LoginAsync()
+        public UniTask LoginAsync(System.Threading.CancellationToken ct = default)
         {
+            ct.ThrowIfCancellationRequested();
             // editor登录不需要Code
-            // Code = SystemInfo.deviceUniqueIdentifier;
+            // 设备标识示例：Code = SystemInfo.deviceUniqueIdentifier;
             return UniTask.CompletedTask;
         }
     }

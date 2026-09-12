@@ -6,8 +6,8 @@ using Cysharp.Threading.Tasks;
 namespace July.Platform
 {
     /// <summary>
-    /// Owns platform service registration and the common four-phase lifecycle.
-    /// Services are initialized in registration order and shut down in reverse order.
+    /// 管理平台服务注册和统一的四阶段生命周期。
+    /// 服务按注册顺序初始化，按相反顺序关闭。
     /// </summary>
     public sealed class PlatformServiceRegistry
     {

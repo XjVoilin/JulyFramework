@@ -1,5 +1,6 @@
 #if JULYGF_WX_MINIGAME
 using System;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using WeChatWASM;
 using UnityEngine;
@@ -10,15 +11,16 @@ namespace July.Platform
     {
         public string Code { get; private set; }
 
-        public UniTask LoginAsync()
+        public async UniTask LoginAsync(CancellationToken ct = default)
         {
-            var tcs = new UniTaskCompletionSource();
+            ct.ThrowIfCancellationRequested();
+            var tcs = new UniTaskCompletionSource<string>();
+            using var cancellation = ct.Register(() => tcs.TrySetCanceled(ct));
             WX.Login(new LoginOption
             {
                 success = res =>
                 {
-                    Code = res.code;
-                    tcs.TrySetResult();
+                    tcs.TrySetResult(res.code);
                 },
                 fail = res =>
                 {
@@ -26,7 +28,9 @@ namespace July.Platform
                     tcs.TrySetException(new Exception($"WX.Login failed: {res.errMsg}"));
                 },
             });
-            return tcs.Task;
+            var code = await tcs.Task;
+            ct.ThrowIfCancellationRequested();
+            Code = code;
         }
     }
 }

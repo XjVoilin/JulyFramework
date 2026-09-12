@@ -1,5 +1,6 @@
 #if JULYGF_DY_MINIGAME
 using System;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using TTSDK;
 using UnityEngine;
@@ -10,23 +11,25 @@ namespace July.Platform
     {
         public string Code { get; private set; }
 
-        public UniTask LoginAsync()
+        public async UniTask LoginAsync(CancellationToken ct = default)
         {
-            var tcs = new UniTaskCompletionSource();
+            ct.ThrowIfCancellationRequested();
+            var tcs = new UniTaskCompletionSource<string>();
+            using var cancellation = ct.Register(() => tcs.TrySetCanceled(ct));
             TT.Login(
                 (code, anonymousCode, isLogin) =>
                 {
-                    Code = code;
-                    tcs.TrySetResult();
+                    tcs.TrySetResult(code);
                 },
                 error =>
                 {
                     Debug.LogError($"TT.Login failed: {error}");
                     tcs.TrySetException(new Exception($"TT.Login failed: {error}"));
                 });
-            return tcs.Task;
+            var loginCode = await tcs.Task;
+            ct.ThrowIfCancellationRequested();
+            Code = loginCode;
         }
     }
 }
 #endif
-

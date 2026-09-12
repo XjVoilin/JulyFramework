@@ -18,8 +18,17 @@ namespace July.Platform
 
         protected override async UniTask OnInitializeAsync()
         {
-            await _adapter.ConfigureAsync(_registry, default);
-            await _registry.InitializeAsync(default);
+            try
+            {
+                await _adapter.ConfigureAsync(_registry, InitializationToken);
+                await _registry.InitializeAsync(InitializationToken);
+            }
+            catch
+            {
+                // Arch 只关闭已成功初始化的系统；初始化失败时，在此释放已经建立的 SDK 状态。
+                OnShutdown();
+                throw;
+            }
         }
 
         public T GetService<T>() where T : class => _registry.Get<T>();

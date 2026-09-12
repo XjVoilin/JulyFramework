@@ -7,10 +7,11 @@ namespace July.Platform
 {
     public class TikTokADsService : IADsService, ICanEvent
     {
-        private const string AdUnitId = "8k6h6jb2mjbk3hobnc";
 
         private TTRewardedVideoAd _videoAd;
         private bool _isLoaded;
+        private readonly string _adUnitId;
+        public TikTokADsService(string adUnitId) => _adUnitId = adUnitId;
 
         public void Init()
         {
@@ -18,8 +19,8 @@ namespace July.Platform
 
         public void DeferredInit()
         {
-            if (_videoAd != null) return;
-            var param = new CreateRewardedVideoAdParam { AdUnitId = AdUnitId };
+            if (_videoAd != null || string.IsNullOrWhiteSpace(_adUnitId)) return;
+            var param = new CreateRewardedVideoAdParam { AdUnitId = _adUnitId };
             _videoAd = TT.CreateRewardedVideoAd(param);
             _videoAd.OnLoad += OnAdLoaded;
             _videoAd.OnError += OnAdError;

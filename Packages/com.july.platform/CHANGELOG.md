@@ -1,21 +1,27 @@
-# Changelog
+# 更新记录
+
+## 0.4.0 - 2026-09-12
+
+- 新增 PlatformConfig，集中配置帧缓冲最长边与微信、抖音激励广告位；空广告位表示不启用对应广告。
+- 接口变更：ILoginService.LoginAsync 接收 CancellationToken，SDK 晚到回调不再覆盖已取消请求的 Code。
+- 平台初始化传递取消并清理失败状态；DeferAllServices 统一执行平台服务的延迟初始化。
 
 ## 0.3.10 - 2026-09-03
 
-- Changed mini-game DPR limiting from a total framebuffer pixel budget to a maximum framebuffer long edge, preserving tablet clarity while still constraining extreme phone resolutions.
+- 小游戏 DPR 限制从帧缓冲总像素预算改为帧缓冲最长边限制，在约束手机极端分辨率的同时保留平板清晰度。
 
 ## 0.3.4 - 2026-08-17
 
-- Calculate WeChat open-data viewport bounds directly from the target `RawImage` instead of requiring `MinPoint` and `MaxPoint` child transforms.
+- 直接根据目标 `RawImage` 计算微信开放数据域视口范围，无需 `MinPoint` 和 `MaxPoint` 子节点。
 
 ## 0.3.2 - 2026-07-22
 
-- Added request, success, and failure diagnostics for the WeChat clipboard API.
+- 为微信剪贴板接口补充请求、成功和失败诊断信息。
 
 ## 0.3.1 - 2026-07-22
 
-- Assigned stable numeric values to normalized launch-source and feed-channel contracts.
+- 为统一的启动来源和内容渠道协议分配稳定的数值。
 
 ## 0.3.0
 
-- Added normalized platform launch metadata and lifecycle adapters.
+- 新增统一的平台启动信息和生命周期适配器。

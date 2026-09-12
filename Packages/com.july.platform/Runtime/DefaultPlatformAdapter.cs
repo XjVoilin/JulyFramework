@@ -4,8 +4,8 @@ using Cysharp.Threading.Tasks;
 namespace July.Platform
 {
     /// <summary>
-    /// Editor and unsupported-platform adapter. It exposes deterministic local stubs
-    /// for every common platform service so game code does not need null branches.
+    /// 编辑器及暂未支持平台的默认适配器，为所有公共平台服务提供
+    /// 行为确定的本地替代实现，业务代码无需为缺少服务添加空值分支。
     /// </summary>
     public sealed class DefaultPlatformAdapter : IPlatformAdapter
     {
