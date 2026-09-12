@@ -1,0 +1,9 @@
+{
+  "name": "July.Bootstrap.Tests",
+  "rootNamespace": "July.Bootstrap.Tests",
+  "references": ["July.Bootstrap", "July.Launch", "July.Arch", "July.Platform", "July.Release.Runtime", "July.Analytics.ThinkingData", "July.Logging", "YooAsset", "UniTask"],
+  "includePlatforms": ["Editor"],
+  "autoReferenced": false,
+  "defineConstraints": ["UNITY_INCLUDE_TESTS"],
+  "optionalUnityReferences": ["TestAssemblies"]
+}

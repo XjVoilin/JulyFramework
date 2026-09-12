@@ -1,0 +1,26 @@
+{
+  "name": "July.Bootstrap",
+  "rootNamespace": "July.Bootstrap",
+  "references": [
+    "July.Arch",
+    "July.Launch",
+    "July.Config",
+    "July.Logging",
+    "July.Platform",
+    "July.Platform.WeChat",
+    "July.Platform.TikTok",
+    "July.Persistence.TikTok",
+    "YooAsset.MiniGame",
+    "July.Release.Runtime",
+    "July.Resource",
+    "July.Resource.YooAsset",
+    "UniTask",
+    "HybridCLR.Runtime",
+    "July.Analytics",
+    "July.Analytics.ThinkingData",
+    "July.Persistence",
+    "July.UI",
+    "YooAsset"
+  ],
+  "autoReferenced": true
+}
