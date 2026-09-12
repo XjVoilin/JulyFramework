@@ -1,6 +1,6 @@
-﻿{
+{
     "name":  "com.july.networking",
-    "version":  "0.3.1",
+    "version":  "0.3.2",
     "displayName":  "July Networking",
     "description":  "Vendor-neutral HTTP runtime with optionally persistent request queues.",
     "unity":  "2022.3",
