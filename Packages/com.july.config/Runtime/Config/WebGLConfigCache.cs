@@ -3,8 +3,8 @@ using System.Runtime.InteropServices;
 namespace July.Config
 {
     /// <summary>
-    /// Reads JSON prefetched by the WebGL host. The host contract is the
-    /// <c>JulyGetConfigCache</c> JavaScript function.
+    /// 读取 WebGL 宿主预取的 JSON，宿主通过
+    /// <c>JulyGetConfigCache</c> JavaScript 函数提供缓存。
     /// </summary>
     public static class WebGLConfigCache
     {

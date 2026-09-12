@@ -1,6 +1,6 @@
-﻿{
+{
     "name":  "com.july.config",
-    "version":  "0.2.0",
+    "version":  "0.2.1",
     "displayName":  "July Config",
     "description":  "Configuration providers plus reusable remote JSON fetch, retry and WebGL cache mechanics.",
     "unity":  "2022.3",
