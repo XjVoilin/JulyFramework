@@ -1,6 +1,6 @@
 {
   "name": "com.july.build.hybridclr",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "July Build - HybridCLR",
   "description": "Strongly typed HybridCLR 8.7 build operations for July Build.",
   "unity": "2022.3",

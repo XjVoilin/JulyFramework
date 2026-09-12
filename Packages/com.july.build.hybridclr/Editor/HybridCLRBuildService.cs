@@ -30,8 +30,13 @@ namespace July.Build
         }
 
         public static bool CompileAndCopyDlls(HybridCLRBuildProfile profile,
-            BuildTarget target, bool development)
+            BuildTarget target, bool development) =>
+            CompileAndCopyDlls(profile, target, development, out _);
+
+        public static bool CompileAndCopyDlls(HybridCLRBuildProfile profile,
+            BuildTarget target, bool development, out HybridCLRBuildArtifacts artifacts)
         {
+            artifacts = null;
             if (!ValidateSettings()) return false;
             try
             {
@@ -39,9 +44,10 @@ namespace July.Build
                 if (!CompileDlls(target, development)) return false;
 
                 EditorUtility.DisplayProgressBar("HybridCLR", "Copying DLLs...", 0.6f);
-                if (!CopyHotUpdateDlls(profile, target)) return false;
+                if (!CopyHotUpdateDlls(profile, target, out var hotAssemblies)) return false;
 
-                CopyCurrentAotMetadata(profile, target);
+                var aotAssemblies = CopyCurrentAotMetadata(profile, target);
+                artifacts = new HybridCLRBuildArtifacts(hotAssemblies, aotAssemblies);
                 AssetDatabase.Refresh();
                 return true;
             }
@@ -104,8 +110,12 @@ namespace July.Build
         }
 
         public static bool GenerateAllAndCopyDlls(HybridCLRBuildProfile profile,
-            BuildTarget target)
+            BuildTarget target) => GenerateAllAndCopyDlls(profile, target, out _);
+
+        public static bool GenerateAllAndCopyDlls(HybridCLRBuildProfile profile,
+            BuildTarget target, out HybridCLRBuildArtifacts artifacts)
         {
+            artifacts = null;
             if (!ValidateSettings()) return false;
             try
             {
@@ -113,9 +123,10 @@ namespace July.Build
                 PrebuildCommand.GenerateAll();
 
                 EditorUtility.DisplayProgressBar("HybridCLR", "Copying DLLs...", 0.7f);
-                if (!CopyHotUpdateDlls(profile, target)) return false;
+                if (!CopyHotUpdateDlls(profile, target, out var hotAssemblies)) return false;
 
-                CopyCurrentAotMetadata(profile, target);
+                var aotAssemblies = CopyCurrentAotMetadata(profile, target);
+                artifacts = new HybridCLRBuildArtifacts(hotAssemblies, aotAssemblies);
                 AssetDatabase.Refresh();
                 return true;
             }
@@ -182,8 +193,16 @@ namespace July.Build
 
         public static bool CompileHotUpdateOnly(HybridCLRBuildProfile profile,
             BuildTarget target, string platform, string aotBackupVersion,
-            bool development, bool strictMetadataCheck = false, bool stripAot = true)
+            bool development, bool strictMetadataCheck = false, bool stripAot = true) =>
+            CompileHotUpdateOnly(profile, target, platform, aotBackupVersion, development,
+                out _, strictMetadataCheck, stripAot);
+
+        public static bool CompileHotUpdateOnly(HybridCLRBuildProfile profile,
+            BuildTarget target, string platform, string aotBackupVersion,
+            bool development, out HybridCLRBuildArtifacts artifacts,
+            bool strictMetadataCheck = false, bool stripAot = true)
         {
+            artifacts = null;
             if (!ValidateSettings()) return false;
 
             var backupDirectory = GetAotBackupDirectory(
@@ -209,9 +228,10 @@ namespace July.Build
                 }
 
                 EditorUtility.DisplayProgressBar("HybridCLR Hot Update", "Copying DLLs...", 0.6f);
-                if (!CopyHotUpdateDlls(profile, target)) return false;
+                if (!CopyHotUpdateDlls(profile, target, out var hotAssemblies)) return false;
 
-                CopyAotMetadataFrom(profile, backupDirectory, stripAot, backupDirectory);
+                var aotAssemblies = CopyAotMetadataFrom(profile, backupDirectory, stripAot, backupDirectory);
+                artifacts = new HybridCLRBuildArtifacts(hotAssemblies, aotAssemblies);
                 AssetDatabase.Refresh();
                 return true;
             }
@@ -236,8 +256,9 @@ namespace July.Build
         }
 
         private static bool CopyHotUpdateDlls(HybridCLRBuildProfile profile,
-            BuildTarget target)
+            BuildTarget target, out List<string> copiedAssemblies)
         {
+            copiedAssemblies = new List<string>();
             Directory.CreateDirectory(profile.HotUpdateDllDirectory);
             var sourceDirectory = GetHotUpdateDllOutputDirectory(target);
             var succeeded = true;
@@ -253,26 +274,31 @@ namespace July.Build
                     continue;
                 }
                 File.Copy(sourcePath, destinationPath, true);
+                copiedAssemblies.Add(assemblyName);
             }
+            if (succeeded) RemoveObsoleteDlls(profile.HotUpdateDllDirectory, copiedAssemblies);
             return succeeded;
         }
 
-        private static void CopyCurrentAotMetadata(HybridCLRBuildProfile profile,
+        private static List<string> CopyCurrentAotMetadata(HybridCLRBuildProfile profile,
             BuildTarget target)
         {
             var sourceDirectory = GetAssembliesPostIl2CppStripDirectory(target);
             if (!Directory.Exists(sourceDirectory))
             {
                 Debug.LogWarning($"[HybridCLR] Stripped AOT DLL directory does not exist: {sourceDirectory}");
-                return;
+                Directory.CreateDirectory(profile.AotMetadataDirectory);
+                RemoveObsoleteDlls(profile.AotMetadataDirectory, Array.Empty<string>());
+                return new List<string>();
             }
-            CopyAotMetadataFrom(profile, sourceDirectory, true, null);
+            return CopyAotMetadataFrom(profile, sourceDirectory, true, null);
         }
 
-        private static void CopyAotMetadataFrom(HybridCLRBuildProfile profile,
+        private static List<string> CopyAotMetadataFrom(HybridCLRBuildProfile profile,
             string sourceDirectory, bool strip, string backupDirectory)
         {
             Directory.CreateDirectory(profile.AotMetadataDirectory);
+            var copiedAssemblies = new List<string>();
             foreach (var assemblyName in GetAotAssemblyNames(profile, backupDirectory))
             {
                 var sourcePath = Path.Combine(sourceDirectory, assemblyName + ".dll");
@@ -289,9 +315,19 @@ namespace July.Build
                 else
                     File.Copy(sourcePath, destinationPath, true);
 
-                DeleteFileAndMeta(Path.Combine(profile.HotUpdateDllDirectory,
-                    assemblyName + ".dll.bytes"));
+                copiedAssemblies.Add(assemblyName);
             }
+            RemoveObsoleteDlls(profile.AotMetadataDirectory, copiedAssemblies);
+            return copiedAssemblies;
+        }
+
+        // These directories own generated DLL assets only. Preserve current GUIDs and unrelated files.
+        private static void RemoveObsoleteDlls(string directory, IEnumerable<string> assemblyNames)
+        {
+            var currentFiles = new HashSet<string>(assemblyNames.Select(name => name + ".dll.bytes"),
+                StringComparer.Ordinal);
+            foreach (var path in Directory.GetFiles(directory, "*.dll.bytes"))
+                if (!currentFiles.Contains(Path.GetFileName(path))) DeleteFileAndMeta(path);
         }
 
         private static HybridCLRMetadataCheckResult CheckMissingMetadata(BuildTarget target,
@@ -383,6 +419,19 @@ namespace July.Build
         {
             if (File.Exists(path)) File.Delete(path);
             if (File.Exists(path + ".meta")) File.Delete(path + ".meta");
+        }
+    }
+
+    /// <summary>Assemblies actually copied by one successful build operation, without file extensions.</summary>
+    public sealed class HybridCLRBuildArtifacts
+    {
+        public IReadOnlyList<string> HotUpdateAssemblies { get; }
+        public IReadOnlyList<string> AotMetadataAssemblies { get; }
+
+        internal HybridCLRBuildArtifacts(List<string> hotUpdateAssemblies, List<string> aotMetadataAssemblies)
+        {
+            HotUpdateAssemblies = hotUpdateAssemblies.AsReadOnly();
+            AotMetadataAssemblies = aotMetadataAssemblies.AsReadOnly();
         }
     }
 
