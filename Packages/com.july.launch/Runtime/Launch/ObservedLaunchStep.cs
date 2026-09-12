@@ -4,7 +4,7 @@ using Cysharp.Threading.Tasks;
 
 namespace July.Launch
 {
-    public enum LaunchStepOutcome { Succeeded, Failed, Faulted }
+    public enum LaunchStepOutcome { Succeeded, Failed, Faulted, Cancelled }
 
     public readonly struct LaunchStepObservation
     {
@@ -45,6 +45,12 @@ namespace July.Launch
                     succeeded ? LaunchStepOutcome.Succeeded : LaunchStepOutcome.Failed,
                     DateTime.UtcNow - startedAt));
                 return succeeded;
+            }
+            catch (OperationCanceledException exception)
+            {
+                _observe(new LaunchStepObservation(Name, LaunchStepOutcome.Cancelled,
+                    DateTime.UtcNow - startedAt, exception));
+                throw;
             }
             catch (Exception exception)
             {

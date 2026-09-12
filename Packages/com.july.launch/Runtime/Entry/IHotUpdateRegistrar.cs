@@ -24,7 +24,9 @@ namespace July.Launch
         /// 启动游戏业务流程。
         /// 时机：AOT 基础设施就绪后、System.OnUpdate 开始驱动后。
         /// 典型用途：配置 UI 窗口、通过 System 进入首个业务场景。
+        /// 返回表示首个业务场景已就绪；公共平台延迟初始化由 Bootstrap 随后执行。
+        /// 必须把 ct 传给实际异步操作，停止重试并收尾后传播取消，不能只取消外层等待。
         /// </summary>
-        UniTask OnGameLaunch();
+        UniTask OnGameLaunch(System.Threading.CancellationToken ct = default);
     }
 }
