@@ -146,6 +146,7 @@ namespace July.Release.Editor
                 steps.Add(step);
             }
 
+            PipelinePresets.AddBuildEnvironmentStep(steps);
             ctx.UseExistingCoreVersion(PlayerSettings.bundleVersion);
             Debug.Log($"[CI] 单步执行: {string.Join(" → ", names)} CoreVersion={ctx.CoreVersion} PlanVersion={ctx.PlanVersion}");
             RunAndExit(ctx, steps, nameof(RunStep));

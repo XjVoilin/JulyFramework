@@ -1,5 +1,11 @@
 # 更新记录
 
+## 0.4.1 - 2026-09-13
+
+- 新增团结构建环境配置步骤：仅在团结 MiniGame 目标关闭精简元数据，保存后读取验证并记录日志，失败则中止构建。
+- 全量、自定义主包和 CI 单步构建共用前置步骤组装，保证在 Generate All 或主包构建之前执行；纯资源、热更和上传流程不修改该设置。
+- 国际版通过条件编译跳过专属 API；不切换平台、编译宏或其他项目参数，不恢复、提交或回合并 ProjectSettings。Jenkins 调用方式不变。
+
 ## 0.4.0 - 2026-09-13
 
 - 将 ReleaseSettings 改为 DeploymentConfig，字段改为 Environment、CdnBaseUrl、ConfigServerUrls；职责为部署配置，发布模块和构建接口名称不变。

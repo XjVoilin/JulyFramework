@@ -204,7 +204,7 @@ namespace July.Release.Tests
         [Test]
         public void PresetsRetainFullBuildAndHotUpdateOrdering()
         {
-            CollectionAssert.AreEqual(new[] { "ReleaseConfigurationStep", "PlatformDefinesValidationStep", "HybridCLRInstallStep", "HybridCLRGenerateAllStep",
+            CollectionAssert.AreEqual(new[] { "ReleaseConfigurationStep", "PlatformDefinesValidationStep", "HybridCLRInstallStep", "TuanjieBuildEnvironmentStep", "HybridCLRGenerateAllStep",
                 "AssetBundleBuildStep", "AOTBackupStep", "AOTBackupArchiveStep", "WebGLDebugSymbolStep",
                 "MiniGameBuildStep", "CloudUploadStep", "DataFileUploadStep", "PreloadInjectionStep" },
                 PipelinePresets.FullBuild(upload: true, miniGame: true).Select(s => s.GetType().Name));

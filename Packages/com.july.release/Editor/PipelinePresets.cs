@@ -33,7 +33,16 @@ namespace July.Release.Editor
             if (upload) steps.Add(new CloudUploadStep());
             if (miniGame && upload) steps.Add(new DataFileUploadStep());
             if (miniGame) steps.Add(new PreloadInjectionStep(upload));
+            AddBuildEnvironmentStep(steps);
             return steps;
+        }
+
+        /// <summary>面板配方与 CI 单步入口共用，在首次需要生成元数据或主包前配置环境。</summary>
+        internal static void AddBuildEnvironmentStep(List<BuildStep> steps)
+        {
+            var index = steps.FindIndex(step => step is HybridCLRGenerateAllStep || step is MiniGameBuildStep);
+            if (index >= 0)
+                steps.Insert(index, new TuanjieBuildEnvironmentStep());
         }
 
         public static List<BuildStep> HotUpdate(bool ab = true, bool upload = false)

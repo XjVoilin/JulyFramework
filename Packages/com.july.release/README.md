@@ -24,6 +24,14 @@ SDK 适配使用独立的 Editor asmdef，**没有拆成额外 UPM 包**。公�
 微信适配引用项目安装的 `WxEditor`、`Wx` 及自动引用的 SDK DLL，受 `JULYGF_WX_MINIGAME` 约束；抖音适配引用 `com.bytedance.ttsdk-editor` 及其 DLL，受 `JULYGF_DY_MINIGAME` 约束。
 本轮不搬运 SDK，不通过反射访问 SDK。项目保留当前安装方式；未启用目标 SDK 的平台构建明确失败。
 
+## 团结构建环境
+
+Release 在首次 HybridCLR Generate All 或 MiniGame 主包步骤前插入 TuanjieBuildEnvironmentStep；面板配方、自定义构建和 CI RunStep 使用同一组装规则。Jenkins 保持原 BuildPipelineCI 调用，无需额外脚本。
+
+已核实团结 2022.3.61t8 提供 PlayerSettings.MiniGame.useSlimMetaFileFormat。步骤在 TUANJIE_1_5_OR_NEWER 条件下，仅针对 BuildTarget.MiniGame 设置为 false，保存、读回验证并输出原值与结果。读回仍为 true 则构建失败。国际版和其他构建目标跳过。
+
+ProjectSettings 由开发分支的国际版 Unity 维护，HTTP 等通用参数正常合并到 build 分支。团结设置在构建期间保持关闭；Release 不切平台、不改编译宏、不恢复整份配置，也不执行 Git 操作。构建工作副本产生的配置变化不得回提交或回合并；build 分支不单独维护团结专属配置。需要切平台或编译宏时仍先执行原平台准备流程，本步骤不触发脚本重新编译。
+
 ## 接入
 
 热更程序集的唯一配置入口是 HybridCLR Settings。Release 根据本次复制 DLL 的真实依赖生成 formatVersion 为 1 的 hybridclr-manifest.json，Bootstrap 下载后读取，不在 GameConfig 重复保存名单。旧清单需要通过当前构建流程重新生成。
