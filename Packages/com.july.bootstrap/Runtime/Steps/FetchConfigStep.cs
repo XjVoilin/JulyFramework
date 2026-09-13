@@ -47,7 +47,7 @@ namespace July.Bootstrap
             ct.ThrowIfCancellationRequested();
             var result = new LaunchInfo(snapshot.Env, snapshot.ServerUrl, snapshot.PlanVersion,
                 snapshot.IsAudit, remote ? snapshot.GetRemoteMainURL() : string.Empty);
-            July.Arch.ArchContext.Current.GetStore<LaunchInfoStore>().SetResult(result);
+            July.Arch.ArchContext.Current.GetStore<LaunchStore>().SetResult(result);
             JLogger.InitLogChannels(_logChannels);
             return true;
         }

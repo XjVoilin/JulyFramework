@@ -1,5 +1,12 @@
 # 更新记录
 
+## 0.3.0 - 2026-09-13
+
+- LaunchStore 替代 LaunchInfoStore，构造时接收项目配置资产引用，并保留独立就绪的启动查询结果。
+- 项目入口在配置流水线前注册唯一的 LaunchStore；移除 BootArchStep 重复创建入口，Bootstrap.Configure 提前检查接入契约，方法参数不变。
+- 两项目通过 Store 交接 GameConfig，可删除项目 SeedServices；不引入通用对象字典、自动释放或配置复制。
+- 保留查询重试、模块注册顺序、平台延迟初始化和启动画面完成时机；此项改变 AOT 接口，升级后需重新全量构建。
+
 ## 0.2.0 - 2026-09-13
 
 - 将 BootstrapConfig.Release 改为 Deployment，Inspector 显示“部署配置”；同步启动步骤与测试，依赖 Release 0.4.0。

@@ -26,6 +26,8 @@ namespace July.Bootstrap
                 RestartApplication();
             };
             config.Validate();
+            if (ArchContext.Current?.GetStore<LaunchStore>() == null)
+                throw new InvalidOperationException("请先在项目入口向 Arch 注册持有项目配置的 LaunchStore，再配置启动流程。");
             var aot = BootstrapAssemblyLoader.Normalize(generatedAotAssemblies);
             foreach (var assembly in BootstrapAssemblyLoader.Normalize(config.HotUpdate.AdditionalAotMetadataAssemblies))
                 if (!aot.Contains(assembly)) aot.Add(assembly);

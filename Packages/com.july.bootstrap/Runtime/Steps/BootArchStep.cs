@@ -30,7 +30,6 @@ namespace July.Bootstrap
             PlatformPreferences.UseUnityPlayerPrefs();
 #endif
             var arch = ArchContext.Current;
-            arch.RegisterStore(new LaunchInfoStore());
             arch.RegisterSystem(CreateAnalytics());
             var platform = new PlatformSystem(CreatePlatformAdapter());
             arch.RegisterSystem(platform);

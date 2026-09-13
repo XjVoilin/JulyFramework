@@ -1,6 +1,6 @@
 {
   "name": "com.july.bootstrap",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "displayName": "July Bootstrap",
   "description": "Optional standard startup orchestration for July Arch, Platform, Release, YooAsset and HybridCLR.",
   "unity": "2022.3",

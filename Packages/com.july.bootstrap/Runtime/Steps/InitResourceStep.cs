@@ -15,7 +15,7 @@ namespace July.Bootstrap
         public async UniTask<bool> ExecuteAsync(CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
-            var remoteUrl = July.Arch.ArchContext.Current.GetStore<LaunchInfoStore>().Current.RemoteUrl;
+            var remoteUrl = July.Arch.ArchContext.Current.GetStore<LaunchStore>().Current.RemoteUrl;
             var options = new YooAssetOptions
             {
                 PackageName = _options.PackageName,

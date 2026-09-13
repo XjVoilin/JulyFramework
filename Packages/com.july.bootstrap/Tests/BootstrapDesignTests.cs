@@ -12,14 +12,25 @@ namespace July.Bootstrap.Tests
         [Test]
         public void StandardConfigurationSealsTheCompletePlan()
         {
-            var pipeline = new LaunchPipeline();
-            var config = new BootstrapConfig();
-            config.Analytics.Enabled = false;
-            config.HotUpdate.RegistrarAssembly = "Game";
-            config.HotUpdate.RegistrarType = "Game.Registrar";
-            Bootstrap.Configure(pipeline, config, new RegistrarStepsTests.TestView(), Array.Empty<string>());
-            Assert.That(pipeline.Count, Is.EqualTo(10));
-            Assert.Throws<InvalidOperationException>(() => pipeline.Add(new Step(_ => UniTask.FromResult(true))));
+            var arch = new ArchContext();
+            var projectConfig = UnityEngine.ScriptableObject.CreateInstance<LaunchStoreTestConfig>();
+            try
+            {
+                arch.RegisterStore(new LaunchStore(projectConfig));
+                var pipeline = new LaunchPipeline();
+                var config = new BootstrapConfig();
+                config.Analytics.Enabled = false;
+                config.HotUpdate.RegistrarAssembly = "Game";
+                config.HotUpdate.RegistrarType = "Game.Registrar";
+                Bootstrap.Configure(pipeline, config, new RegistrarStepsTests.TestView(), Array.Empty<string>());
+                Assert.That(pipeline.Count, Is.EqualTo(10));
+                Assert.Throws<InvalidOperationException>(() => pipeline.Add(new Step(_ => UniTask.FromResult(true))));
+            }
+            finally
+            {
+                arch.Shutdown();
+                UnityEngine.Object.DestroyImmediate(projectConfig);
+            }
         }
 
         [Test]

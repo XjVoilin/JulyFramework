@@ -3,6 +3,7 @@
 可选的 July.Launch 标准启动实现。包维护具体 Step 和固定顺序，项目提供配置与画面。使用当前标准框架组合的项目更新本包及声明的模块版本即可取得共同改进。
 
 ```csharp
+ArchContext.Current.RegisterStore(new LaunchStore(gameConfig));
 Bootstrap.Configure(pipeline, gameConfig.Bootstrap, launchView,
     AOTGenericReferences.PatchedAOTAssemblyList);
 ```
@@ -19,7 +20,9 @@ ResourceStartupConfig 继承 ReleaseResourceSettings 的资源分发字段，仅
 
 各 Step 只接收本阶段需要的配置；平台、资源等运行时模块从 Arch 获取。AppRegistration 仅保存被后续步骤调用的同一个 Registrar。没有通用 Resolve 容器、Profile、Session 或 BootstrapOptions 映射。
 
-LaunchInfoStore 只保存成功发布的只读运行信息；首次成功前读取明确失败，后续成功重试整体替换。Store 不持有 GameConfig、可变 ReleaseConfigSnapshot、视图或模块引用，也不执行网络请求。
+LaunchStore 保存一份项目配置资产引用和成功查询产生的 LaunchInfo。项目 GameEntry 在 Arch 创建后、Bootstrap.Configure 前注册 `new LaunchStore(gameConfig)`，公共 Step 不重复创建。构造后即可通过 `GetProjectConfig<GameConfig>()` 取回同一配置引用；`Current` 只有 FetchConfigStep 成功后才可读，重试只替换查询结果。Store 不复制、修改或释放配置资产，不保存视图和服务，也不执行网络请求。
+
+热更注册入口从 Arch 获取 LaunchStore，以项目配置设置 UI、音频、HTTP 等模块，以 Current 获取服务器地址等运行结果。项目不再保留 SeedServices 类型字典，也不需要独立 Clear；Arch 关闭时解除 Store 的持有。GameConfig 继续由项目定义，Bootstrap 只接受 ScriptableObject 引用，取错配置类型直接失败。
 
 ## 资源与热更配置怎么填写
 
@@ -46,7 +49,7 @@ Bootstrap
 - 下载表示文件可用，不表示已加载到内存。Launch 由 Unity 构建场景列表随主包携带，不需要再收集为 YooAsset 资源。
 - 新增热更程序集：只更新 HybridCLR Settings，随后通过 Release 构建。构建按实际 DLL 依赖生成加载顺序，无需再维护 GameConfig 名单。AOT 自动清单仍使用生成的 PatchedAOTAssemblyList，只有分析遗漏项才填写 AdditionalAotMetadataAssemblies。
 
-GooseMarket 保留 DefaultPackage、Lobby 和补充 AOT 清单。Game.Runtime、MiniGames 的加载顺序由构建读取 DLL 依赖决定。MableSorting 尚未迁移；未来使用此 Bootstrap 时，可继续使用 Startup 表达业务启动资源，同时需要为 DLL 收集器补齐 HotFix / AotMeta 约定标签。
+GooseMarket 保留 DefaultPackage、Lobby 和补充 AOT 清单。Game.Runtime、MiniGames 的加载顺序由构建读取 DLL 依赖决定。MableSorting 已接入同一流程，使用 Startup 表达业务启动资源，并已为 DLL 收集器配置 HotFix / AotMeta 标签。
 
 ## 顺序与扩展
 
