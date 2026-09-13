@@ -4,6 +4,7 @@ using July.Logging;
 using July.Platform;
 using July.Release;
 using YooAsset;
+using UnityEngine;
 
 namespace July.Bootstrap
 {
@@ -11,7 +12,8 @@ namespace July.Bootstrap
     [Serializable]
     public sealed class BootstrapConfig
     {
-        public ReleaseSettings Release = new();
+        [InspectorName("部署配置")]
+        public DeploymentConfig Deployment = new();
         public ThinkingDataConfig Analytics = new();
         public PlatformConfig Platform = new();
         public ResourceStartupConfig Resource = new();
@@ -20,10 +22,10 @@ namespace July.Bootstrap
 
         internal void Validate()
         {
-            if (Release == null || Release.ConfigServer == null || Analytics == null || Platform == null ||
+            if (Deployment == null || Deployment.ConfigServerUrls == null || Analytics == null || Platform == null ||
                 Resource == null || Resource.StartupDownloadTags == null || HotUpdate == null)
                 throw new ArgumentException("Bootstrap configuration sections must be assigned.");
-            if (!Enum.IsDefined(typeof(ReleaseEnvironment), Release.Env))
+            if (!Enum.IsDefined(typeof(ReleaseEnvironment), Deployment.Environment))
                 throw new ArgumentException("Unknown release environment.");
             if (Analytics.Enabled && (string.IsNullOrWhiteSpace(Analytics.AppId) || string.IsNullOrWhiteSpace(Analytics.ServerUrl)))
                 throw new ArgumentException("Enabled analytics requires AppId and ServerUrl.");

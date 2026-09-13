@@ -44,7 +44,7 @@ namespace July.Bootstrap.Tests
                 arch.RegisterStore(store);
                 using var cancellation = new CancellationTokenSource();
                 cancellation.Cancel();
-                var step = new FetchConfigStep(new ReleaseSettings(), YooAsset.EPlayMode.EditorSimulateMode, July.Logging.LogChannel.All);
+                var step = new FetchConfigStep(new DeploymentConfig(), YooAsset.EPlayMode.EditorSimulateMode, July.Logging.LogChannel.All);
                 var task = step.ExecuteAsync(cancellation.Token);
                 Assert.Throws<OperationCanceledException>(() => task.GetAwaiter().GetResult());
                 Assert.Throws<InvalidOperationException>(() => { var result = store.Current; });

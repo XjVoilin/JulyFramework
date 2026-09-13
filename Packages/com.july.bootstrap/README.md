@@ -11,7 +11,9 @@ Bootstrap.Configure(pipeline, gameConfig.Bootstrap, launchView,
 
 ## 配置与职责
 
-BootstrapConfig 组合 ReleaseSettings、ThinkingDataConfig、PlatformConfig、ResourceStartupConfig、HotUpdateConfig 和日志通道。Resource 直接显示 PackageName、PlayMode、StartupDownloadTags，不再包含 Content。HotUpdate 只保存 AdditionalAotMetadataAssemblies 和 Registrar 定位信息；热更程序集仅在 HybridCLR Settings 配置。具体业务注册仍由项目 HotUpdateRegistrar 实现。
+`Bootstrap.Deployment` 是部署配置：Environment 选择环境，ConfigServerUrls 提供各环境的配置服务器入口，CdnBaseUrl 提供资源下载根地址。Inspector 显示“部署配置”；Release 包仍负责发布流程和两端共享协议。
+
+BootstrapConfig 组合 DeploymentConfig、ThinkingDataConfig、PlatformConfig、ResourceStartupConfig、HotUpdateConfig 和日志通道。Resource 直接显示 PackageName、PlayMode、StartupDownloadTags，不再包含 Content。HotUpdate 只保存 AdditionalAotMetadataAssemblies 和 Registrar 定位信息；热更程序集仅在 HybridCLR Settings 配置。具体业务注册仍由项目 HotUpdateRegistrar 实现。
 
 ResourceStartupConfig 继承 ReleaseResourceSettings 的资源分发字段，仅增加 YooAsset 运行模式；Release 无需依赖 YooAsset 运行时或 Bootstrap。GameConfig 通过 IReleaseResourceConfig 返回同一个 Resource 实例，以及 HotUpdate 中的补充 AOT 清单，构建端不复制配置。
 
@@ -23,6 +25,10 @@ LaunchInfoStore 只保存成功发布的只读运行信息；首次成功前读�
 
 ```text
 Bootstrap
+├─ Deployment
+│  ├─ Environment               部署环境
+│  ├─ ConfigServerUrls          各环境的配置服务器入口
+│  └─ CdnBaseUrl                资源下载根地址
 ├─ Resource
 │  ├─ PackageName                YooAsset 包名称
 │  ├─ PlayMode                   资源运行模式

@@ -1,6 +1,6 @@
 {
   "name": "com.july.bootstrap",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "displayName": "July Bootstrap",
   "description": "Optional standard startup orchestration for July Arch, Platform, Release, YooAsset and HybridCLR.",
   "unity": "2022.3",
@@ -10,7 +10,7 @@
     "com.july.config": "0.2.1",
     "com.july.logging": "0.1.0",
     "com.july.platform": "0.4.0",
-    "com.july.release": "0.3.0",
+    "com.july.release": "0.4.0",
     "com.july.resource": "0.1.1",
     "com.july.resource.yooasset": "0.2.3",
     "com.cysharp.unitask": "2.5.10",

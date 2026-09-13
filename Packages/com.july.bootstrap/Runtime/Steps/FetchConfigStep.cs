@@ -11,11 +11,11 @@ namespace July.Bootstrap
 {
     internal sealed class FetchConfigStep : ILaunchStep
     {
-        private readonly ReleaseSettings _config;
+        private readonly DeploymentConfig _config;
         private readonly EPlayMode _playMode;
         private readonly LogChannel _logChannels;
         public string Name => "Fetch Config";
-        internal FetchConfigStep(ReleaseSettings config, EPlayMode playMode, LogChannel logChannels)
+        internal FetchConfigStep(DeploymentConfig config, EPlayMode playMode, LogChannel logChannels)
         { _config = config; _playMode = playMode; _logChannels = logChannels; }
 
         public async UniTask<bool> ExecuteAsync(CancellationToken ct)
@@ -27,7 +27,7 @@ namespace July.Bootstrap
 #else
             const string platform = "WeChat";
 #endif
-            var snapshot = new ReleaseConfigSnapshot(config.Env, config.CdnUrl, config.ConfigServer.Get, platform);
+            var snapshot = new ReleaseConfigSnapshot(config.Environment, config.CdnBaseUrl, config.ConfigServerUrls.Get, platform);
 #if UNITY_EDITOR
             var remote = _playMode == EPlayMode.HostPlayMode || _playMode == EPlayMode.WebPlayMode;
 #else

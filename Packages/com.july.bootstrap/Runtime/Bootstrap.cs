@@ -34,9 +34,9 @@ namespace July.Bootstrap
             pipeline.OnStepBegin = (_, current, total) => view.SetStepInfo(current - 1, total);
             pipeline.OnCompleted = view.Complete;
             Add(new PresentLaunchFrameStep());
-            Add(new BootArchStep(config.Platform, config.Analytics, config.Release));
+            Add(new BootArchStep(config.Platform, config.Analytics, config.Deployment));
             Add(new ParallelLaunchStep("Platform Login & Fetch Config",
-                new PlatformLoginStep(), new FetchConfigStep(config.Release, config.Resource.PlayMode, config.EnabledLogChannels)),
+                new PlatformLoginStep(), new FetchConfigStep(config.Deployment, config.Resource.PlayMode, config.EnabledLogChannels)),
                 "platform_config", retry: true);
             Add(new InitResourceStep(config.Resource), "init_resource");
             Add(new DownloadStartupResourcesStep(config.Resource.RequiredDownloadTags), retry: true);

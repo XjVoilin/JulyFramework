@@ -15,11 +15,11 @@ namespace July.Bootstrap
     {
         private readonly PlatformConfig _platform;
         private readonly ThinkingDataConfig _analytics;
-        private readonly ReleaseSettings _release;
+        private readonly DeploymentConfig _deployment;
         public string Name => "Initialize Foundation";
 
-        internal BootArchStep(PlatformConfig platform, ThinkingDataConfig analytics, ReleaseSettings release)
-        { _platform = platform; _analytics = analytics; _release = release; }
+        internal BootArchStep(PlatformConfig platform, ThinkingDataConfig analytics, DeploymentConfig deployment)
+        { _platform = platform; _analytics = analytics; _deployment = deployment; }
 
         public async UniTask<bool> ExecuteAsync(CancellationToken ct)
         {
@@ -45,7 +45,7 @@ namespace July.Bootstrap
             if (!_analytics.Enabled) return new AnalyticsSystem();
             var options = new ThinkingDataOptions(_analytics.AppId, _analytics.ServerUrl)
             {
-                IsProduction = ReleaseConfigSnapshot.ResolveEnvironment(_release.Env) == ReleaseEnvironment.Prod,
+                IsProduction = ReleaseConfigSnapshot.ResolveEnvironment(_deployment.Environment) == ReleaseEnvironment.Prod,
                 ForwardUnityErrors = true,
 #if JULYGF_DEBUG
                 EnableLog = _analytics.EnableLog,

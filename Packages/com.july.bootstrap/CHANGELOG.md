@@ -1,5 +1,10 @@
 # 更新记录
 
+## 0.2.0 - 2026-09-13
+
+- 将 BootstrapConfig.Release 改为 Deployment，Inspector 显示“部署配置”；同步启动步骤与测试，依赖 Release 0.4.0。
+- 此次为配置 API 和序列化字段重命名；消费项目需同步迁移配置资产，并重新全量构建主包。
+
 ## 0.1.0 - 2026-09-12
 
 - 首次发布可选的 July.Launch 标准启动实现，固定公共步骤与执行顺序，项目提供配置、IBootstrapView 和 HotUpdateRegistrar。
