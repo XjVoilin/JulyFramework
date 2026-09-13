@@ -1,5 +1,10 @@
 # 更新记录
 
+## 0.4.0 - 2026-09-13
+
+- 将 ReleaseSettings 改为 DeploymentConfig，字段改为 Environment、CdnBaseUrl、ConfigServerUrls；职责为部署配置，发布模块和构建接口名称不变。
+- 此次为配置 API 和序列化字段重命名；消费项目需同步迁移配置资产，并重新全量构建主包。
+
 ## 0.3.0 - 2026-09-12
 
 - 新增 ReleaseSettings 与公共资源配置协议，构建读取项目同一份配置；无需新增运行时 System。

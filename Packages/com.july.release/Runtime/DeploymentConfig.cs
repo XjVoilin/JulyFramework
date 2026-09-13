@@ -2,13 +2,13 @@ using System;
 
 namespace July.Release
 {
-    /// <summary>运行时启动和编辑器发布工具共用的项目配置。</summary>
+    /// <summary>项目部署配置：运行环境、配置服务入口与资源下载根地址，供启动和发布工具共用。</summary>
     [Serializable]
-    public sealed class ReleaseSettings
+    public sealed class DeploymentConfig
     {
-        public ReleaseEnvironment Env = ReleaseEnvironment.Dev;
-        public string CdnUrl = string.Empty;
-        public ConfigServerUrls ConfigServer = new();
+        public ReleaseEnvironment Environment = ReleaseEnvironment.Dev;
+        public string CdnBaseUrl = string.Empty;
+        public ConfigServerUrls ConfigServerUrls = new();
     }
 
     [Serializable]
