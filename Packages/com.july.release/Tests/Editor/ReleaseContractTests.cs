@@ -166,23 +166,21 @@ namespace July.Release.Tests
         public void TikTokDynamicPreloadPreservesOtherGameSettings()
         {
             const string source = "{\"deviceOrientation\":\"portrait\",\"subpackages\":[{\"name\":\"wasm\",\"root\":\"wasmcode\"}],\"preloadDataList\":[\"existing.bundle\"]}";
-            const string url = "https://cdn.example.com/Game/Prod/TikTok/1.6.0/preload.json";
-            var result = JsonMapper.ToObject(PreloadInjectionStep.ConfigureTikTokPreload(source, url));
+            var result = JsonMapper.ToObject(PreloadInjectionStep.ConfigureTikTokPreload(source));
             Assert.AreEqual("portrait", (string)result["deviceOrientation"]);
             Assert.AreEqual("wasmcode", (string)result["subpackages"][0]["root"]);
             Assert.AreEqual("existing.bundle", (string)result["preloadDataList"][0]);
-            Assert.AreEqual(url, (string)result["preloadDataListUrl"]);
+            Assert.IsFalse(result.ContainsKey("preloadDataListUrl"));
         }
 
         [Test]
-        public void TikTokDynamicPreloadReplacesThePreviousUrl()
+        public void TikTokDynamicPreloadRemovesTheNativeUrlIdempotently()
         {
-            const string url = "https://cdn.example.com/Game/Prod/TikTok/1.6.0/preload.json";
             var updated = PreloadInjectionStep.ConfigureTikTokPreload(
-                "{\"preloadDataListUrl\":\"https://old.example.com/preload.json\"}", url);
-            var repeated = PreloadInjectionStep.ConfigureTikTokPreload(updated, url);
+                "{\"preloadDataListUrl\":\"https://old.example.com/preload.json\"}");
+            var repeated = PreloadInjectionStep.ConfigureTikTokPreload(updated);
             Assert.AreEqual(updated, repeated);
-            Assert.AreEqual(url, (string)JsonMapper.ToObject(repeated)["preloadDataListUrl"]);
+            Assert.IsFalse(JsonMapper.ToObject(repeated).ContainsKey("preloadDataListUrl"));
         }
 
         [Test]

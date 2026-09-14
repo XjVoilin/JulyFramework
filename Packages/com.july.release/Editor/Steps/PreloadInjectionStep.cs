@@ -111,19 +111,19 @@ namespace July.Release.Editor
             }
             else if (ctx.Platform == PlatformKeys.TikTok)
             {
-                content = InjectLaunchDiagnostics(content, ctx.Platform);
+                content = InjectTikTokModulePrepared(content);
                 var lastIdx = content.LastIndexOf(TikTokMainMarker);
                 if (lastIdx < 0)
                 {
                     Debug.LogError($"{Sentinel} game.js 中未找到 '{TikTokMainMarker}'");
                     return false;
                 }
-                // 抖音由平台读取动态列表并调度预下载，不在 game.js 中等待网络请求。
+                // JS 主动获取列表并通过桥接提交；移除旧平台入口，避免重复调度。
                 var gameJsonPath = Path.Combine(Path.GetDirectoryName(gameJsPath), "game.json");
                 File.WriteAllText(gameJsonPath,
-                    ConfigureTikTokPreload(File.ReadAllText(gameJsonPath, Encoding.UTF8), preloadJsonUrl),
+                    ConfigureTikTokPreload(File.ReadAllText(gameJsonPath, Encoding.UTF8)),
                     new UTF8Encoding(false));
-                Debug.Log($"{Sentinel} TikTok native preloadDataListUrl={preloadJsonUrl}");
+                Debug.Log($"{Sentinel} TikTok parallel bridge preload={preloadJsonUrl}");
                 injection = configSnippet + BuildTikTokInjection(preloadJsonUrl);
                 content = content.Substring(0, lastIdx) + injection + content.Substring(lastIdx + TikTokMainMarker.Length);
             }
@@ -135,6 +135,14 @@ namespace July.Release.Editor
             File.WriteAllText(gameJsPath, content, Encoding.UTF8);
             Debug.Log($"{Sentinel} game.js 注入成功 ({ctx.Platform}): {gameJsPath}");
             return true;
+        }
+
+        static string InjectTikTokModulePrepared(string content)
+        {
+            const string prepared = "gameManager.onModulePrepared(() => {";
+            if (!content.Contains(prepared))
+                throw new InvalidOperationException($"{Sentinel} TikTok game.js 缺少 modulePrepared 回调，请检查 SDK 模板。");
+            return content.Replace(prepared, prepared + "\n    julyTikTokPreload.onModulePrepared();\n");
         }
 
         static string InjectLaunchDiagnostics(string content, string platform)
@@ -228,17 +236,88 @@ namespace July.Release.Editor
             "        })();";
 
         static string BuildTikTokInjection(string preloadJsonUrl) =>
-            $"// {Sentinel}\n" +
-            $"console.log('[Preload][TikTok] nativeListConfigured at=' + Date.now() + ' url=' + {QuoteJavascriptString(preloadJsonUrl)});\n" +
-            "console.log('[Preload][TikTok] download status is reported by SDK JSFW_PreloadManager logs; configuration is not download confirmation');\n" +
-            "console.log('[Preload][TikTok] mainStart at=' + Date.now() + ' mode=native-list-url');\n" +
-            "main();\n" +
-            "console.log('[Preload][TikTok] mainReturned at=' + Date.now());";
+            "// [PreloadInjection] Dynamic list and engine startup run in parallel.\n" +
+            "managerConfig.preloadDataList = [];\n" +
+            "const julyTikTokPreload = (function () {\n" +
+            "    const startedAt = Date.now();\n" +
+            "    let requestMs = null;\n" +
+            "    let modulePreparedMs = null;\n" +
+            "    let pendingList = null;\n" +
+            "    let count = 0;\n" +
+            "    let finished = false;\n" +
+            "\n" +
+            "    function finish(status, detail) {\n" +
+            "        finished = true;\n" +
+            "        pendingList = null;\n" +
+            "        const summary = JSON.stringify({\n" +
+            "            mode: 'parallel-bridge', status: status, count: count,\n" +
+            "            requestMs: requestMs, modulePreparedMs: modulePreparedMs,\n" +
+            "            elapsedMs: Date.now() - startedAt, detail: detail\n" +
+            "        });\n" +
+            "        if (status === 'submitted') console.log('[Preload][TikTok] summary ' + summary);\n" +
+            "        else console.warn('[Preload][TikTok] summary ' + summary);\n" +
+            "    }\n" +
+            "\n" +
+            "    function submitWhenReady() {\n" +
+            "        if (finished || pendingList === null || modulePreparedMs === null) return;\n" +
+            "        // Internal SDK boundary, verified on UnityPlugin 4.32.0. Recheck on upgrades.\n" +
+            "        const bridge = typeof UNBridgeCore === 'undefined' ? null : UNBridgeCore;\n" +
+            "        if (bridge === null || typeof bridge.handleMsgFromUnity !== 'function'\n" +
+            "            || typeof bridge.h5HasAPI !== 'function' || !bridge.h5HasAPI('setPreloadList')) {\n" +
+            "            finish('bridgeUnavailable', 'setPreloadList unavailable at modulePrepared; normal loading continues');\n" +
+            "            return;\n" +
+            "        }\n" +
+            "        const message = JSON.stringify({\n" +
+            "            unity_sdk_ver: 1, msg_id: 'july-preload-' + startedAt,\n" +
+            "            source: 1, type: 0, target: 'setPreloadList',\n" +
+            "            param: { preloadList: pendingList }\n" +
+            "        });\n" +
+            "        // Consume before entering the SDK so reentrant callbacks cannot resubmit.\n" +
+            "        pendingList = null;\n" +
+            "        try {\n" +
+            "            bridge.handleMsgFromUnity(message);\n" +
+            "        } catch (error) {\n" +
+            "            finish('bridgeFailed', String(error));\n" +
+            "            return;\n" +
+            "        }\n" +
+            "        finish('submitted', 'dispatch returned; download results are in SDK JSFW_PreloadManager logs');\n" +
+            "    }\n" +
+            "\n" +
+            "    console.log('[Preload][TikTok] start mode=parallel-bridge at=' + startedAt);\n" +
+            "    tt.request({\n" +
+            "        url: " + QuoteJavascriptString(preloadJsonUrl) + " + '?t=' + startedAt,\n" +
+            "        method: 'GET', dataType: 'json', timeout: 5000,\n" +
+            "        success: function (res) {\n" +
+            "            requestMs = Date.now() - startedAt;\n" +
+            "            const list = res.data && res.data.list;\n" +
+            "            if (res.statusCode !== 200 || !Array.isArray(list) || list.length === 0\n" +
+            "                || !list.every(url => typeof url === 'string' && url.trim().length > 0)) {\n" +
+            "                finish('invalidList', 'statusCode=' + res.statusCode + '; normal loading continues');\n" +
+            "                return;\n" +
+            "            }\n" +
+            "            count = list.length;\n" +
+            "            pendingList = list;\n" +
+            "            submitWhenReady();\n" +
+            "        },\n" +
+            "        fail: function (error) {\n" +
+            "            requestMs = Date.now() - startedAt;\n" +
+            "            finish('requestFailed', error.errMsg || String(error));\n" +
+            "        }\n" +
+            "    });\n" +
+            "    return {\n" +
+            "        onModulePrepared: function () {\n" +
+            "            if (modulePreparedMs !== null) return;\n" +
+            "            modulePreparedMs = Date.now() - startedAt;\n" +
+            "            submitWhenReady();\n" +
+            "        }\n" +
+            "    };\n" +
+            "})();\n" +
+            "main();";
 
-        internal static string ConfigureTikTokPreload(string gameJson, string preloadJsonUrl)
+        internal static string ConfigureTikTokPreload(string gameJson)
         {
             var config = LitJson.JsonMapper.ToObject(gameJson);
-            config["preloadDataListUrl"] = preloadJsonUrl;
+            ((System.Collections.IDictionary)config).Remove("preloadDataListUrl");
             var writer = new LitJson.JsonWriter { PrettyPrint = true };
             LitJson.JsonMapper.ToJson(config, writer);
             return writer.ToString();
@@ -539,7 +618,7 @@ namespace July.Release.Editor
 
         public static string BuildPreloadJsonUrl(BuildContext ctx)
         {
-            // 微信请求 / 抖音平台预下载读取同一个大版本列表，必须走 CDN 加速域名。
+            // 两个平台均由 JS 请求各自的大版本列表，必须走 CDN 加速域名。
             return $"{ctx.CdnUrl.TrimEnd('/')}/{ctx.Env}/{ctx.Platform}/{ctx.CoreVersion}/{PreloadJsonName}";
         }
 
