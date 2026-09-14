@@ -106,7 +106,6 @@ namespace July.Release.Editor
                     return false;
                 }
                 injection = configSnippet + BuildWeChatInjection(preloadJsonUrl);
-                content = InjectLaunchDiagnostics(content, ctx.Platform);
                 content = content.Replace(WeChatStartGameMarker, injection);
             }
             else if (ctx.Platform == PlatformKeys.TikTok)
@@ -143,20 +142,6 @@ namespace July.Release.Editor
             if (!content.Contains(prepared))
                 throw new InvalidOperationException($"{Sentinel} TikTok game.js 缺少 modulePrepared 回调，请检查 SDK 模板。");
             return content.Replace(prepared, prepared + "\n    julyTikTokPreload.onModulePrepared();\n");
-        }
-
-        static string InjectLaunchDiagnostics(string content, string platform)
-        {
-            const string progress = "gameManager.onLaunchProgress((e) => {";
-            const string prepared = "gameManager.onModulePrepared(() => {";
-            // 导出模板是第三方输入；模板变化时明确中止，避免生成缺少诊断或无法运行的脚本。
-            if (!content.Contains(progress) || !content.Contains(prepared))
-                throw new InvalidOperationException($"{Sentinel} {platform} game.js 缺少启动阶段回调，请检查 SDK 模板。");
-
-            return content.Replace(progress, progress + "\n" +
-                $"console.log('[Preload][{platform}] launchProgress at=' + Date.now() + ' type=' + e.type + ' data=' + JSON.stringify(e.data));\n")
-                .Replace(prepared, prepared + "\n" +
-                $"console.log('[Preload][{platform}] modulePrepared at=' + Date.now());\n");
         }
 
         /// <summary>
@@ -205,35 +190,40 @@ namespace July.Release.Editor
         }
 
         static string BuildWeChatInjection(string preloadJsonUrl) =>
-            $"// {Sentinel}\n" +
-            "        (function() {\n" +
-            "            const startedAt = Date.now();\n" +
-           $"            const url = {QuoteJavascriptString(preloadJsonUrl)} + '?t=' + startedAt;\n" +
-            "            console.log('[Preload][WeChat] requestStart at=' + startedAt + ' url=' + url);\n" +
-            "            wx.request({\n" +
-            "                url: url,\n" +
-            "                dataType: 'json',\n" +
-            "                timeout: 5000,\n" +
-            "                success: function(res) {\n" +
-            "                    const list = res.data && res.data.list;\n" +
-            "                    console.log('[Preload][WeChat] response at=' + Date.now() + ' elapsedMs=' + (Date.now() - startedAt) + ' status=' + res.statusCode + ' count=' + (Array.isArray(list) ? list.length : 'invalid'));\n" +
-            "                    if (res.statusCode === 200 && Array.isArray(list) && list.length > 0 && list.every(item => typeof item === 'string' && item.length > 0)) {\n" +
-            "                        gameManager.setPreloadList(list);\n" +
-            "                        console.log('[Preload][WeChat] listSubmitted at=' + Date.now() + ' count=' + list.length + ' urls=' + JSON.stringify(list));\n" +
-            "                    } else {\n" +
-            "                        console.warn('[Preload][WeChat] listSkipped: non-200, empty or invalid list; normal resource loading continues');\n" +
-            "                    }\n" +
-            "                },\n" +
-            "                fail: function(err) {\n" +
-            "                    console.error('[Preload][WeChat] requestFailed at=' + Date.now() + ' elapsedMs=' + (Date.now() - startedAt), err.errMsg || err);\n" +
-            "                },\n" +
-            "                complete: function() {\n" +
-            "                    console.log('[Preload][WeChat] requestComplete at=' + Date.now() + ' elapsedMs=' + (Date.now() - startedAt));\n" +
-            "                }\n" +
-            "            });\n" +
-            "            console.log('[Preload][WeChat] engineStart at=' + Date.now() + ' elapsedMs=' + (Date.now() - startedAt) + ' mode=parallel-list-request');\n" +
-            "            gameManager.startGame();\n" +
-            "        })();";
+            "// [PreloadInjection]\n" +
+            "(function () {\n" +
+            "    const startedAt = Date.now();\n" +
+            "    function logSummary(status, count, requestMs, detail) {\n" +
+            "        const summary = '[Preload][WeChat] summary ' + JSON.stringify({\n" +
+            "            mode: 'parallel-list-request', status: status, count: count,\n" +
+            "            requestMs: requestMs, elapsedMs: Date.now() - startedAt, detail: detail\n" +
+            "        });\n" +
+            "        if (status === 'submitted') console.log(summary);\n" +
+            "        else if (status === 'requestFailed') console.error(summary);\n" +
+            "        else console.warn(summary);\n" +
+            "    }\n" +
+            "    console.log('[Preload][WeChat] start mode=parallel-list-request at=' + startedAt);\n" +
+            "    wx.request({\n" +
+            "        url: " + QuoteJavascriptString(preloadJsonUrl) + " + '?t=' + startedAt,\n" +
+            "        dataType: 'json', timeout: 5000,\n" +
+            "        success: function (res) {\n" +
+            "            const requestMs = Date.now() - startedAt;\n" +
+            "            const list = res.data && res.data.list;\n" +
+            "            if (res.statusCode === 200 && Array.isArray(list) && list.length > 0\n" +
+            "                && list.every(item => typeof item === 'string' && item.length > 0)) {\n" +
+            "                gameManager.setPreloadList(list);\n" +
+            "                logSummary('submitted', list.length, requestMs, 'list submitted; download results are in SDK logs');\n" +
+            "            } else {\n" +
+            "                logSummary('invalidList', Array.isArray(list) ? list.length : 0, requestMs,\n" +
+            "                    'statusCode=' + res.statusCode + '; empty or invalid list; normal loading continues');\n" +
+            "            }\n" +
+            "        },\n" +
+            "        fail: function (err) {\n" +
+            "            logSummary('requestFailed', 0, Date.now() - startedAt, err.errMsg || String(err));\n" +
+            "        }\n" +
+            "    });\n" +
+            "    gameManager.startGame();\n" +
+            "})();";
 
         static string BuildTikTokInjection(string preloadJsonUrl) =>
             "// [PreloadInjection] Dynamic list and engine startup run in parallel.\n" +
