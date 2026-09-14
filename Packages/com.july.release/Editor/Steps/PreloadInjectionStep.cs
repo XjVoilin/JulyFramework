@@ -106,16 +106,24 @@ namespace July.Release.Editor
                     return false;
                 }
                 injection = configSnippet + BuildWeChatInjection(preloadJsonUrl);
+                content = InjectLaunchDiagnostics(content, ctx.Platform);
                 content = content.Replace(WeChatStartGameMarker, injection);
             }
             else if (ctx.Platform == PlatformKeys.TikTok)
             {
+                content = InjectLaunchDiagnostics(content, ctx.Platform);
                 var lastIdx = content.LastIndexOf(TikTokMainMarker);
                 if (lastIdx < 0)
                 {
                     Debug.LogError($"{Sentinel} game.js 中未找到 '{TikTokMainMarker}'");
                     return false;
                 }
+                // 抖音由平台读取动态列表并调度预下载，不在 game.js 中等待网络请求。
+                var gameJsonPath = Path.Combine(Path.GetDirectoryName(gameJsPath), "game.json");
+                File.WriteAllText(gameJsonPath,
+                    ConfigureTikTokPreload(File.ReadAllText(gameJsonPath, Encoding.UTF8), preloadJsonUrl),
+                    new UTF8Encoding(false));
+                Debug.Log($"{Sentinel} TikTok native preloadDataListUrl={preloadJsonUrl}");
                 injection = configSnippet + BuildTikTokInjection(preloadJsonUrl);
                 content = content.Substring(0, lastIdx) + injection + content.Substring(lastIdx + TikTokMainMarker.Length);
             }
@@ -127,6 +135,20 @@ namespace July.Release.Editor
             File.WriteAllText(gameJsPath, content, Encoding.UTF8);
             Debug.Log($"{Sentinel} game.js 注入成功 ({ctx.Platform}): {gameJsPath}");
             return true;
+        }
+
+        static string InjectLaunchDiagnostics(string content, string platform)
+        {
+            const string progress = "gameManager.onLaunchProgress((e) => {";
+            const string prepared = "gameManager.onModulePrepared(() => {";
+            // 导出模板是第三方输入；模板变化时明确中止，避免生成缺少诊断或无法运行的脚本。
+            if (!content.Contains(progress) || !content.Contains(prepared))
+                throw new InvalidOperationException($"{Sentinel} {platform} game.js 缺少启动阶段回调，请检查 SDK 模板。");
+
+            return content.Replace(progress, progress + "\n" +
+                $"console.log('[Preload][{platform}] launchProgress at=' + Date.now() + ' type=' + e.type + ' data=' + JSON.stringify(e.data));\n")
+                .Replace(prepared, prepared + "\n" +
+                $"console.log('[Preload][{platform}] modulePrepared at=' + Date.now());\n");
         }
 
         /// <summary>
@@ -177,54 +199,50 @@ namespace July.Release.Editor
         static string BuildWeChatInjection(string preloadJsonUrl) =>
             $"// {Sentinel}\n" +
             "        (function() {\n" +
+            "            const startedAt = Date.now();\n" +
+           $"            const url = {QuoteJavascriptString(preloadJsonUrl)} + '?t=' + startedAt;\n" +
+            "            console.log('[Preload][WeChat] requestStart at=' + startedAt + ' url=' + url);\n" +
             "            wx.request({\n" +
-           $"                url: '{preloadJsonUrl}?t=' + Date.now(),\n" +
+            "                url: url,\n" +
             "                dataType: 'json',\n" +
             "                timeout: 5000,\n" +
             "                success: function(res) {\n" +
-            "                    console.log('[Preload] success, status=' + res.statusCode);\n" +
-            "                    if (res.statusCode === 200 && res.data && res.data.list && res.data.list.length > 0) {\n" +
-            "                        gameManager.setPreloadList(res.data.list);\n" +
-            "                        console.log('[Preload] setPreloadList ' + res.data.list.length + ' urls');\n" +
+            "                    const list = res.data && res.data.list;\n" +
+            "                    console.log('[Preload][WeChat] response at=' + Date.now() + ' elapsedMs=' + (Date.now() - startedAt) + ' status=' + res.statusCode + ' count=' + (Array.isArray(list) ? list.length : 'invalid'));\n" +
+            "                    if (res.statusCode === 200 && Array.isArray(list) && list.length > 0 && list.every(item => typeof item === 'string' && item.length > 0)) {\n" +
+            "                        gameManager.setPreloadList(list);\n" +
+            "                        console.log('[Preload][WeChat] listSubmitted at=' + Date.now() + ' count=' + list.length + ' urls=' + JSON.stringify(list));\n" +
             "                    } else {\n" +
-            "                        console.warn('[Preload] skip, status=' + res.statusCode + ' list=' + (res.data && res.data.list ? res.data.list.length : 'null'));\n" +
+            "                        console.warn('[Preload][WeChat] listSkipped: non-200, empty or invalid list; normal resource loading continues');\n" +
             "                    }\n" +
             "                },\n" +
             "                fail: function(err) {\n" +
-            "                    console.error('[Preload] fail', err.errMsg || err);\n" +
+            "                    console.error('[Preload][WeChat] requestFailed at=' + Date.now() + ' elapsedMs=' + (Date.now() - startedAt), err.errMsg || err);\n" +
             "                },\n" +
             "                complete: function() {\n" +
-            "                    console.log('[Preload] complete, startGame');\n" +
-            "                    gameManager.startGame();\n" +
+            "                    console.log('[Preload][WeChat] requestComplete at=' + Date.now() + ' elapsedMs=' + (Date.now() - startedAt));\n" +
             "                }\n" +
             "            });\n" +
+            "            console.log('[Preload][WeChat] engineStart at=' + Date.now() + ' elapsedMs=' + (Date.now() - startedAt) + ' mode=parallel-list-request');\n" +
+            "            gameManager.startGame();\n" +
             "        })();";
 
         static string BuildTikTokInjection(string preloadJsonUrl) =>
             $"// {Sentinel}\n" +
-            "(function() {\n" +
-            "    tt.request({\n" +
-           $"        url: '{preloadJsonUrl}?t=' + Date.now(),\n" +
-            "        dataType: 'json',\n" +
-            "        timeout: 5000,\n" +
-            "        success: function(res) {\n" +
-            "            console.log('[Preload] success, status=' + res.statusCode);\n" +
-            "            if (res.statusCode === 200 && res.data && res.data.list && res.data.list.length > 0) {\n" +
-            "                managerConfig.preloadDataList = res.data.list;\n" +
-            "                console.log('[Preload] set ' + res.data.list.length + ' urls');\n" +
-            "            } else {\n" +
-            "                console.warn('[Preload] skip, status=' + res.statusCode + ' list=' + (res.data && res.data.list ? res.data.list.length : 'null'));\n" +
-            "            }\n" +
-            "        },\n" +
-            "        fail: function(err) {\n" +
-            "            console.error('[Preload] fail', err.errMsg || err);\n" +
-            "        },\n" +
-            "        complete: function() {\n" +
-            "            console.log('[Preload] complete, main');\n" +
-            "            main();\n" +
-            "        }\n" +
-            "    });\n" +
-            "})();";
+            $"console.log('[Preload][TikTok] nativeListConfigured at=' + Date.now() + ' url=' + {QuoteJavascriptString(preloadJsonUrl)});\n" +
+            "console.log('[Preload][TikTok] download status is reported by SDK JSFW_PreloadManager logs; configuration is not download confirmation');\n" +
+            "console.log('[Preload][TikTok] mainStart at=' + Date.now() + ' mode=native-list-url');\n" +
+            "main();\n" +
+            "console.log('[Preload][TikTok] mainReturned at=' + Date.now());";
+
+        internal static string ConfigureTikTokPreload(string gameJson, string preloadJsonUrl)
+        {
+            var config = LitJson.JsonMapper.ToObject(gameJson);
+            config["preloadDataListUrl"] = preloadJsonUrl;
+            var writer = new LitJson.JsonWriter { PrettyPrint = true };
+            LitJson.JsonMapper.ToJson(config, writer);
+            return writer.ToString();
+        }
     }
 
     /// <summary>
@@ -521,7 +539,7 @@ namespace July.Release.Editor
 
         public static string BuildPreloadJsonUrl(BuildContext ctx)
         {
-            // 客户端通过 wx.request / tt.request 下载 preload.json，必须走 CDN 加速域名。
+            // 微信请求 / 抖音平台预下载读取同一个大版本列表，必须走 CDN 加速域名。
             return $"{ctx.CdnUrl.TrimEnd('/')}/{ctx.Env}/{ctx.Platform}/{ctx.CoreVersion}/{PreloadJsonName}";
         }
 
