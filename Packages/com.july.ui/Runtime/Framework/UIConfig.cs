@@ -13,7 +13,7 @@ namespace July.UI
         [Range(0f, 1f)]
         public float ScreenMatchMode;
 
-        [Tooltip("UI 相机渲染深度（需高于主相机，默认 10）")]
+        [Tooltip("UI 相机独立渲染时的优先级")]
         public float UICameraDepth;
 
         [Tooltip("UI 相机正交大小")]

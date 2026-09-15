@@ -5,6 +5,8 @@ using Cysharp.Threading.Tasks;
 using July.Arch;
 using July.Logging;
 using July.Resource;
+using July.Scene;
+using UnityEngine.SceneManagement;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -17,6 +19,7 @@ namespace July.UI
         private readonly Dictionary<int, UIWindowSession> _windows = new();
         private TipManager _tipManager;
         private UIWindowSequencer _sequencer;
+        private UICameraComposition _cameraComposition;
 
         #region UIRoot Physical Stage
 
@@ -249,6 +252,16 @@ namespace July.UI
         protected override UniTask OnInitializeAsync()
         {
             CreateUIRoot();
+            _cameraComposition = new UICameraComposition(_uiCamera);
+            _cameraComposition.Rebind();
+            Subscribe<SceneLoadStartEvent>(e =>
+            {
+                if (e.LoadMode == LoadSceneMode.Single) _cameraComposition.ShowStandalone();
+            });
+            Subscribe<SceneLoadCompleteEvent>(_ => _cameraComposition.Rebind());
+            Subscribe<SceneLoadFailedEvent>(_ => _cameraComposition.Rebind());
+            Subscribe<SceneUnloadStartEvent>(e => _cameraComposition.BeforeUnload(e.SceneName));
+            Subscribe<SceneUnloadCompleteEvent>(_ => _cameraComposition.Rebind());
             InitTipManager();
             _sequencer = new UIWindowSequencer(this);
             return UniTask.CompletedTask;
@@ -263,6 +276,8 @@ namespace July.UI
             _additionalProvider = null;
             _tipManager?.Shutdown();
             _tipManager = null;
+            _cameraComposition.Dispose();
+            _cameraComposition = null;
             ShutdownUIRoot();
         }
 

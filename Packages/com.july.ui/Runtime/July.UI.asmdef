@@ -1,36 +1,28 @@
-﻿{
-    "name":  "July.UI",
-    "rootNamespace":  "July.UI",
-    "references":  [
-                       "July.Arch",
-                       "July.Input",
-                       "July.Logging",
-                       "July.Resource",
-                       "July.Audio",
-                       "July.Animation",
-                       "UniTask",
-                       "UniTask.DOTween",
-                       "DOTweenAot",
-                       "Unity.TextMeshPro",
-                       "UnityEngine.UI"
-                   ],
-    "includePlatforms":  [
-
-                         ],
-    "excludePlatforms":  [
-
-                         ],
-    "allowUnsafeCode":  false,
-    "overrideReferences":  false,
-    "precompiledReferences":  [
-
-                              ],
-    "autoReferenced":  true,
-    "defineConstraints":  [
-
-                          ],
-    "versionDefines":  [
-
-                       ],
-    "noEngineReferences":  false
+{
+    "name": "July.UI",
+    "rootNamespace": "July.UI",
+    "references": [
+        "July.Arch",
+        "July.Input",
+        "July.Logging",
+        "July.Resource",
+        "July.Audio",
+        "July.Animation",
+        "UniTask",
+        "UniTask.DOTween",
+        "DOTweenAot",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI",
+        "July.Scene",
+        "Unity.RenderPipelines.Universal.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
 }

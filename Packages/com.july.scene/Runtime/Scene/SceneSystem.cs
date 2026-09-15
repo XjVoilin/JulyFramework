@@ -71,7 +71,14 @@ namespace July.Scene
             }
             catch (Exception ex)
             {
-                JLogger.LogError($"[SceneSystem] 场景 {sceneName} 加载失败: {ex.Message}");
+                Publish(new SceneLoadFailedEvent
+                {
+                    SceneName = sceneName,
+                    LoadMode = mode,
+                    Exception = ex
+                });
+                if (!(ex is OperationCanceledException))
+                    JLogger.LogError($"[SceneSystem] 场景 {sceneName} 加载失败: {ex.Message}");
                 throw;
             }
         }

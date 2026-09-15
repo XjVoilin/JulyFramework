@@ -15,6 +15,14 @@ namespace July.Scene
         public LoadSceneMode LoadMode { get; set; }
     }
 
+    /// <summary>Loading failed or was cancelled; observers can restore presentation state.</summary>
+    public class SceneLoadFailedEvent
+    {
+        public string SceneName { get; set; }
+        public LoadSceneMode LoadMode { get; set; }
+        public System.Exception Exception { get; set; }
+    }
+
     public class SceneUnloadStartEvent
     {
         public string SceneName { get; set; }

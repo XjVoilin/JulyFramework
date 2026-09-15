@@ -3,6 +3,7 @@
     "rootNamespace":  "July.Scene.Tests",
     "references":  [
                        "July.Scene",
+                       "July.Events",
                        "July.Arch",
                        "July.Resource",
                        "UniTask"

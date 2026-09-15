@@ -1,6 +1,6 @@
-﻿{
+{
   "name": "com.july.ui",
-  "version": "0.2.26",
+  "version": "0.2.27",
   "displayName": "July UI",
   "description": "July UI package for the July Unity seed framework.",
   "unity": "2022.3",
@@ -16,10 +16,11 @@
     "com.july.audio": "0.1.0",
     "com.unity.textmeshpro": "3.0.9",
     "com.unity.modules.unitywebrequest": "1.0.0",
-    "com.unity.modules.unitywebrequesttexture": "1.0.0"
+    "com.unity.modules.unitywebrequesttexture": "1.0.0",
+    "com.july.scene": "0.1.1",
+    "com.unity.render-pipelines.universal": "14.0.12"
   },
   "author": {
     "name": "July"
   }
 }
-

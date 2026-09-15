@@ -17,6 +17,7 @@ namespace July.Scene.Tests
         private sealed class TestResourceSystem : SystemBase, IResourceSystem
         {
             public int UnloadUnusedAssetsCount { get; private set; }
+            public Exception LoadFailure { get; set; }
 
             public UniTask UnloadUnusedAssetsAsync()
             {
@@ -26,7 +27,7 @@ namespace July.Scene.Tests
 
             public UniTask<UnityScene> LoadSceneAsync(string sceneName,
                 LoadSceneMode mode = LoadSceneMode.Single, CancellationToken ct = default)
-                => UniTask.FromResult(SceneManager.GetActiveScene());
+                => LoadFailure == null ? UniTask.FromResult(SceneManager.GetActiveScene()) : UniTask.FromException<UnityScene>(LoadFailure);
 
             public UniTask<ResourceHandle<T>> LoadAssetAsync<T>(string fileName,
                 CancellationToken ct = default) where T : UnityEngine.Object =>
@@ -84,6 +85,33 @@ namespace July.Scene.Tests
             _context = null;
             _resources = null;
             _scenes = null;
+        }
+
+        [Test]
+        public void CancelledLoadPublishesRecoveryEventAndRethrows()
+        {
+            var failure = new OperationCanceledException();
+            _resources.LoadFailure = failure;
+            SceneLoadFailedEvent observed = null;
+            _context.Event.Subscribe<SceneLoadFailedEvent>(e => observed = e, this);
+            Assert.Throws<OperationCanceledException>(() =>
+                _scenes.LoadSceneAsync("Cancelled").GetAwaiter().GetResult());
+            Assert.That(observed.Exception, Is.TypeOf<OperationCanceledException>());
+            Assert.That(observed.SceneName, Is.EqualTo("Cancelled"));
+            Assert.That(observed.LoadMode, Is.EqualTo(LoadSceneMode.Single));
+        }
+
+        [Test]
+        public void FailedLoadPublishesRecoveryEventAndRethrows()
+        {
+            var failure = new InvalidOperationException("Test load failure");
+            _resources.LoadFailure = failure;
+            SceneLoadFailedEvent observed = null;
+            _context.Event.Subscribe<SceneLoadFailedEvent>(e => observed = e, this);
+            UnityEngine.TestTools.LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("Test load failure"));
+            var thrown = Assert.Throws<InvalidOperationException>(() =>
+                _scenes.LoadSceneAsync("Failed").GetAwaiter().GetResult());
+            Assert.That(observed.Exception, Is.SameAs(thrown));
         }
 
         [Test]
