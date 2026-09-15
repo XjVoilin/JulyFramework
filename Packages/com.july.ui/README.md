@@ -1,6 +1,6 @@
 # July.UI URP camera composition
 
-UI 0.2.27 requires July.Scene 0.1.1 and URP 14.0.12 or a compatible newer version.
+UI 0.2.28 requires July.Scene 0.1.1 and URP 14.0.12 or a compatible newer version.
 
 UISystem owns the persistent UI camera and its composition lifetime. No project-level
 CameraStackHandler, CameraStackBinder or per-scene preparation call is required.
@@ -21,3 +21,4 @@ it does not require SceneSystem to initialize before UISystem.
   outside scene lifecycle events and split-screen/multi-display UI are not supported here.
 
 Destroying UISystem detaches only its own UI entry. Do not also run a project binder.
+Shutdown also tolerates Unity destroying the persistent UI camera before the system lifecycle completes.

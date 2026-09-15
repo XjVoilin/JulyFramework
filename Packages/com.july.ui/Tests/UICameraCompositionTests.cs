@@ -59,5 +59,14 @@ namespace July.UI.Tests
             _composition.Dispose();
             CollectionAssert.AreEqual(new[] { _other }, _main.GetUniversalAdditionalCameraData().cameraStack);
         }
+
+        [Test] public void DisposeAfterUICameraWasDestroyedDoesNotThrow()
+        {
+            _composition.Bind(_main);
+            UnityEngine.Object.DestroyImmediate(_ui.gameObject);
+            _ui = null;
+
+            Assert.DoesNotThrow(() => _composition.Dispose());
+        }
     }
 }

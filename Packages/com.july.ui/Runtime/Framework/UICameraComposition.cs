@@ -67,6 +67,11 @@ namespace July.UI
             _uiCamera.backgroundColor = Color.black;
         }
 
-        public void Dispose() => ShowStandalone();
+        public void Dispose()
+        {
+            // Unity may destroy DontDestroyOnLoad objects before GameEntry shuts systems down.
+            if (_uiCamera == null) return;
+            ShowStandalone();
+        }
     }
 }
