@@ -1,0 +1,20 @@
+{
+    "name": "July.Guide.Validation.SeedTests",
+    "rootNamespace": "July.Guide.Validation",
+    "references": [
+        "July.Guide",
+        "July.Arch",
+        "July.Events",
+        "UniTask"
+    ],
+    "includePlatforms": ["Editor"],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": ["UNITY_INCLUDE_TESTS"],
+    "versionDefines": [],
+    "noEngineReferences": false,
+    "optionalUnityReferences": ["TestAssemblies"]
+}

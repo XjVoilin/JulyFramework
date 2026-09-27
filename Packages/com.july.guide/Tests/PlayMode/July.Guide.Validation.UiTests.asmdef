@@ -1,0 +1,19 @@
+{
+  "name": "July.Guide.Validation.UiTests",
+  "rootNamespace": "July.Guide.Validation",
+  "references": [
+    "July.Guide",
+    "July.Arch",
+    "July.Events",
+    "July.UI",
+    "UniTask",
+    "UnityEngine.UI",
+    "July.Resource"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "autoReferenced": false
+}

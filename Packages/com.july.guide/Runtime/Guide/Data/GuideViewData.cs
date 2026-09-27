@@ -2,15 +2,33 @@ using System;
 
 namespace July.Guide
 {
-    [Serializable]
+    /// <summary>Immutable options for one UGUI guide presentation.</summary>
     public sealed class GuideViewData
     {
-        public int Type;
-        public int ParamId;
-        public int MaskType;
-        public int PointerType;
-        public string TextKey;
-        public int PlacementType;
+        public string TextKey { get; }
+        public int MaskType { get; }
+        public int PointerType { get; }
+        public int PlacementType { get; }
+        public string ConfirmTextKey { get; }
+        public string SkipTextKey { get; }
+
+        public GuideViewData(string textKey = null, int maskType = GuideMaskTypes.None,
+            int pointerType = GuidePointerTypes.None, int placementType = GuidePlacementTypes.Center,
+            string confirmTextKey = "Confirm", string skipTextKey = "Skip")
+        {
+            if (maskType != GuideMaskTypes.None && maskType != GuideMaskTypes.Rectangle)
+                throw new ArgumentOutOfRangeException(nameof(maskType));
+            if (pointerType < GuidePointerTypes.None || pointerType > GuidePointerTypes.Drag)
+                throw new ArgumentOutOfRangeException(nameof(pointerType));
+            if (placementType < GuidePlacementTypes.Center || placementType > GuidePlacementTypes.Right)
+                throw new ArgumentOutOfRangeException(nameof(placementType));
+            TextKey = textKey;
+            MaskType = maskType;
+            PointerType = pointerType;
+            PlacementType = placementType;
+            ConfirmTextKey = confirmTextKey;
+            SkipTextKey = skipTextKey;
+        }
     }
 
     public static class GuideMaskTypes
@@ -35,7 +53,8 @@ namespace July.Guide
         public const int Right = 4;
     }
 
-    public static class GuideInputModes
+    /// <summary>Only UGUI raycasts. These modes never own keyboard, controller or gameplay input.</summary>
+    public static class GuideRaycastModes
     {
         public const int BlockAll = 0;
         public const int BlockOutsideTarget = 1;

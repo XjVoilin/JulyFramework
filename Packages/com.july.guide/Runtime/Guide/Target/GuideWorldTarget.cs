@@ -14,7 +14,7 @@ namespace July.Guide
         {
             get
             {
-                var camera = GetSystem<GuideSystemBase>().WorldCamera;
+                var camera = GetSystem<IGuideSystem>().WorldCamera;
                 if (camera == null)
                     throw new InvalidOperationException("World camera is not registered.");
                 return CalculateRect(camera, Bounds);

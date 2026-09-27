@@ -1,11 +1,8 @@
+using System;
+
 namespace July.Guide
 {
-    public static class GuideExitReasons
-    {
-        public const int Completed = 0;
-        public const int Skipped = 1;
-        public const int Expired = 2;
-    }
+    public enum GuideExitReason { Completed, Skipped, Aborted, Faulted }
 
     public readonly struct GuideStartedEvent
     {
@@ -16,38 +13,25 @@ namespace July.Guide
     public readonly struct GuideExitedEvent
     {
         public readonly int GuideId;
-        public readonly int Reason;
-
-        public GuideExitedEvent(int guideId, int reason)
-        {
-            GuideId = guideId;
-            Reason = reason;
-        }
+        public readonly GuideExitReason Reason;
+        public readonly Exception Error;
+        public GuideExitedEvent(int guideId, GuideExitReason reason, Exception error = null)
+        { GuideId = guideId; Reason = reason; Error = error; }
     }
 
     public readonly struct GuideStepEnteredEvent
     {
         public readonly int GuideId;
         public readonly int StepId;
-
-        public GuideStepEnteredEvent(int guideId, int stepId)
-        {
-            GuideId = guideId;
-            StepId = stepId;
-        }
+        public GuideStepEnteredEvent(int guideId, int stepId) { GuideId = guideId; StepId = stepId; }
     }
 
     public readonly struct GuideStepExitedEvent
     {
         public readonly int GuideId;
         public readonly int StepId;
-        public readonly int Reason;
-
-        public GuideStepExitedEvent(int guideId, int stepId, int reason)
-        {
-            GuideId = guideId;
-            StepId = stepId;
-            Reason = reason;
-        }
+        public readonly GuideExitReason Reason;
+        public GuideStepExitedEvent(int guideId, int stepId, GuideExitReason reason)
+        { GuideId = guideId; StepId = stepId; Reason = reason; }
     }
 }

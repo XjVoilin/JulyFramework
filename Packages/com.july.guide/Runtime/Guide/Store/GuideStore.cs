@@ -6,103 +6,56 @@ namespace July.Guide
 {
     public sealed class GuideStore : StoreBase<GuideStoreData>
     {
-        private readonly Dictionary<int, GuideDefinition> _guides = new();
-        private readonly Dictionary<int, GuideStepDefinition> _steps = new();
-        private readonly HashSet<int> _completedGuides = new();
-        private readonly HashSet<int> _completedSteps = new();
+        private readonly HashSet<int> _completed = new();
+        private readonly HashSet<int> _skipped = new();
 
-        public IReadOnlyCollection<GuideDefinition> Guides => _guides.Values;
-        public GuideProgressData Progress => Data.Progress;
+        public bool IsCompleted(int guideId) => _completed.Contains(guideId);
+        public bool IsSkipped(int guideId) => _skipped.Contains(guideId);
+        public bool IsFinished(int guideId) => IsCompleted(guideId) || IsSkipped(guideId);
 
         protected override void OnDataReplaced()
         {
-            ValidateAndRebuild();
+            _completed.Clear();
+            _skipped.Clear();
+            Restore(Data.CompletedGuideIds, _completed);
+            Restore(Data.SkippedGuideIds, _skipped);
+            if (_completed.Overlaps(_skipped))
+                throw new InvalidOperationException("A saved guide cannot be both completed and skipped.");
         }
 
-        public GuideDefinition GetGuide(int guideId) => _guides[guideId];
-        public GuideStepDefinition GetStep(int stepId) => _steps[stepId];
-        public bool IsGuideCompleted(int guideId) => _completedGuides.Contains(guideId);
-        public bool IsStepCompleted(int stepId) => _completedSteps.Contains(stepId);
-
-        internal void SetCurrent(int guideId, int stepId)
+        internal void Commit(int guideId, GuideExitReason reason)
         {
-            Data.Progress.CurrentGuideId = guideId;
-            Data.Progress.CurrentStepId = stepId;
+            if (IsFinished(guideId)) throw new InvalidOperationException($"Guide {guideId} already has a durable outcome.");
+            if (reason == GuideExitReason.Completed)
+            {
+                _completed.Add(guideId);
+                Data.CompletedGuideIds.Add(guideId);
+            }
+            else if (reason == GuideExitReason.Skipped)
+            {
+                _skipped.Add(guideId);
+                Data.SkippedGuideIds.Add(guideId);
+            }
+            else throw new ArgumentException("Only completion and explicit skip are durable.", nameof(reason));
             MarkDirty();
         }
 
-        internal void MarkStepCompleted(int stepId)
+        /// <summary>Explicit replay/debug action. Stop the current guide before resetting its record.</summary>
+        public void Reset(int guideId)
         {
-            if (_completedSteps.Add(stepId))
-                Data.Progress.CompletedStepIds.Add(stepId);
+            var changed = _completed.Remove(guideId) | _skipped.Remove(guideId);
+            if (!changed) return;
+            Data.CompletedGuideIds.Remove(guideId);
+            Data.SkippedGuideIds.Remove(guideId);
             MarkDirty();
         }
 
-        internal void MarkGuideCompleted(int guideId)
+        private static void Restore(List<int> source, HashSet<int> destination)
         {
-            if (_completedGuides.Add(guideId))
-                Data.Progress.CompletedGuideIds.Add(guideId);
-            ClearCurrentWithoutMarkingDirty();
-            MarkDirty();
-        }
-
-        private void ClearCurrentWithoutMarkingDirty()
-        {
-            Data.Progress.CurrentGuideId = 0;
-            Data.Progress.CurrentStepId = 0;
-        }
-
-        private void ValidateAndRebuild()
-        {
-            _guides.Clear();
-            _steps.Clear();
-            _completedGuides.Clear();
-            _completedSteps.Clear();
-
-            foreach (var guide in Data.Guides)
-            {
-                if (guide == null || guide.Id <= 0 || guide.EntryStepId <= 0)
-                    throw new InvalidOperationException("Every guide requires positive Id and EntryStepId.");
-                if (!_guides.TryAdd(guide.Id, guide))
-                    throw new InvalidOperationException($"Duplicate guide id: {guide.Id}.");
-            }
-
-            foreach (var step in Data.Steps)
-            {
-                if (step == null || step.Id <= 0 || step.GuideId <= 0)
-                    throw new InvalidOperationException("Every guide step requires positive Id and GuideId.");
-                if (!_guides.ContainsKey(step.GuideId))
-                    throw new InvalidOperationException($"Step {step.Id} references missing guide {step.GuideId}.");
-                if (!_steps.TryAdd(step.Id, step))
-                    throw new InvalidOperationException($"Duplicate guide step id: {step.Id}.");
-            }
-
-            foreach (var guide in _guides.Values)
-            {
-                var entry = GetStep(guide.EntryStepId);
-                if (entry.GuideId != guide.Id)
-                    throw new InvalidOperationException($"Guide {guide.Id} entry step belongs to guide {entry.GuideId}.");
-                ValidateLinearChain(guide);
-            }
-
-            foreach (var guideId in Data.Progress.CompletedGuideIds)
-                _completedGuides.Add(guideId);
-            foreach (var stepId in Data.Progress.CompletedStepIds)
-                _completedSteps.Add(stepId);
-        }
-
-        private void ValidateLinearChain(GuideDefinition guide)
-        {
-            var visited = new HashSet<int>();
-            var stepId = guide.EntryStepId;
-            while (stepId != 0)
-            {
-                if (!visited.Add(stepId))
-                    throw new InvalidOperationException($"Guide {guide.Id} contains a step cycle at {stepId}.");
-                if (!_steps.TryGetValue(stepId, out var step) || step.GuideId != guide.Id)
-                    throw new InvalidOperationException($"Guide {guide.Id} references invalid next step {stepId}.");
-                stepId = step.NextStepId;
-            }
+            if (source == null) throw new InvalidOperationException("Guide saves must contain outcome lists.");
+            foreach (var id in source)
+                if (id <= 0 || !destination.Add(id))
+                    throw new InvalidOperationException($"Invalid or duplicate saved guide id {id}.");
         }
     }
 }

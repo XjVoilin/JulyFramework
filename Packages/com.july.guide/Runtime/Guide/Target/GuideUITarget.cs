@@ -3,8 +3,9 @@ using UnityEngine;
 
 namespace July.Guide
 {
+    /// <summary>Passive UGUI geometry. Adding this anchor never changes event routing.</summary>
     [RequireComponent(typeof(RectTransform))]
-    public sealed class GuideUITarget : GuideTargetAnchor
+    public class GuideUITarget : GuideTargetAnchor
     {
         private RectTransform _rectTransform;
         private Canvas _rootCanvas;
@@ -15,11 +16,9 @@ namespace July.Guide
             get
             {
                 var camera = _rootCanvas.renderMode == RenderMode.ScreenSpaceOverlay
-                    ? null
-                    : _rootCanvas.worldCamera;
+                    ? null : _rootCanvas.worldCamera;
                 if (_rootCanvas.renderMode != RenderMode.ScreenSpaceOverlay && camera == null)
                     throw new InvalidOperationException($"Guide UI target {name} requires its Canvas camera.");
-
                 _rectTransform.GetWorldCorners(_corners);
                 var min = RectTransformUtility.WorldToScreenPoint(camera, _corners[0]);
                 var max = min;
