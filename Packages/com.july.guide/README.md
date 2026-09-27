@@ -1,4 +1,4 @@
-# July Guide 0.3.1
+# July Guide 0.3.2
 
 面向 Unity / July Arch 的引导种子。框架执行有序教学单元，项目决定教什么、何时教、什么业务结果算成功。旧接口未被正式项目使用，本版不保留兼容执行路径。
 
@@ -204,3 +204,9 @@ Unity.exe -batchmode -projectPath <消费工程> -runTests -testPlatform PlayMod
 ```
 
 UGUI 用例使用真实 UISystem、资源加载接口、GuideWindow prefab、相机 Canvas、Button、EventSystem 和自定义缩放皮肤；不要用 `-nographics` 运行这组图形行为验收。测试要求空白测试场景，由 fixture 创建并清理自己的对象。它们验证运行机制与通用交互，不代替项目自己的完整业务验收。
+
+## 作者配置模板（0.3.2）
+
+`Samples~/LubanAuthoring` 提供可独立生成的 Excel、Luban 定义及项目适配示例；可通过 Package Manager 的 Samples 导入，也可直接复制。示例覆盖确认和点击目标，详细步骤见该目录 README。Runtime API 与 0.3.1 相同；窗口和 prefab 仍由 July UI 管理。
+
+配置加载/本地化使用项目已有服务。框架不持有生成表类型、不增加参数注册中心；GuideDefinition/GuideStepDefinition 是执行输入，参数仍由项目选择的 Procedure 读取。业务实践可有项目自己的阶段表，但完整实践仍是一个步骤，观察真实业务结果后才返回。

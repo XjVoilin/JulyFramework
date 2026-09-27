@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<module name="">
+  <enum name="GuideStepKind"><var name="Confirm" value="1"/><var name="ClickTarget" value="2"/></enum>
+  <table name="TbGuide" value="GuideConfig" input="引导@新手引导_Guide.xlsx" readSchemaFromFile="true"/>
+  <table name="TbGuideStep" value="GuideStepConfig" input="步骤@新手引导_Guide.xlsx" readSchemaFromFile="true" mode="list" index="guideId+sequence"/>
+  <table name="TbGuideView" value="GuideViewConfig" input="表现@新手引导_Guide.xlsx" readSchemaFromFile="true"/>
+</module>

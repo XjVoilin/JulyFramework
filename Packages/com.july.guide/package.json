@@ -1,6 +1,6 @@
 {
   "name": "com.july.guide",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "displayName": "July Guide",
   "description": "July guide seed with complete teaching procedures, explicit execution and owned cleanup.",
   "unity": "2022.3",
@@ -11,5 +11,12 @@
   },
   "author": {
     "name": "July"
-  }
+  },
+  "samples": [
+    {
+      "displayName": "Luban Authoring",
+      "description": "Project-owned authoring tables and adapter for confirmation and target-click guides.",
+      "path": "Samples~/LubanAuthoring"
+    }
+  ]
 }
