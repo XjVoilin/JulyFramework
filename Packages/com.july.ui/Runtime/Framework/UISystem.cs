@@ -167,8 +167,12 @@ namespace July.UI
 
         private void ShutdownUIRoot()
         {
-            _inputModule.Unbind();
-            _inputModule.enabled = false;
+            // 退出 Play 模式时，Unity 可能先于入口的系统清理销毁 UIRoot。
+            if (_inputModule != null)
+            {
+                _inputModule.Unbind();
+                _inputModule.enabled = false;
+            }
             _inputModule = null;
             _inputGate = null;
 

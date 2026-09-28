@@ -28,7 +28,19 @@ namespace July.UI
         internal void Unbind()
         {
             gate.BlockStateChanged -= OnBlockStateChanged;
+            gate = null;
             RequestCancellation();
+        }
+
+        protected override void OnDestroy()
+        {
+            // Unity 先销毁组件时仍需解除托管事件，不再向已销毁的 UI 派发取消事件。
+            if (gate != null)
+            {
+                gate.BlockStateChanged -= OnBlockStateChanged;
+                gate = null;
+            }
+            base.OnDestroy();
         }
 
         private void OnBlockStateChanged()
