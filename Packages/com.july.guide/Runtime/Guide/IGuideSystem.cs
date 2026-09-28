@@ -1,13 +1,12 @@
 using System;
-using System.Threading;
 using Cysharp.Threading.Tasks;
-using UnityEngine;
 
 namespace July.Guide
 {
     /// <summary>
-    /// Unity main-thread execution, including owner-token cancellation and target callbacks.
-    /// Await StopAsync before tearing down resources used by the active Procedure.
+    /// 所有操作均在 Unity 主线程执行，包括停止、跳过和业务回调。
+    /// 释放当前 Procedure 使用的资源之前，必须等待 StopAsync 完成。
+    /// 取消回调只通知取消，资源清理放在 Procedure 的 finally；不在取消回调中抛出业务异常。
     /// </summary>
     public interface IGuideSystem
     {
@@ -16,13 +15,10 @@ namespace July.Guide
         int CurrentStepId { get; }
         string WaitingFor { get; }
         Exception LastFailure { get; }
-        Camera WorldCamera { get; }
-        UniTask<GuideExitReason?> RunAsync(CancellationToken ct = default);
+        /// <summary>执行就绪的候选计划；运行或清理期间重复触发立即返回 null。未完成计划从头开始，由项目保证重新执行的前提。</summary>
+        UniTask<GuideExitReason?> RunAsync();
+        /// <summary>停止并等待引导清理；不回滚玩法，不保存内部步骤进度。</summary>
         UniTask StopAsync();
         UniTask<bool> SkipCurrentGuideAsync();
-        void RegisterTarget(IGuideTarget target);
-        void UnregisterTarget(IGuideTarget target);
-        void RegisterWorldCamera(Camera camera);
-        void UnregisterWorldCamera(Camera camera);
     }
 }

@@ -1,5 +1,6 @@
 using System.Collections;
 using July.Arch;
+using July.Input;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -25,6 +26,7 @@ namespace July.UI.Tests
                 typeof(StandaloneInputModule));
 
             _context = new ArchContext();
+            _context.RegisterSystem(new UnityInputSystem());
             _context.RegisterSystem(new UISystem());
             _context.InitializeAsync().GetAwaiter().GetResult();
         }

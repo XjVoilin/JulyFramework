@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using July.Arch;
+using July.Input;
 using July.Resource;
 using NUnit.Framework;
 using UnityEngine;
@@ -152,6 +153,7 @@ namespace July.UI.Tests
             _context = new ArchContext();
             _context.RegisterSystem(_resources);
             _context.RegisterSystem(_observer);
+            _context.RegisterSystem(new UnityInputSystem());
             _context.RegisterSystem(_ui);
             _context.InitializeAsync().GetAwaiter().GetResult();
         }

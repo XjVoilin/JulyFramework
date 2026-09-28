@@ -2,7 +2,8 @@
   "name": "July.Input.Tests",
   "rootNamespace": "July.Input.Tests",
   "references": [
-    "July.Input"
+    "July.Input",
+    "July.Arch"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

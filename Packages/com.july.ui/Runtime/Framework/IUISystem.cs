@@ -24,9 +24,6 @@ namespace July.UI
         UniTask CloseAsync(UIView view, CancellationToken ct = default);
         void CloseLayer(UILayer layer, int excludeWindowId = -1);
 
-        void ShowMask();
-        void HideMask();
-
         void ShowTip(string message, float duration = 2f);
         void ConfigureTip(TipConfig config);
     }

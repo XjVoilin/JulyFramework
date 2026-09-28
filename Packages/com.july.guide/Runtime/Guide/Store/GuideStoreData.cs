@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace July.Guide
 {
-    /// <summary>Durable outcomes only; definitions and in-flight cursors are never saved.</summary>
+    /// <summary>仅保存持久结果，不保存引导定义或执行中的步骤游标。</summary>
     [Serializable]
     public sealed class GuideStoreData
     {

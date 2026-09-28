@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0 - 2026-09-28
+
+- Depend on July Input 0.2.0 for shared Gameplay/UI blocking. Window sessions own gameplay block leases when configured.
+- Remove UIInputBlocker and global ShowMask/HideMask APIs; keep modal window backdrops.
+- Delegate normal UGUI dispatch to StandaloneInputModule, adding scoped cancellation and release-before-resume handling.
+- Source and static checks only; Unity compilation and runtime validation have not been performed.
+
+- Add optional UIRectHole: a rectangular cutout Graphic with hole raycast filtering. Receives local rectangle coordinates, has no Guide dependency, and does not locate targets or own window lifetimes. Not runtime-validated.
+
 ## 0.2.25 - 2026-08-25
 
 - Remove the independent `UIModelPreview` frame-rate scheduler so preview rendering follows the application's global frame-rate setting.

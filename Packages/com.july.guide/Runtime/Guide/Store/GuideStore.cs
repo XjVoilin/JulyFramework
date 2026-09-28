@@ -40,7 +40,7 @@ namespace July.Guide
             MarkDirty();
         }
 
-        /// <summary>Explicit replay/debug action. Stop the current guide before resetting its record.</summary>
+        /// <summary>显式重放或调试操作；重置记录前先停止当前引导。</summary>
         public void Reset(int guideId)
         {
             var changed = _completed.Remove(guideId) | _skipped.Remove(guideId);

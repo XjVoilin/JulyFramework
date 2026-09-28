@@ -1,29 +1,17 @@
-﻿{
-    "name":  "July.Guide",
-    "rootNamespace":  "July.Guide",
-    "references":  [
-                       "July.Arch",
-                       "July.UI",
-                       "UniTask",
-                       "UnityEngine.UI"
-                   ],
-    "includePlatforms":  [
-
-                         ],
-    "excludePlatforms":  [
-
-                         ],
-    "allowUnsafeCode":  false,
-    "overrideReferences":  false,
-    "precompiledReferences":  [
-
-                              ],
-    "autoReferenced":  true,
-    "defineConstraints":  [
-
-                          ],
-    "versionDefines":  [
-
-                       ],
-    "noEngineReferences":  false
+{
+  "name": "July.Guide",
+  "rootNamespace": "July.Guide",
+  "references": [
+    "July.Arch",
+    "UniTask"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
 }

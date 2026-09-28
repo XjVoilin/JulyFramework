@@ -87,6 +87,7 @@ namespace July.UI
         public object Data { get; set; } = null;
         public UIAnimationType OpenAnimationType { get; set; } = UIAnimationType.None;
         public UIAnimationType CloseAnimationType { get; set; } = UIAnimationType.None;
+        public bool BlockGameplayInput { get; set; } = false;
         public bool ShowMask { get; set; } = false;
         public bool ClickMaskToClose { get; set; } = false;
         public bool IgnoreSafeArea { get; set; } = false;

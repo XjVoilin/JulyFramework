@@ -8,102 +8,108 @@ using UnityEngine;
 namespace July.Guide
 {
     /// <summary>
-    /// Runs one eligible guide to completion. Call after project readiness, and await StopAsync before teardown.
-    /// Definitions, transient execution and durable outcomes have separate owners.
-    /// All calls and owner-token cancellation run on the Unity main thread.
+    /// 执行一段满足条件的引导直至结束；项目就绪后调用，清理前等待 StopAsync 完成。
+    /// 引导定义、临时执行状态和持久结果分别管理。
+    /// 所有调用均在 Unity 主线程执行。
     /// </summary>
     public abstract class GuideSystemBase : SystemBase, IGuideSystem
     {
-        private readonly Dictionary<int, GuideDefinition> _guides = new();
-        private readonly Dictionary<int, IGuideTarget> _targets = new();
+        private readonly Dictionary<int, GuidePlan> _guides = new();
+        private readonly Dictionary<int, IGuideStartCondition> _startConditions = new();
         private GuideStore _store;
-        private GuideDefinition _current;
+        private GuidePlan _current;
         private CancellationTokenSource _runCancellation;
         private UniTaskCompletionSource<GuideExitReason?> _finished;
-        private UniTaskCompletionSource _targetChanged = new();
-        private UniTaskCompletionSource _cancellationDispatched;
         private GuideExitReason? _requestedExit;
-        private Exception _reportedFailure;
-        private int _runId;
+        private GuideStepContext _currentStepContext;
         private bool _shuttingDown;
         private bool _finishing;
-        private int _stopRequests;
 
         public bool IsRunning => _current != null;
         public int CurrentGuideId => _current?.Id ?? 0;
         public int CurrentStepId { get; private set; }
         public string WaitingFor { get; private set; }
         public Exception LastFailure { get; private set; }
-        public Camera WorldCamera { get; private set; }
 
         protected sealed override UniTask OnInitializeAsync()
         {
             _store = GetStore<GuideStore>();
-            foreach (var guide in CreateGuides())
+            foreach (var condition in CreateStartConditions())
+            {
+                if (condition == null)
+                    throw new InvalidOperationException("开始条件策略不能为空。");
+                var type = condition.Type;
+                if (!_startConditions.TryAdd(type, condition))
+                    throw new InvalidOperationException($"开始条件类型 {type} 重复注册。");
+            }
+
+            foreach (var guide in CreatePlans())
             {
                 if (guide == null || !_guides.TryAdd(guide.Id, guide))
                     throw new InvalidOperationException("Guide definitions must be non-null and have unique ids.");
+                if (!_startConditions.ContainsKey(guide.StartConditionType))
+                    throw new InvalidOperationException(
+                        $"引导 {guide.Id} 引用了未注册的开始条件类型 {guide.StartConditionType}。");
             }
-            // ArchContext and scene/UI targets are not ready during System initialization.
+
+            // System 初始化期间，ArchContext 与场景/UI 目标尚未就绪。
             return UniTask.CompletedTask;
         }
 
-        protected abstract IEnumerable<GuideDefinition> CreateGuides();
-        protected abstract bool CanStart(GuideDefinition guide);
-        protected virtual string ResolveText(string key) => key;
+        protected abstract IEnumerable<GuidePlan> CreatePlans();
+
+        /// <summary>
+        /// 初始化时调用一次，按 Type 注册项目支持的条件策略；每种类型只注册一个实例。
+        /// 此时只绑定依赖，实际准入在 RunAsync 中按计划的参数引用读取最新业务状态。
+        /// </summary>
+        protected abstract IEnumerable<IGuideStartCondition> CreateStartConditions();
 
         protected abstract ProcedureBase CreateStepProcedure(GuideStepContext context);
 
         /// <summary>
-        /// Evaluate once and run the highest-priority eligible guide. Null means no eligible content.
-        /// Concurrent requests join the same execution; they never create a second step cursor.
-        /// A new trigger requires an explicit call after the previous execution ends.
+        /// 评估一次候选，执行优先级最高且满足条件的引导；返回 null 表示本次未启动引导。
+        /// 已有引导执行时直接忽略本次请求并返回 null，不等待当前执行，也不排队。
+        /// 再次触发需要在上次执行结束后显式调用；未完成计划从第一个步骤重新执行。
+        /// 项目须先准备或重建该教学所需的业务状态，框架不会回滚玩法或恢复步骤进度。
         /// </summary>
-        public UniTask<GuideExitReason?> RunAsync(CancellationToken ct = default)
+        public UniTask<GuideExitReason?> RunAsync()
         {
-            if (_shuttingDown || _stopRequests != 0)
-                throw new InvalidOperationException("Cannot start a guide while stopping or shutting down.");
-            ct.ThrowIfCancellationRequested();
-            if (IsRunning) return _finished.Task.AttachExternalCancellation(ct);
+            if (_shuttingDown)
+                throw new InvalidOperationException("Cannot start a guide while shutting down.");
+            if (IsRunning)
+                return UniTask.FromResult<GuideExitReason?>(null);
 
-            GuideDefinition selected = null;
+            GuidePlan selected = null;
             foreach (var guide in _guides.Values)
             {
-                if (_store.IsFinished(guide.Id) || !CanStart(guide)) continue;
+                if (_store.IsFinished(guide.Id)) continue;
+                var condition = _startConditions[guide.StartConditionType];
+                if (!condition.CanStart(guide.StartConditionParamId)) continue;
                 if (selected == null || guide.Priority > selected.Priority ||
                     guide.Priority == selected.Priority && guide.Id < selected.Id)
                     selected = guide;
             }
+
             if (selected == null) return UniTask.FromResult<GuideExitReason?>(null);
 
             _current = selected;
-            _runId++;
             _requestedExit = null;
-            _reportedFailure = null;
             LastFailure = null;
             _runCancellation = new CancellationTokenSource();
             var finished = new UniTaskCompletionSource<GuideExitReason?>();
             _finished = finished;
-            // All cancellation and completion state exists before any callback can re-enter this module.
-            // Route external cancellation through the same dispatch boundary as Stop/Skip.
-            // A linked CTS would bypass our handling of throwing cancellation callbacks.
-            var ownerCancellation = ct.Register(() => RequestExit(GuideExitReason.Aborted));
-            ExecuteRunAsync(selected, _runId, _runCancellation, ownerCancellation, finished).Forget(Debug.LogException);
+            // 执行可能同步结束并清空字段，返回值仍使用本轮的完成任务。
+            ExecuteRunAsync(selected, _runCancellation, finished).Forget(Debug.LogException);
             return finished.Task;
         }
 
-        /// <summary>Prevent re-entry, cancel the active guide, and wait for its owned cleanup. Does not mark completion.</summary>
+        /// <summary>取消当前引导并等待其清理完成；不标记引导完成。</summary>
         public async UniTask StopAsync()
         {
             if (!IsRunning) return;
             var finished = _finished.Task;
-            _stopRequests++;
-            try
-            {
-                RequestExit(GuideExitReason.Aborted);
-                await finished;
-            }
-            finally { _stopRequests--; }
+            RequestExit(GuideExitReason.Aborted);
+            await finished;
         }
 
         public async UniTask<bool> SkipCurrentGuideAsync()
@@ -114,8 +120,8 @@ namespace July.Guide
             return await finished == GuideExitReason.Skipped;
         }
 
-        private async UniTask ExecuteRunAsync(GuideDefinition guide, int runId,
-            CancellationTokenSource cancellation, CancellationTokenRegistration ownerCancellation,
+        private async UniTask ExecuteRunAsync(GuidePlan guide,
+            CancellationTokenSource cancellation,
             UniTaskCompletionSource<GuideExitReason?> finished)
         {
             Exception failure = null;
@@ -129,15 +135,18 @@ namespace July.Guide
                     cancellation.Token.ThrowIfCancellationRequested();
                     CurrentStepId = activeStep = step.Id;
                     WaitingFor = null;
-                    var context = new GuideStepContext(this, runId, guide, step, cancellation.Token);
+                    var context = new GuideStepContext(this, guide, step, cancellation.Token);
+                    _currentStepContext = context;
                     Publish(new GuideStepEnteredEvent(guide.Id, step.Id));
                     cancellation.Token.ThrowIfCancellationRequested();
                     await RunProcedure(CreateStepProcedure(context), cancellation.Token);
                     cancellation.Token.ThrowIfCancellationRequested();
+                    _currentStepContext = null;
                     CurrentStepId = activeStep = 0;
                     WaitingFor = null;
                     Publish(new GuideStepExitedEvent(guide.Id, step.Id, GuideExitReason.Completed));
                 }
+
                 cancellation.Token.ThrowIfCancellationRequested();
             }
             catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
@@ -150,12 +159,8 @@ namespace July.Guide
                 reason = GuideExitReason.Faulted;
             }
 
-            // Cancel can synchronously resume this method before it finishes dispatching callbacks.
-            // Let that dispatch report any exception before committing or notifying a terminal result.
-            if (_cancellationDispatched != null) await _cancellationDispatched.Task;
-            failure = CombineFailures(_reportedFailure, failure);
-            if (failure != null) reason = GuideExitReason.Faulted;
             _finishing = true;
+            _currentStepContext = null;
             CurrentStepId = 0;
             WaitingFor = null;
 
@@ -166,98 +171,51 @@ namespace July.Guide
             }
             catch (Exception error)
             {
-                // The durable outcome is already committed in memory. A dirty-notification failure
-                // must stay observable, but cannot undo teaching or report it as an aborted unit.
-                failure = CombineFailures(failure, error);
+                // 持久结果已在内存中提交。保存通知失败不能撤销已完成的教学。
+                failure = error;
                 if (!_store.IsFinished(guide.Id)) reason = GuideExitReason.Faulted;
+            }
+
+            try
+            {
+                cancellation.Dispose();
+                LastFailure = failure;
+                if (!_shuttingDown)
+                {
+                    if (activeStep != 0)
+                        Publish(new GuideStepExitedEvent(guide.Id, activeStep, reason));
+                    Publish(new GuideExitedEvent(guide.Id, reason, failure));
+                }
+            }
+            catch (Exception error)
+            {
+                failure = error;
             }
             finally
             {
-                try
-                {
-                    ownerCancellation.Dispose();
-                    cancellation.Dispose();
-                    // Keep this run joinable until the complete terminal notification batch is over.
-                    // Subscribers cannot interleave the next guide with this one's notifications.
-                    SignalTargetChanged();
-                    LastFailure = failure;
-                    if (!_shuttingDown)
-                    {
-                        if (activeStep != 0)
-                            PublishTerminal(new GuideStepExitedEvent(guide.Id, activeStep, reason), ref failure);
-                        LastFailure = failure;
-                        PublishTerminal(new GuideExitedEvent(guide.Id, reason, failure), ref failure);
-                    }
-                }
-                catch (Exception error)
-                {
-                    failure = CombineFailures(failure, error);
-                }
-                finally
-                {
-                    _current = null;
-                    _finished = null;
-                    _runCancellation = null;
-                    _reportedFailure = null;
-                    _finishing = false;
-                    LastFailure = failure;
-                    // Completing can synchronously start a new run. Do not touch run state after this point.
-                    if (failure == null) finished.TrySetResult(reason);
-                    else finished.TrySetException(failure);
-                }
+                _current = null;
+                _finished = null;
+                _runCancellation = null;
+                _finishing = false;
+                LastFailure = failure;
+                // 完成任务可能同步启动下一次执行，此后不得再访问本次运行状态。
+                if (failure == null) finished.TrySetResult(reason);
+                else finished.TrySetException(failure);
             }
         }
 
         private void RequestExit(GuideExitReason reason)
         {
-            if (_finishing) return;
-            _requestedExit ??= reason;
-            if (_runCancellation.IsCancellationRequested) return;
-            var dispatched = new UniTaskCompletionSource();
-            _cancellationDispatched = dispatched;
-            try
-            {
-                _runCancellation.Cancel();
-            }
-            catch (Exception error)
-            {
-                // Cancellation callbacks are supplied by Procedures/third-party operations.
-                // Surface their failure through the run, after awaiting all owned cleanup.
-                _reportedFailure = CombineFailures(_reportedFailure, error);
-            }
-            finally
-            {
-                _cancellationDispatched = null;
-                dispatched.TrySetResult();
-            }
+            // 已有退出请求生效时，不再更改退出原因。
+            if (_finishing || _runCancellation.IsCancellationRequested) return;
+            _requestedExit = reason;
+            _runCancellation.Cancel();
         }
-
-        private void PublishTerminal<T>(T message, ref Exception failure)
-        {
-            try { Publish(message); }
-            catch (Exception error)
-            {
-                // An event error handler must not leave Run/Stop waiters permanently suspended.
-                failure = CombineFailures(failure, error);
-            }
-        }
-
-        private static Exception CombineFailures(Exception first, Exception second)
-            => first == null ? second : second == null || ReferenceEquals(first, second)
-                ? first : new AggregateException(first, second);
 
         internal void RequestSkip(GuideStepContext context)
         {
             if (!IsCurrent(context) || !context.CanSkip) return;
             RequestExit(GuideExitReason.Skipped);
-        }
-
-        internal void Fail(GuideStepContext context, Exception error)
-        {
-            if (error == null) throw new ArgumentNullException(nameof(error));
-            if (!IsCurrent(context)) return; // A closed presentation must not affect a later run.
-            _reportedFailure = CombineFailures(_reportedFailure, error);
-            RequestExit(GuideExitReason.Faulted);
         }
 
         internal void SetWaitingFor(GuideStepContext context, string description)
@@ -268,83 +226,17 @@ namespace July.Guide
         }
 
         private bool IsCurrent(GuideStepContext context) =>
-            IsRunning && !_finishing && context.RunId == _runId && context.Step.Id == CurrentStepId;
-
-        internal string GetText(string key) => ResolveText(key);
-
-        public void RegisterTarget(IGuideTarget target)
-        {
-            if (target == null || target.TargetId <= 0)
-                throw new ArgumentException("Guide targets require a positive id.", nameof(target));
-            if (_targets.TryGetValue(target.TargetId, out var previous) && previous != target)
-                throw new InvalidOperationException($"Guide target {target.TargetId} is already registered.");
-            _targets[target.TargetId] = target;
-            SignalTargetChanged();
-        }
-
-        public void UnregisterTarget(IGuideTarget target)
-        {
-            if (_targets.TryGetValue(target.TargetId, out var previous) && previous == target)
-            {
-                _targets.Remove(target.TargetId);
-                SignalTargetChanged();
-            }
-        }
-
-        public void RegisterWorldCamera(Camera camera)
-        {
-            if (camera == null) throw new ArgumentNullException(nameof(camera));
-            if (WorldCamera != null && WorldCamera != camera)
-                throw new InvalidOperationException("A guide world camera is already registered.");
-            WorldCamera = camera;
-            SignalTargetChanged();
-        }
-
-        public void UnregisterWorldCamera(Camera camera)
-        {
-            if (WorldCamera != camera) return;
-            WorldCamera = null;
-            SignalTargetChanged();
-        }
-
-        internal bool IsTargetRegistered(IGuideTarget target) =>
-            target != null && _targets.TryGetValue(target.TargetId, out var current) && current == target &&
-            (!(target is GuideWorldTarget) || WorldCamera != null);
-
-        internal async UniTask<IGuideTarget> WaitForTargetAsync(GuideStepContext context, int targetId, CancellationToken ct)
-        {
-            if (targetId < 0) throw new ArgumentOutOfRangeException(nameof(targetId));
-            using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(context.RunToken, ct);
-            var token = cancellation.Token;
-            token.ThrowIfCancellationRequested();
-            if (targetId == 0) return null;
-            context.SetWaitingFor($"Target {targetId}");
-            while (true)
-            {
-                token.ThrowIfCancellationRequested();
-                if (_targets.TryGetValue(targetId, out var target) && IsTargetRegistered(target)) return target;
-                await _targetChanged.Task.AttachExternalCancellation(token);
-            }
-        }
-
-        private void SignalTargetChanged()
-        {
-            var previous = _targetChanged;
-            _targetChanged = new UniTaskCompletionSource();
-            previous.TrySetResult();
-        }
+            ReferenceEquals(context, _currentStepContext);
 
         protected sealed override void OnShutdown()
         {
             _shuttingDown = true;
             if (IsRunning)
             {
-                // Normal scene/application teardown must await StopAsync first.
-                // Do not destroy a view still owned by an unwinding Procedure.
+                // 正常退出场景或应用前，必须先等待 StopAsync 完成。
+                // 不要销毁仍被清理中的 Procedure 持有的视图。
                 RequestExit(GuideExitReason.Aborted);
             }
-            _targets.Clear();
-            WorldCamera = null;
         }
     }
 }

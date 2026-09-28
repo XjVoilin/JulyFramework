@@ -12,13 +12,14 @@ using UnityEngine.TestTools;
 namespace July.Guide.Validation
 {
     /// <summary>
-    /// Integration tests of the public Guide/Arch contracts. Teaching operations are ordinary
-    /// consumer Procedures; cancellation, ordering, notifications and saving are production code.
+    /// 验证 Guide/Arch 公开契约的集成测试。教学操作由普通的项目侧 Procedure 实现；
+    /// 取消、执行顺序、通知和保存均使用正式实现。
     /// </summary>
     public sealed class GuideLifecycleTests
     {
         private const int FirstGuide = 7101;
         private const int SecondGuide = 7102;
+        private const int DefaultConditionType = 51;
         private ArchContext architecture;
         private GuideStore store;
         private IGuideSystem guide;
@@ -36,7 +37,7 @@ namespace July.Guide.Validation
         {
             try
             {
-                // A failed assertion must not strand an intentionally paused Procedure finally.
+                // 断言失败时，也必须释放测试中故意暂停的 Procedure finally 清理流程。
                 foreach (var release in releaseCleanup) release();
                 if (guide != null && guide.IsRunning)
                 {
@@ -55,6 +56,109 @@ namespace July.Guide.Validation
                 releaseCleanup.Clear();
                 EventBus.ErrorHandler = previousEventErrorHandler;
             }
+        }
+
+        [Test]
+        public void StartConditions_AreRegisteredOnce_AndReadLatestStateOnEachTrigger()
+        {
+            var allowed = false;
+            var condition = new TestStartCondition { Evaluate = _ => allowed };
+            var registrations = 0;
+            var executions = 0;
+            IEnumerable<IGuideStartCondition> Conditions()
+            {
+                registrations++;
+                yield return condition;
+            }
+            Initialize(new[] { Definition(FirstGuide, 1) }, (_, __) =>
+            {
+                executions++;
+                return UniTask.CompletedTask;
+            }, Conditions());
+
+            Assert.That(registrations, Is.EqualTo(1));
+            Assert.That(condition.EvaluatedParams, Is.Empty, "初始化只注册策略，不评估业务状态。");
+            Assert.That(guide.RunAsync().GetAwaiter().GetResult(), Is.Null);
+            Assert.That(executions, Is.Zero);
+
+            allowed = true;
+            Assert.That(guide.RunAsync().GetAwaiter().GetResult(), Is.EqualTo(GuideExitReason.Completed));
+            Assert.That(executions, Is.EqualTo(1));
+            Assert.That(condition.EvaluatedParams.Count, Is.EqualTo(2));
+            Assert.That(registrations, Is.EqualTo(1));
+            Assert.That(guide.RunAsync().GetAwaiter().GetResult(), Is.Null);
+            Assert.That(condition.EvaluatedParams.Count, Is.EqualTo(2), "已完成计划不再评估条件。");
+        }
+
+        [Test]
+        public void StartConditions_DispatchByType_WithTheSameParameterId()
+        {
+            const int secondType = 52;
+            const int paramId = 201;
+            var firstAllowed = false;
+            var firstCondition = new TestStartCondition { Evaluate = _ => firstAllowed };
+            var secondCondition = new TestStartCondition(secondType);
+            var started = new List<int>();
+            Initialize(new[]
+            {
+                new GuidePlan(FirstGuide, new[] { new GuideStep(1, 9001) },
+                    DefaultConditionType, paramId, priority: 10),
+                new GuidePlan(SecondGuide, new[] { new GuideStep(1, 9001) }, secondType, paramId)
+            }, (_, __) => UniTask.CompletedTask, new[] { firstCondition, secondCondition });
+            architecture.Event.Subscribe<GuideStartedEvent>(e => started.Add(e.GuideId), this);
+
+            Assert.That(guide.RunAsync().GetAwaiter().GetResult(), Is.EqualTo(GuideExitReason.Completed));
+            CollectionAssert.AreEqual(new[] { SecondGuide }, started);
+            Assert.That(store.IsFinished(FirstGuide), Is.False);
+            CollectionAssert.AreEqual(new[] { paramId }, firstCondition.EvaluatedParams);
+            CollectionAssert.AreEqual(new[] { paramId }, secondCondition.EvaluatedParams);
+
+            firstAllowed = true;
+            Assert.That(guide.RunAsync().GetAwaiter().GetResult(), Is.EqualTo(GuideExitReason.Completed));
+            CollectionAssert.AreEqual(new[] { SecondGuide, FirstGuide }, started);
+        }
+
+        [Test]
+        public void StartConditions_ReuseOneStrategy_WithDifferentParameterRecords()
+        {
+            var parameters = new Dictionary<int, bool> { [201] = false, [202] = true };
+            var condition = new TestStartCondition { Evaluate = id => parameters[id] };
+            var started = new List<int>();
+            Initialize(new[]
+            {
+                new GuidePlan(FirstGuide, new[] { new GuideStep(1, 9001) },
+                    DefaultConditionType, 201, priority: 10),
+                new GuidePlan(SecondGuide, new[] { new GuideStep(1, 9001) }, DefaultConditionType, 202)
+            }, (_, __) => UniTask.CompletedTask, new[] { condition });
+            architecture.Event.Subscribe<GuideStartedEvent>(e => started.Add(e.GuideId), this);
+
+            Assert.That(guide.RunAsync().GetAwaiter().GetResult(), Is.EqualTo(GuideExitReason.Completed));
+            CollectionAssert.AreEqual(new[] { SecondGuide }, started);
+            CollectionAssert.AreEquivalent(new[] { 201, 202 }, condition.EvaluatedParams);
+
+            parameters[201] = true;
+            Assert.That(guide.RunAsync().GetAwaiter().GetResult(), Is.EqualTo(GuideExitReason.Completed));
+            CollectionAssert.AreEqual(new[] { SecondGuide, FirstGuide }, started);
+            Assert.That(condition.EvaluatedParams.Count, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void StartConditions_RejectDuplicateTypesDuringInitialization()
+        {
+            var error = Assert.Throws<InvalidOperationException>(() => Initialize(
+                new[] { Definition(FirstGuide, 1) }, (_, __) => UniTask.CompletedTask,
+                new[] { new TestStartCondition(), new TestStartCondition() }));
+            StringAssert.Contains(DefaultConditionType.ToString(), error.Message);
+        }
+
+        [Test]
+        public void StartConditions_RejectUnregisteredTypeDuringInitialization()
+        {
+            var error = Assert.Throws<InvalidOperationException>(() => Initialize(
+                new[] { Definition(FirstGuide, 1) }, (_, __) => UniTask.CompletedTask,
+                Array.Empty<IGuideStartCondition>()));
+            StringAssert.Contains(FirstGuide.ToString(), error.Message);
+            StringAssert.Contains(DefaultConditionType.ToString(), error.Message);
         }
 
         [Test]
@@ -117,69 +221,55 @@ namespace July.Guide.Validation
         }
 
         [Test]
-        public void OwnerCancellationCallbackThrows_AfterSynchronousCleanup_RunFaultsBeforeTerminalNotification()
+        public void Stop_WaitsForCleanup_AndCannotBecomeSkipped()
         {
-            var cancellationFailure = new InvalidOperationException("owner-cancellation-callback");
-            var work = new UniTaskCompletionSource();
-            var cleanedUp = false;
-            GuideExitedEvent? terminal = null;
-            Initialize(new[] { Definition(FirstGuide, 1) }, (_, ct) =>
-                ExecuteWithThrowingCancellationAsync(work, cancellationFailure, () => cleanedUp = true, ct));
-            architecture.Event.Subscribe<GuideExitedEvent>(e => terminal = e, this);
-            using var owner = new CancellationTokenSource();
-            var run = guide.RunAsync(owner.Token);
+            var operation = NewControlledOperation();
+            Initialize(new[] { Definition(FirstGuide, 1) }, (_, ct) => operation.ExecuteAsync(ct));
+            var run = guide.RunAsync();
+            var stop = guide.StopAsync();
+            Assert.That(stop.Status, Is.EqualTo(UniTaskStatus.Pending));
 
-            // The outer owner token must not receive the inner callback failure or return a
-            // falsely successful guide. The Procedure finally resumes inside CTS.Cancel.
-            Assert.DoesNotThrow(() => owner.Cancel());
+            Assert.That(operation.FinallyEntered, Is.True);
+            Assert.That(run.Status, Is.EqualTo(UniTaskStatus.Pending));
+            var skip = guide.SkipCurrentGuideAsync();
+            Assert.That(skip.Status, Is.EqualTo(UniTaskStatus.Pending));
+            operation.AllowCleanup.TrySetResult();
 
-            Assert.That(cleanedUp, Is.True);
-            Assert.That(run.Status, Is.EqualTo(UniTaskStatus.Faulted));
-            var observed = ReadFailure(run);
-            Assert.That(ContainsException(observed, cancellationFailure), Is.True);
-            Assert.That(terminal.HasValue, Is.True);
-            Assert.That(terminal.Value.Reason, Is.EqualTo(GuideExitReason.Faulted));
-            Assert.That(ContainsException(terminal.Value.Error, cancellationFailure), Is.True,
-                "Terminal notification must wait until Cancel has reported callback failures.");
-            Assert.That(guide.LastFailure, Is.SameAs(observed));
+            Assert.That(run.GetAwaiter().GetResult(), Is.EqualTo(GuideExitReason.Aborted));
+            stop.GetAwaiter().GetResult();
+            Assert.That(skip.GetAwaiter().GetResult(), Is.False);
+            Assert.That(operation.FinallyCompleted, Is.True);
             Assert.That(guide.IsRunning, Is.False);
             AssertNoSavedOutcome(FirstGuide);
         }
 
         [Test]
-        public void ConcurrentStops_KeepRestartBlockedUntilBothStopWaitersHaveExited()
+        public void RepeatedStops_WaitForCurrentCleanup_AndBusyRunIsIgnored()
         {
             var operation = NewControlledOperation();
             Initialize(new[] { Definition(FirstGuide, 1) }, (_, ct) => operation.ExecuteAsync(ct));
             var run = guide.RunAsync();
             var firstStop = guide.StopAsync();
             var secondStop = guide.StopAsync();
-            var restartRejected = false;
-            var firstStopObserver = AfterAsync(firstStop, () =>
-            {
-                try { guide.RunAsync(); }
-                catch (InvalidOperationException) { restartRejected = true; }
-            });
 
-            Assert.That(firstStopObserver.Status, Is.EqualTo(UniTaskStatus.Pending));
+            Assert.That(firstStop.Status, Is.EqualTo(UniTaskStatus.Pending));
             Assert.That(secondStop.Status, Is.EqualTo(UniTaskStatus.Pending));
+            Assert.That(guide.RunAsync().GetAwaiter().GetResult(), Is.Null);
             operation.AllowCleanup.TrySetResult();
 
-            firstStopObserver.GetAwaiter().GetResult();
+            firstStop.GetAwaiter().GetResult();
             secondStop.GetAwaiter().GetResult();
-            Assert.That(restartRejected, Is.True,
-                "The first Stop continuation must not reopen the system while the second Stop is pending.");
             Assert.That(run.GetAwaiter().GetResult(), Is.EqualTo(GuideExitReason.Aborted));
             Assert.That(guide.IsRunning, Is.False);
             AssertNoSavedOutcome(FirstGuide);
         }
 
         [Test]
-        public void TerminalListenerRun_JoinsOldRun_AndNextGuideNeedsExplicitLaterTrigger()
+        public void TerminalListenerRun_IsIgnored_AndNextGuideNeedsExplicitLaterTrigger()
         {
             var started = new List<int>();
-            var joined = default(UniTask<GuideExitReason?>);
-            var joinedInTerminal = false;
+            var ignored = default(UniTask<GuideExitReason?>);
+            var triggeredInTerminal = false;
             var runningDuringTerminal = false;
             var guideIdDuringTerminal = 0;
             Initialize(new[] { Definition(FirstGuide, 1), Definition(SecondGuide, 1) },
@@ -190,17 +280,18 @@ namespace July.Guide.Validation
                 if (e.GuideId != FirstGuide) return;
                 runningDuringTerminal = guide.IsRunning;
                 guideIdDuringTerminal = guide.CurrentGuideId;
-                joined = guide.RunAsync();
-                joinedInTerminal = true;
+                ignored = guide.RunAsync();
+                Assert.That(ignored.Status, Is.EqualTo(UniTaskStatus.Succeeded));
+                triggeredInTerminal = true;
             }, this);
 
             var first = guide.RunAsync();
 
             Assert.That(first.GetAwaiter().GetResult(), Is.EqualTo(GuideExitReason.Completed));
-            Assert.That(joinedInTerminal, Is.True);
+            Assert.That(triggeredInTerminal, Is.True);
             Assert.That(runningDuringTerminal, Is.True);
             Assert.That(guideIdDuringTerminal, Is.EqualTo(FirstGuide));
-            Assert.That(joined.GetAwaiter().GetResult(), Is.EqualTo(GuideExitReason.Completed));
+            Assert.That(ignored.GetAwaiter().GetResult(), Is.Null);
             CollectionAssert.AreEqual(new[] { FirstGuide }, started);
             Assert.That(store.IsFinished(SecondGuide), Is.False);
 
@@ -256,32 +347,79 @@ namespace July.Guide.Validation
         }
 
         [Test]
-        public void TerminalEventErrorHandlerThrows_DoesNotStrandCompletionOrUndoCommittedOutcome()
+        public void TerminalListenerFailure_IsReportedByEventBus_WithoutChangingOutcome()
         {
             var listenerFailure = new InvalidOperationException("terminal-listener");
-            var errorHandlerFailure = new InvalidOperationException("terminal-error-handler", listenerFailure);
+            Exception reported = null;
             Initialize(new[] { Definition(FirstGuide, 1) }, (_, __) => UniTask.CompletedTask);
             architecture.Event.Subscribe<GuideExitedEvent>(_ => throw listenerFailure, this);
-            EventBus.ErrorHandler = _ => throw errorHandlerFailure;
+            EventBus.ErrorHandler = error => reported = error;
 
             var run = guide.RunAsync();
 
-            Assert.That(run.Status, Is.EqualTo(UniTaskStatus.Faulted));
-            Assert.That(ReadFailure(run), Is.SameAs(errorHandlerFailure));
-            Assert.That(guide.LastFailure, Is.SameAs(errorHandlerFailure));
+            Assert.That(run.GetAwaiter().GetResult(), Is.EqualTo(GuideExitReason.Completed));
+            Assert.That(reported, Is.SameAs(listenerFailure));
+            Assert.That(guide.LastFailure, Is.Null);
             Assert.That(guide.IsRunning, Is.False);
-            Assert.That(RestoreSavedOutcomes().IsCompleted(FirstGuide), Is.True,
-                "An observer failure cannot undo an already committed teaching outcome.");
+            Assert.That(RestoreSavedOutcomes().IsCompleted(FirstGuide), Is.True);
             Assert.That(guide.StopAsync().Status, Is.EqualTo(UniTaskStatus.Succeeded));
         }
 
-        private void Initialize(IEnumerable<GuideDefinition> definitions,
-            Func<GuideStepContext, CancellationToken, UniTask> execute)
+        [Test]
+        public void PreviousStepContext_CannotChangeCurrentStep()
+        {
+            GuideStepContext previous = null;
+            var first = new UniTaskCompletionSource();
+            var second = new UniTaskCompletionSource();
+            Initialize(new[] { Definition(FirstGuide, 1, 2) }, (context, ct) =>
+            {
+                context.SetWaitingFor($"step:{context.Step.Id}");
+                if (context.Step.Id == 1) previous = context;
+                return (context.Step.Id == 1 ? first : second).Task.AttachExternalCancellation(ct);
+            });
+            var run = guide.RunAsync();
+            first.TrySetResult();
+            previous.RequestSkip();
+            Assert.Throws<InvalidOperationException>(() => previous.SetWaitingFor("旧等待"));
+            Assert.That(guide.CurrentStepId, Is.EqualTo(2));
+            Assert.That(guide.WaitingFor, Is.EqualTo("step:2"));
+            Assert.That(run.Status, Is.EqualTo(UniTaskStatus.Pending));
+            second.TrySetResult();
+            Assert.That(run.GetAwaiter().GetResult(), Is.EqualTo(GuideExitReason.Completed));
+        }
+
+        [Test]
+        public void AbortedContext_CannotAffectSameStepOnNextRun()
+        {
+            var contexts = new List<GuideStepContext>();
+            var work = new UniTaskCompletionSource();
+            Initialize(new[] { Definition(FirstGuide, 1) }, (context, ct) =>
+            {
+                contexts.Add(context);
+                context.SetWaitingFor("当前执行");
+                return work.Task.AttachExternalCancellation(ct);
+            });
+            var first = guide.RunAsync();
+            guide.StopAsync().GetAwaiter().GetResult();
+            Assert.That(first.GetAwaiter().GetResult(), Is.EqualTo(GuideExitReason.Aborted));
+            var second = guide.RunAsync();
+            Assert.That(contexts[1], Is.Not.SameAs(contexts[0]));
+            contexts[0].RequestSkip();
+            Assert.That(second.Status, Is.EqualTo(UniTaskStatus.Pending));
+            Assert.That(guide.WaitingFor, Is.EqualTo("当前执行"));
+            work.TrySetResult();
+            Assert.That(second.GetAwaiter().GetResult(), Is.EqualTo(GuideExitReason.Completed));
+        }
+
+        private void Initialize(IEnumerable<GuidePlan> definitions,
+            Func<GuideStepContext, CancellationToken, UniTask> execute,
+            IEnumerable<IGuideStartCondition> startConditions = null)
         {
             architecture = new ArchContext();
             store = new GuideStore();
             architecture.RegisterStore(store);
-            architecture.RegisterSystem(new ConsumerGuideSystem(definitions, execute));
+            architecture.RegisterSystem(new ConsumerGuideSystem(definitions, execute,
+                startConditions ?? new[] { new TestStartCondition() }));
             architecture.InitializeAsync().GetAwaiter().GetResult();
             guide = architecture.GetSystem<IGuideSystem>();
         }
@@ -293,11 +431,11 @@ namespace July.Guide.Validation
             return operation;
         }
 
-        private static GuideDefinition Definition(int guideId, params int[] stepIds)
+        private static GuidePlan Definition(int guideId, params int[] stepIds)
         {
-            var steps = new List<GuideStepDefinition>();
-            foreach (var stepId in stepIds) steps.Add(new GuideStepDefinition(stepId, 9001));
-            return new GuideDefinition(guideId, steps, canSkip: true);
+            var steps = new List<GuideStep>();
+            foreach (var stepId in stepIds) steps.Add(new GuideStep(stepId, 9001));
+            return new GuidePlan(guideId, steps, DefaultConditionType, 0, canSkip: true);
         }
 
         private GuideStore RestoreSavedOutcomes()
@@ -322,15 +460,6 @@ namespace July.Guide.Validation
             return Assert.Catch(() => task.GetAwaiter().GetResult());
         }
 
-        private static bool ContainsException(Exception root, Exception expected)
-        {
-            if (ReferenceEquals(root, expected)) return true;
-            if (root is AggregateException aggregate)
-                foreach (var child in aggregate.InnerExceptions)
-                    if (ContainsException(child, expected)) return true;
-            return root?.InnerException != null && ContainsException(root.InnerException, expected);
-        }
-
         private static async UniTask ExecuteStepAsync(int stepId, UniTaskCompletionSource firstWork,
             List<string> trace, CancellationToken ct)
         {
@@ -342,27 +471,10 @@ namespace July.Guide.Validation
             finally { trace.Add($"cleanup:{stepId}"); }
         }
 
-        private static async UniTask ExecuteWithThrowingCancellationAsync(UniTaskCompletionSource work,
-            Exception error, Action onCleanup, CancellationToken ct)
-        {
-            var waiting = work.Task.AttachExternalCancellation(ct);
-            // Registered last, so this throws before the waiting continuation resumes. CTS.Cancel
-            // still only reports its AggregateException after all callbacks, including cleanup.
-            using var registration = ct.Register(() => throw error);
-            try { await waiting; }
-            finally { onCleanup(); }
-        }
-
         private static async UniTask FailTeachingAsync(Exception error, Action onCleanup)
         {
             try { await UniTask.FromException(error); }
             finally { onCleanup(); }
-        }
-
-        private static async UniTask AfterAsync(UniTask task, Action continuation)
-        {
-            await task;
-            continuation();
         }
 
         private sealed class ControlledTeachingOperation
@@ -384,20 +496,39 @@ namespace July.Guide.Validation
             }
         }
 
+        private sealed class TestStartCondition : IGuideStartCondition
+        {
+            internal Func<int, bool> Evaluate = _ => true;
+            internal readonly List<int> EvaluatedParams = new();
+
+            public int Type { get; }
+
+            internal TestStartCondition(int type = DefaultConditionType) => Type = type;
+
+            public bool CanStart(int paramId)
+            {
+                EvaluatedParams.Add(paramId);
+                return Evaluate(paramId);
+            }
+        }
+
         private sealed class ConsumerGuideSystem : GuideSystemBase
         {
-            private readonly IEnumerable<GuideDefinition> definitions;
+            private readonly IEnumerable<GuidePlan> definitions;
             private readonly Func<GuideStepContext, CancellationToken, UniTask> execute;
+            private readonly IEnumerable<IGuideStartCondition> startConditions;
 
-            internal ConsumerGuideSystem(IEnumerable<GuideDefinition> definitions,
-                Func<GuideStepContext, CancellationToken, UniTask> execute)
+            internal ConsumerGuideSystem(IEnumerable<GuidePlan> definitions,
+                Func<GuideStepContext, CancellationToken, UniTask> execute,
+                IEnumerable<IGuideStartCondition> startConditions)
             {
                 this.definitions = definitions;
                 this.execute = execute;
+                this.startConditions = startConditions;
             }
 
-            protected override IEnumerable<GuideDefinition> CreateGuides() => definitions;
-            protected override bool CanStart(GuideDefinition definition) => true;
+            protected override IEnumerable<GuidePlan> CreatePlans() => definitions;
+            protected override IEnumerable<IGuideStartCondition> CreateStartConditions() => startConditions;
             protected override ProcedureBase CreateStepProcedure(GuideStepContext context)
                 => new ConsumerTeachingProcedure(context, execute);
         }

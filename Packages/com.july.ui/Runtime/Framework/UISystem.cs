@@ -4,6 +4,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using July.Arch;
 using July.Logging;
+using July.Input;
 using July.Resource;
 using July.Scene;
 using UnityEngine.SceneManagement;
@@ -29,8 +30,8 @@ namespace July.UI
         private readonly Dictionary<UILayer, Transform> _layerTransforms = new();
         private readonly Dictionary<UILayer, Transform> _safeAreaRoots = new();
 
-        private GameObject _maskRoot;
-        private bool _maskActive;
+        private IInputGate _inputGate;
+        private JulyStandaloneInputModule _inputModule;
 
         public Camera UICamera => _uiCamera;
 
@@ -86,21 +87,6 @@ namespace July.UI
             return layerGo.transform;
         }
 
-        public void ShowMask()
-        {
-            if (_maskRoot == null) CreateMask();
-            if (_maskActive) return;
-            _maskRoot.SetActive(true);
-            _maskActive = true;
-        }
-
-        public void HideMask()
-        {
-            if (!_maskActive) return;
-            if (_maskRoot != null) _maskRoot.SetActive(false);
-            _maskActive = false;
-        }
-
         private void CreateUIRoot()
         {
             var existingRoot = GameObject.Find("[UIRoot]");
@@ -150,58 +136,41 @@ namespace July.UI
         {
             var eventSystem = EventSystem.current;
             GameObject eventSystemGo;
-
-            if (eventSystem != null)
-            {
-                eventSystemGo = eventSystem.gameObject;
-            }
-            else
+            if (eventSystem == null)
             {
                 eventSystemGo = new GameObject("[EventSystem]");
                 eventSystemGo.AddComponent<EventSystem>();
-                eventSystemGo.AddComponent<StandaloneInputModule>();
+                _inputModule = eventSystemGo.AddComponent<JulyStandaloneInputModule>();
             }
-
+            else
+            {
+                // 启动重试界面早于 Input 初始化，运行期在这里接管它的原生模块。
+                eventSystemGo = eventSystem.gameObject;
+                var modules = eventSystemGo.GetComponents<BaseInputModule>();
+                if (modules.Length != 1 || modules[0].GetType() != typeof(StandaloneInputModule))
+                    throw new InvalidOperationException("July UI 需要单个原生 StandaloneInputModule 的启动场景。");
+                var previous = (StandaloneInputModule)modules[0];
+                previous.DeactivateModule();
+                previous.enabled = false;
+                _inputModule = eventSystemGo.AddComponent<JulyStandaloneInputModule>();
+                _inputModule.horizontalAxis = previous.horizontalAxis;
+                _inputModule.verticalAxis = previous.verticalAxis;
+                _inputModule.submitButton = previous.submitButton;
+                _inputModule.cancelButton = previous.cancelButton;
+                _inputModule.inputActionsPerSecond = previous.inputActionsPerSecond;
+                _inputModule.repeatDelay = previous.repeatDelay;
+                Object.Destroy(previous);
+            }
+            _inputModule.Bind(_inputGate);
             eventSystemGo.transform.SetParent(_uiRootGo.transform, false);
-        }
-
-        private void CreateMask()
-        {
-            if (_maskRoot != null) return;
-
-            _maskRoot = new GameObject("[UI Mask]");
-            Object.DontDestroyOnLoad(_maskRoot);
-
-            var canvas = _maskRoot.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 32767;
-            _maskRoot.AddComponent<GraphicRaycaster>();
-
-            var imageGo = new GameObject("Blocker");
-            imageGo.transform.SetParent(_maskRoot.transform, false);
-
-            var image = imageGo.AddComponent<Image>();
-            image.color = Color.clear;
-            image.raycastTarget = true;
-
-            var rect = imageGo.GetComponent<RectTransform>();
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
-
-            _maskRoot.SetActive(false);
-            _maskActive = false;
         }
 
         private void ShutdownUIRoot()
         {
-            if (_maskRoot != null)
-            {
-                Object.Destroy(_maskRoot);
-                _maskRoot = null;
-            }
-            _maskActive = false;
+            _inputModule.Unbind();
+            _inputModule.enabled = false;
+            _inputModule = null;
+            _inputGate = null;
 
             if (_uiRootGo != null)
                 Object.Destroy(_uiRootGo);
@@ -251,6 +220,7 @@ namespace July.UI
 
         protected override UniTask OnInitializeAsync()
         {
+            _inputGate = GetSystem<IInputGate>();
             CreateUIRoot();
             _cameraComposition = new UICameraComposition(_uiCamera);
             _cameraComposition.Rebind();
@@ -344,6 +314,8 @@ namespace July.UI
 
             try
             {
+                if (options.BlockGameplayInput)
+                    session.GameplayInputBlock = _inputGate.Block(InputScope.Gameplay);
                 var go = await InstantiateWindow(options.WindowIdentifier.WindowName, ct);
                 if (go == null)
                 {
@@ -527,6 +499,7 @@ namespace July.UI
                 Data = data,
                 OpenAnimationType = source.OpenAnimationType,
                 CloseAnimationType = source.CloseAnimationType,
+                BlockGameplayInput = source.BlockGameplayInput,
                 ShowMask = source.ShowMask,
                 ClickMaskToClose = source.ClickMaskToClose,
                 IgnoreSafeArea = source.IgnoreSafeArea,
@@ -612,6 +585,8 @@ namespace July.UI
             }
 
             ReleaseMask(session);
+            session.GameplayInputBlock?.Dispose();
+            session.GameplayInputBlock = null;
 
             if (session.GameObject != null)
                 Object.Destroy(session.GameObject);

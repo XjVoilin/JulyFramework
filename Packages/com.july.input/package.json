@@ -1,12 +1,13 @@
 {
   "name": "com.july.input",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "displayName": "July Input",
-  "description": "Input gating and pointer input shared by UI, sprites and gameplay.",
+  "description": "Gameplay input seed: pointer clicks, four-direction swipes, keyboard directions and shared blocking.",
   "unity": "2022.3",
   "dependencies": {
-    "com.july.arch": "0.1.0",
-    "com.unity.ugui": "1.0.0"
+    "com.july.arch": "0.1.3",
+    "com.unity.ugui": "1.0.0",
+    "com.cysharp.unitask": "2.5.10"
   },
   "author": {
     "name": "July"

@@ -3,7 +3,8 @@
   "rootNamespace": "July.Input",
   "references": [
     "July.Arch",
-    "UnityEngine.UI"
+    "UnityEngine.UI",
+    "UniTask"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

@@ -7,43 +7,39 @@ using guide_sample;
 
 namespace July.Guide.Samples
 {
-    // Project-owned adapter. Rename/copy into the project; do not add it to July.Guide.Runtime.
-    // Supply the generated Tables through your existing configuration loading path.
-    public sealed class SampleGuideSystem : GuideSystemBase
+    // 项目侧适配器：重命名后复制到项目中，不加入 July.Guide.Runtime。
+    // 通过项目现有的配置加载流程提供生成的 Tables。
+    public abstract class SampleGuideSystem : GuideSystemBase
     {
         private readonly Tables tables;
-        public SampleGuideSystem(Tables tables) => this.tables = tables;
+        protected SampleGuideSystem(Tables tables) => this.tables = tables;
 
-        protected override IEnumerable<GuideDefinition> CreateGuides()
+        protected override IEnumerable<GuidePlan> CreatePlans()
         {
             var steps = tables.TbGuideStep.DataList.ToLookup(row => row.GuideId);
             foreach (var row in tables.TbGuide.DataList)
-                yield return new GuideDefinition(row.Id, steps[row.Id].OrderBy(step => step.Sequence)
-                    .Select(step => new GuideStepDefinition(step.StepId, (int)step.Kind, step.ParamId)).ToArray(),
-                    row.Priority, row.CanSkip);
+                yield return new GuidePlan(row.Id, steps[row.Id].OrderBy(step => step.Sequence)
+                    .Select(step => new GuideStep(step.StepId, (int)step.Kind, step.ParamId)).ToArray(),
+                    startConditionType: ExplicitTriggerStartCondition.ConditionType, startConditionParamId: 0,
+                    priority: row.Priority, canSkip: row.CanSkip);
         }
 
-        // This sample is explicitly triggered after its screen and target are ready.
-        // Replace with project eligibility; the seed does not define a condition language.
-        protected override bool CanStart(GuideDefinition guide) => true;
-
-        protected override ProcedureBase CreateStepProcedure(GuideStepContext context)
+        protected override IEnumerable<IGuideStartCondition> CreateStartConditions()
         {
-            var view = tables.TbGuideView.Get(context.Step.ParamId);
-            var data = new GuideViewData(view.TextKey, confirmTextKey: view.ConfirmTextKey,
-                skipTextKey: view.SkipTextKey);
-            switch ((GuideStepKind)context.Step.Type)
-            {
-                case GuideStepKind.Confirm:
-                    return new GuideConfirmProcedure(context, view.WindowId, data, view.TargetId);
-                case GuideStepKind.ClickTarget:
-                    return new GuideClickTargetProcedure(context, view.WindowId, view.TargetId, data);
-                default:
-                    throw new InvalidOperationException($"Unknown guide step type {context.Step.Type}.");
-            }
+            yield return new ExplicitTriggerStartCondition();
         }
 
-        // Override ResolveText here to call the project's existing localization service.
-        // The unmodified sample deliberately displays the authored keys.
+        // 本示例由入口保证界面与目标就绪；正式项目在策略中读取自己的业务状态。
+        private sealed class ExplicitTriggerStartCondition : IGuideStartCondition
+        {
+            internal const int ConditionType = 1;
+            public int Type => ConditionType;
+            // 本策略不需要参数配置，计划显式传入 0。
+            public bool CanStart(int paramId) => true;
+        }
+
+        // 项目派生类实现 CreateStepProcedure，并按 Step.Type / ParamId 创建自己的 Procedure。
+        // 在 Procedure 执行位置读取参数；通过 IUISystem 操作普通项目 UIView。
+        // 不需要 Guide 专用窗口、皮肤、本地化覆盖或目标注册协议。
     }
 }

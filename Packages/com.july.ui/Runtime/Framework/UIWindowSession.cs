@@ -37,6 +37,7 @@ namespace July.UI
         internal GameObject GameObject { get; private set; }
         internal CanvasGroup CanvasGroup { get; private set; }
         internal GameObject Mask { get; set; }
+        internal IDisposable GameplayInputBlock { get; set; }
         internal CancellationToken OpeningToken => _openingCancellation.Token;
 
         internal UniTask<UIView> WaitUntilOpenedAsync(CancellationToken ct)
