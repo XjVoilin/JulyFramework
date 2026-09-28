@@ -39,7 +39,8 @@ namespace July.Audio
 
         // SFX 业务状态
         private readonly Dictionary<AudioHandle, SfxInfo> _activeSfxHandles = new();
-        private readonly Dictionary<string, AudioHandle> _nameToSfxHandle = new();
+        private int _maxInstancesPerSfx = AudioConfig.Default.MaxInstancesPerSfx;
+        private long _nextSfxSequence;
         private float _sfxVolume = 1f;
         private bool _sfxMute;
 
@@ -51,6 +52,7 @@ namespace July.Audio
         {
             public string Group;
             public float BaseVolume;
+            public long Sequence;
         }
 
         #endregion
@@ -79,7 +81,6 @@ namespace July.Audio
 
             _activeHandles.Clear();
             _activeSfxHandles.Clear();
-            _nameToSfxHandle.Clear();
             _fadeTweeners.Clear();
             _invalidHandleList.Clear();
             _currentBgmHandle = null;
@@ -91,20 +92,6 @@ namespace July.Audio
             // 清理无效 BGM 句柄
             if (_currentBgmHandle != null && !_currentBgmHandle.IsValid)
                 _currentBgmHandle = null;
-
-            // 清理无效 SFX 句柄（Module 层）
-            foreach (var kvp in _activeSfxHandles)
-            {
-                if (kvp.Key == null || !kvp.Key.IsValid)
-                    _invalidHandleList.Add(kvp.Key);
-            }
-
-            if (_invalidHandleList.Count > 0)
-            {
-                foreach (var h in _invalidHandleList)
-                    _activeSfxHandles.Remove(h);
-                _invalidHandleList.Clear();
-            }
 
             // Provider 层：检测播放完成的 Handle
             foreach (var handle in _activeHandles)
@@ -206,10 +193,11 @@ namespace July.Audio
                 Loop = false
             };
 
-            var handle = await PlayAudioInternalAsync(fileName, techOptions);
-            if (handle == null) return;
-
-            RegisterSfxHandle(fileName, handle, options?.Group, techOptions.Volume);
+            await PlayAudioInternalAsync(fileName, techOptions, sfxInfo: new SfxInfo
+            {
+                Group = options?.Group,
+                BaseVolume = techOptions.Volume
+            });
         }
 
         public void PlaySfx(string fileName, SfxPlayOptions options = null)
@@ -234,10 +222,11 @@ namespace July.Audio
                 MaxDistance = options.MaxDistance
             };
 
-            var handle = await PlayAudioInternalAsync(fileName, techOptions);
-            if (handle == null) return;
-
-            RegisterSfxHandle(fileName, handle, options.Group, techOptions.Volume);
+            await PlayAudioInternalAsync(fileName, techOptions, sfxInfo: new SfxInfo
+            {
+                Group = options.Group,
+                BaseVolume = techOptions.Volume
+            });
         }
 
         public void PlaySfx3D(string fileName, Sfx3DPlayOptions options)
@@ -250,6 +239,7 @@ namespace July.Audio
         public void Configure(AudioConfig config)
         {
             DefaultClickSfx = config.DefaultClickSfx;
+            _maxInstancesPerSfx = config.MaxInstancesPerSfx;
         }
 
         public void PlayClickSfx(string overrideSfx = null)
@@ -259,32 +249,43 @@ namespace July.Audio
             PlaySfxAsync(sfx).Forget();
         }
 
-        private void RegisterSfxHandle(string fileName, AudioHandle handle, string group, float baseVolume)
+        private void MakeRoomForSfx(string fileName)
         {
-            if (_nameToSfxHandle.TryGetValue(fileName, out var prev) && prev.IsValid)
+            // 配置调低后，下次播放同名音效时淘汰足够多的旧实例。
+            while (true)
             {
-                StopAudioInternal(prev);
-                _activeSfxHandles.Remove(prev);
+                var count = 0;
+                AudioHandle oldestHandle = null;
+                var oldestSequence = long.MaxValue;
+                foreach (var kvp in _activeSfxHandles)
+                {
+                    if (kvp.Key.AudioIdentifier != fileName) continue;
+
+                    count++;
+                    if (oldestHandle == null || kvp.Value.Sequence < oldestSequence)
+                    {
+                        oldestHandle = kvp.Key;
+                        oldestSequence = kvp.Value.Sequence;
+                    }
+                }
+
+                if (count < _maxInstancesPerSfx) return;
+                StopAudioInternal(oldestHandle);
             }
-
-            _nameToSfxHandle[fileName] = handle;
-            _activeSfxHandles[handle] = new SfxInfo { Group = group, BaseVolume = baseVolume };
-
-            if (_masterMute || _sfxMute)
-                SetMuteInternal(handle, true);
         }
 
         public void StopSfx(string fileName)
         {
             if (string.IsNullOrEmpty(fileName)) return;
-            if (!_nameToSfxHandle.TryGetValue(fileName, out var handle)) return;
-
-            _nameToSfxHandle.Remove(fileName);
-            if (handle != null && handle.IsValid)
+            var toStop = new List<AudioHandle>();
+            foreach (var handle in _activeSfxHandles.Keys)
             {
-                StopAudioInternal(handle);
-                _activeSfxHandles.Remove(handle);
+                if (handle.AudioIdentifier == fileName)
+                    toStop.Add(handle);
             }
+
+            foreach (var handle in toStop)
+                StopAudioInternal(handle);
         }
 
         public void StopSfx(AudioHandle handle)
@@ -292,16 +293,7 @@ namespace July.Audio
             if (handle == null || !handle.IsValid) return;
 
             if (_activeSfxHandles.ContainsKey(handle))
-            {
                 StopAudioInternal(handle);
-                _activeSfxHandles.Remove(handle);
-
-                if (!string.IsNullOrEmpty(handle.AudioIdentifier))
-                {
-                    if (_nameToSfxHandle.TryGetValue(handle.AudioIdentifier, out var mapped) && mapped == handle)
-                        _nameToSfxHandle.Remove(handle.AudioIdentifier);
-                }
-            }
         }
 
         public void StopAllSfx()
@@ -314,7 +306,6 @@ namespace July.Audio
             }
 
             _activeSfxHandles.Clear();
-            _nameToSfxHandle.Clear();
         }
 
         public void StopSfxByGroup(string group)
@@ -329,10 +320,7 @@ namespace July.Audio
             }
 
             foreach (var handle in toStop)
-            {
                 StopAudioInternal(handle);
-                _activeSfxHandles.Remove(handle);
-            }
         }
 
         #endregion
@@ -380,7 +368,7 @@ namespace July.Audio
         #region Internal - Audio Playback (from UnityAudioProvider)
 
         private async UniTask<AudioHandle> PlayAudioInternalAsync(string fileName, AudioPlayOptions options,
-            CancellationToken ct = default)
+            CancellationToken ct = default, SfxInfo sfxInfo = null)
         {
             if (string.IsNullOrEmpty(fileName)) return null;
 
@@ -412,7 +400,19 @@ namespace July.Audio
                     IsPaused = false
                 };
 
+                // 资源和新实例准备好后才淘汰旧音效；淘汰到登记之间不再 await。
+                // 延迟播放的实例也占名额；BGM 不参与限制。
+                if (sfxInfo != null)
+                    MakeRoomForSfx(fileName);
+
                 _activeHandles.Add(handle);
+
+                if (sfxInfo != null)
+                {
+                    sfxInfo.Sequence = _nextSfxSequence++;
+                    _activeSfxHandles.Add(handle, sfxInfo);
+                    audioSource.mute = _masterMute || _sfxMute;
+                }
 
                 if (options.Delay > 0f)
                     audioSource.PlayDelayed(options.Delay);
@@ -492,6 +492,7 @@ namespace July.Audio
 
             handle.IsValid = false;
             StopFadeTween(handle);
+            _activeSfxHandles.Remove(handle);
 
             if (_activeHandles.Contains(handle))
             {

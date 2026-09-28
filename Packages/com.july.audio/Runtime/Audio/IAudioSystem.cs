@@ -19,10 +19,15 @@ namespace July.Audio
 
         #region SFX
 
+        /// <summary>播放音效。2D、3D 同名音效共享配置的实例上限，满额时停止最早登记的实例并播放新音效。</summary>
         void PlaySfx(string fileName, SfxPlayOptions options = null);
+        /// <inheritdoc cref="PlaySfx"/>
         UniTask PlaySfxAsync(string fileName, SfxPlayOptions options = null);
+        /// <summary>播放 3D 音效，与同名 2D 音效共享配置的实例上限，满额时替换最早登记的实例。</summary>
         void PlaySfx3D(string fileName, Sfx3DPlayOptions options);
+        /// <inheritdoc cref="PlaySfx3D"/>
         UniTask PlaySfx3DAsync(string fileName, Sfx3DPlayOptions options);
+        /// <summary>停止所有已经登记的同名音效实例，包括等待延迟播放的实例。</summary>
         void StopSfx(string fileName);
         void StopSfx(AudioHandle handle);
         void StopSfxByGroup(string group);
