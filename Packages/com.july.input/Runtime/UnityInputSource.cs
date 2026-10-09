@@ -53,10 +53,16 @@ namespace July.Input
             pointerData.Reset();
             pointerData.position = position;
             hits.Clear();
-            current.RaycastAll(pointerData, hits);
-            // 场景 Collider 的命中不属于 UGUI 遮挡。
-            foreach (var hit in hits)
-                if (hit.module is GraphicRaycaster) return true;
+            // 只判断是否命中 UGUI，无需查询其他 Raycaster 或对全部结果排序。
+            var raycasters = RaycasterManager.GetRaycasters();
+            for (var i = 0; i < raycasters.Count; i++)
+            {
+                if (raycasters[i] is not GraphicRaycaster graphic || !graphic.IsActive())
+                    continue;
+
+                graphic.Raycast(pointerData, hits);
+                if (hits.Count > 0) return true;
+            }
             return false;
         }
     }

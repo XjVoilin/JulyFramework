@@ -1,6 +1,6 @@
 {
   "name": "com.july.input",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "displayName": "July Input",
   "description": "Gameplay pointer frames, optional click and direction recognition, and shared input blocking.",
   "unity": "2022.3",
