@@ -29,6 +29,9 @@ namespace July.UI
         [Range(0f, 1f)]
         public float MaskAlpha;
 
+        [Tooltip("可供场景相机使用的额外 URP Renderer 索引；默认 Renderer 自动支持。须与当前管线资源的 Renderer 列表一致。")]
+        public int[] AdditionalCameraRendererIndices;
+
         public static UIConfig Default => new()
         {
             DesignResolution = new Vector2Int(1080, 1920),

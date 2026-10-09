@@ -7,6 +7,24 @@ CameraStackHandler, CameraStackBinder or per-scene preparation call is required.
 Use ISceneSystem for runtime scene loading and unloading. UI subscribes to events only;
 it does not require SceneSystem to initialize before UISystem.
 
+## Renderer selection
+
+- The UI camera uses the pipeline default renderer while standalone. When binding a
+  scene camera, composition selects the same renderer instance before adding UI as
+  an Overlay. Detaching restores the default selection (`SetRenderer(-1)`).
+- The default renderer is supported without configuration. For other scene renderers,
+  set `UIConfig.AdditionalCameraRendererIndices` to their indices in the active URP
+  Asset's Renderer List (for example `[1]` when a new renderer was appended at index 1).
+  Configure this before UISystem initialization. The list is copied on initialization.
+- Matching uses public `GetRenderer(index)` and `scriptableRenderer` APIs, not private
+  field reflection. A non-default scene renderer absent from this list fails binding
+  explicitly; existing project overlays are preserved and UI remains standalone.
+- Select the scene camera renderer before the scene-load-complete binding event.
+  Changing it later without a scene lifecycle event is not automatically tracked.
+- This changes camera composition only. It does not enable lights, shadows or
+  post-processing. Renderer Features shared by the scene and UI cameras must be
+  scoped appropriately, e.g. game outlines should not run on the UI Overlay.
+
 ## Scene contract
 
 - Exactly one enabled MainCamera may output the scene. It must be a URP Base camera,

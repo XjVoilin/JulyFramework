@@ -226,7 +226,7 @@ namespace July.UI
         {
             _inputGate = GetSystem<IInputGate>();
             CreateUIRoot();
-            _cameraComposition = new UICameraComposition(_uiCamera);
+            _cameraComposition = new UICameraComposition(_uiCamera, _uiConfig.AdditionalCameraRendererIndices);
             _cameraComposition.Rebind();
             Subscribe<SceneLoadStartEvent>(e =>
             {

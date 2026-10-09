@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Match the scene camera renderer before stacking the framework UI camera; restore
+  the pipeline default renderer when detached or returned to standalone UI.
+- Add UIConfig.AdditionalCameraRendererIndices for explicitly configured non-default
+  scene renderers. Default-only projects need no configuration changes.
+
 ## 0.3.0 - 2026-09-28
 
 - Depend on July Input 0.2.0 for shared Gameplay/UI blocking. Window sessions own gameplay block leases when configured.
