@@ -41,6 +41,7 @@ namespace July.Platform
             registry.Register<IADsService>(new TikTokADsService(_rewardedAdUnitId));
             registry.Register<IAuthorizeService>(new TikTokAuthorizeService());
             registry.Register<IShareService>(new TikTokShareService());
+            registry.Register<IAccelerometerService>(new TikTokAccelerometerService());
             registry.Register<IDeviceService>(
                 new TikTokDeviceService(_maxFramebufferLongEdge));
             registry.Register<ILifecycleService>(new TikTokLifecycleService());

@@ -22,6 +22,7 @@ namespace July.Platform
             registry.Register<IADsService>(new DefaultADsService());
             registry.Register<IAuthorizeService>(new DefaultAuthorizeService());
             registry.Register<IBookmarkService>(new DefaultBookmarkService());
+            registry.Register<IAccelerometerService>(new DefaultAccelerometerService());
             registry.Register<IDeviceService>(new DefaultDeviceService());
             registry.Register<ILifecycleService>(new DefaultLifecycleService());
             registry.Register<ILiveService>(new DefaultLiveService());

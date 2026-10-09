@@ -42,6 +42,7 @@ namespace July.Platform
             registry.Register<IADsService>(new WeChatADsService(_rewardedAdUnitId));
             registry.Register<IAuthorizeService>(new WeChatAuthorizeService());
             registry.Register<IShareService>(new WeChatShareService());
+            registry.Register<IAccelerometerService>(new WeChatAccelerometerService());
             registry.Register<IDeviceService>(
                 new WeChatDeviceService(_maxFramebufferLongEdge));
             registry.Register<ILifecycleService>(new WeChatLifecycleService());
