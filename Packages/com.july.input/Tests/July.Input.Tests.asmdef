@@ -3,7 +3,8 @@
   "rootNamespace": "July.Input.Tests",
   "references": [
     "July.Input",
-    "July.Arch"
+    "July.Arch",
+    "UniTask"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

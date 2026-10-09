@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace July.Input
 {
-    /// <summary>距离按屏幕短边换算到参考像素；System 创建时读取一次。</summary>
+    /// <summary>可选便捷识别的配置；关闭全部识别不影响基础指针采集。System 创建时读取一次。</summary>
     [Serializable]
     public sealed class InputConfig
     {
@@ -20,10 +20,15 @@ namespace July.Input
 
         internal void Validate()
         {
-            if (!(ReferenceShortSide > 0f) || float.IsInfinity(ReferenceShortSide) ||
-                !(ClickTolerance >= 0f) || float.IsInfinity(ClickTolerance) ||
-                !(SwipeDistance > ClickTolerance) || float.IsInfinity(SwipeDistance))
-                throw new ArgumentException("输入参考尺寸须为正数，点击容差须非负，滑动距离须大于点击容差，且均为有限值。");
+            if ((EnableClick || EnableSwipe) &&
+                (!(ReferenceShortSide > 0f) || float.IsInfinity(ReferenceShortSide)))
+                throw new ArgumentException("手势参考尺寸必须是有限正数。");
+            if (EnableClick && (!(ClickTolerance >= 0f) || float.IsInfinity(ClickTolerance)))
+                throw new ArgumentException("点击容差必须是有限非负数。");
+            if (EnableSwipe && (!(SwipeDistance > 0f) || float.IsInfinity(SwipeDistance)))
+                throw new ArgumentException("滑动距离必须是有限正数。");
+            if (EnableClick && EnableSwipe && SwipeDistance <= ClickTolerance)
+                throw new ArgumentException("同时启用点击和滑动时，滑动距离必须大于点击容差。");
         }
     }
 }

@@ -1,76 +1,100 @@
 # July Input
 
-JulyFramework 运行期输入入口：鼠标/触摸点击、四方向滑动、方向键，以及玩法/UI 的统一阻断。
-首期使用 Unity legacy 输入和 UGUI，不包含长按、双击、多指、操作映射或多后端适配。
+JulyFramework 的基础玩法输入与统一阻断入口。使用 Unity legacy 输入和 UGUI，由现有 Arch 生命周期驱动。
+
+基础指针帧支持鼠标、多指、取消和 UI 起点过滤；内置点击、四方向滑动和方向键是可选便捷识别。关闭识别不会关闭基础采集。
 
 ## 接入
 
-在 UISystem 之前注册 `new UnityInputSystem(config)`；由 ArchContext.Update 驱动。
-InputConfig 可嵌入项目 ScriptableObject，配置识别开关、按键和参考距离，构造时校验并复制。
-通过 IInputSystem 订阅 Direction / Clicked，消费者结束时解除订阅；点击输出屏幕像素位置。
-项目负责对象选择、世界射线和操作许可，不直接重复轮询 UnityEngine.Input。
+在 UISystem 之前注册 `new UnityInputSystem(config)`。InputConfig 只配置便捷识别；构造时校验启用的能力并复制配置值。
 
 ```csharp
 var input = context.GetSystem<IInputSystem>();
-input.Direction += OnDirection;
-input.Clicked += OnClicked;
-// 消费者退出时：
-input.Direction -= OnDirection;
-input.Clicked -= OnClicked;
-input.CancelPointer();
+var frame = input.ReadFrame();
+for (var i = 0; i < frame.PointerCount; i++)
+{
+    var pointer = frame.GetPointer(i);
+    // 用 pointer.Id 跟踪本次按压，按 Phase 处理业务。
+}
 ```
 
-## 统一阻断
+只使用基础输入的项目可设置 EnableClick、EnableSwipe、EnableKeyboard 为 false。没有手势识别器时，鼠标、多指与取消仍然正常工作。
+
+## 基础帧契约
+
+- ReadFrame 按 Unity 帧号缓存设备采样；业务 Update 即使早于 Arch.Update，也能取得当前帧数据。
+- 多次读取不消费输入，不派发 Clicked、Direction 或取消回调。内置识别由 Arch.Update 每帧推进一次。
+- InputFrame 是不可变值快照。后续采样与同帧取消不会修改已经返回的帧；屏蔽或显式取消发生后，应重新读取，不能继续提交旧快照中的操作。
+- FrameCount 是 Unity 帧号，Time 是未缩放时间。空帧也提供时间和 ResetVersion，支持长按计时和两次按压之间的等待。
+- PointerCount 是本帧的样本条目数，包含 Ended/Canceled，不等于仍按住的手指数。鼠标在同帧按下又松开时，同一 ID 按顺序提供 Began、Ended 两条样本。
+- 指针 ID 在本次按压期间稳定；跨帧跟踪使用 ID，不使用集合索引。触摸 ID 使用 fingerId，鼠标主键使用 -1。
+- Position、Delta、StartPosition 使用屏幕像素；StartTime 使用未缩放时间。持续时间可由 frame.Time - pointer.StartTime 得到。
+- 指针阶段为 Began、Moved、Stationary、Ended、Canceled。正常松开与取消分开表达；IsActive 仅在前三种阶段为 true。
+- 基础层记录所有被接收的指针。单指选择、双指配对、两指转单指的玩法行为由消费者决定。
+- 有触摸时优先读取触摸，避免模拟鼠标产生重复操作。不接管没有观察到 Began 的已按住指针；已跟踪指针从设备消失时输出 Canceled。
+- 所有调用在 Unity 主线程进行。基础输入不检查格子、物体或玩法规则，业务仍负责操作许可。
+
+## UI 归属
+
+在 GraphicRaycaster 命中区域开始的按压不进入玩法指针帧，移出 UI 后也不补造 Began。场景 Collider 的命中不属于 UI 遮挡；装饰图形应关闭 Raycast Target。
+
+已经接收的玩法指针经过 UI 时保持原交互归属。业务若不允许在 UI 上松开提交，可使用 `input.IsOverUI(pointer.Position)` 查询当前位置。查询只返回事实，不修改指针状态。
+
+UI 内部交互继续通过 UGUI 的 PointerEventData 处理。July Input 不依赖 July UI；UI 范围的阻断由 July UI 接入执行。
+
+## 阻断、取消与恢复
 
 ```csharp
-var gate = context.GetSystem<IInputGate>();
-using (gate.Block(InputScope.All))
+using (input.Block(InputScope.All))
 {
     await LoadAsync();
 }
 ```
 
-- Gameplay 阻断本模块产生的玩法意图；UI 阻断 July UI 接入的 UGUI 交互；All 为两者组合。
-- 每次申请返回独立 IDisposable，调用方持有并释放；多个拥有者互不覆盖，重复 Dispose 无副作用。
-- `IsBlocked(scope)` 表示所选范围任一被阻断；`BlockStateChanged` 仅在有效范围变化时通知，监听者读取当前状态。
-- 原始无参数 Block/Unblock 已移除。没有全局清零、定时解锁或超时自动释放。
-- 阻断取消未完成交互；恢复不补发旧输入。已执行业务、动画、网络、模拟不回滚或暂停。
-- UI 正常事件由 Unity 原生流程分发；回调内申请阻断，允许当前一轮处理完成后统一取消交互。清理通知仍会发出，但取消路径不合成点击、提交或 Drop。
-- UI 和 Gameplay 解除阻断后先等待各自相关按压释放，再接收新操作；不提供旧按压未结束时另一个新指针立即恢复的保证。
-- 全局 UI 阻断不会绕过界面射线产生玩法点击穿透。
-- IInputGate 不拦截代码直接调用业务方法、第三方自行轮询设备或操作系统快捷键。
+- Gameplay 阻断基础玩法指针和内置识别；UI 阻断 July UI 接入的交互；All 为两者组合。仅 UI 阻断不会取消玩法指针。
+- 每次 Block 返回独立 IDisposable；释放只撤销本次贡献，重复 Dispose 无副作用。
+- IsBlocked(scope) 表示所选范围任一被阻断；BlockStateChanged 仅在有效范围变化时通知。恢复等待不属于阻断计数。
+- 进入 Gameplay 阻断、失焦、显式 CancelPointer 和关闭系统，都会取消当前交互并递增 ResetVersion，即使没有活动指针也递增。
+- ResetVersion 是整个输入序列的失效标记。可选识别对象应在版本变化时清空等待中的状态，例如首击已结束后仍等待第二击的双击识别。
+- 单个设备指针取消只影响对应 ID，不递增全局 ResetVersion，不取消其他手指。
+- PointerCanceled 提供 ID、最后位置和原因。显式取消、阻断、失焦立即通知；设备取消/丢失先进入帧，再在正常 OnUpdate 通知，因此读取帧不会重入业务。
+- 通知前先提交取消状态。同一已结束交互不重复通知。事件与 Canceled 样本表达同一事实，同一个业务应选择一个取消收尾入口。
+- CancelPointer 不修改阻断计数，但会等待相关设备释放；解除 Gameplay 阻断或恢复焦点后同样先等待设备空闲。确认空闲的这一帧不接收新操作，下一帧才恢复。
+- 已执行的业务不回滚。没有全局计数清零、定时解锁或超时释放；直接业务调用和第三方自行读取设备不受本模块控制。
 
-UI 依赖 Input，Input 不依赖 July UI。没有 UI 的场景仍能使用 Gameplay；UI 范围的执行由 July UI 接入提供。
-运行期框架建立前的启动重试界面由 Bootstrap 处理，不依赖尚未初始化的 Input。
+## 内置便捷识别
 
-## 指针与键盘规则
+```csharp
+input.Clicked += OnClicked;
+input.Direction += OnDirection;
+// 使用者退出时：
+input.Clicked -= OnClicked;
+input.Direction -= OnDirection;
+input.CancelPointer();
+```
 
-- 有触摸时优先处理触摸，避免模拟鼠标重复；一次跟踪一个 fingerId，不接管已按住的其他手指。
-- 在 UGUI 射线命中区域按下不开始玩法手势；场景 Collider 不算 UI 阻挡。装饰图形关闭 Raycast Target。
-- 已开始的玩法手势经过 UI 不转交；松开时点击与滑动互斥。
-- 点击要求整个手势最大偏移不超过 ClickTolerance；移出再返回不算点击。
-- 滑动按松开位移主轴输出一个方向，等幅斜线按横向；不足阈值不输出。
-- 距离按按下时屏幕短边换算到 ReferenceShortSide；坐标输出仍为实际屏幕像素。
-- 方向键按下输出一次，不连发；UGUI 当前选择对象占用导航或文本编辑时，不同时输出玩法方向。
-- Gameplay 阻断、失焦、TouchPhase.Canceled 或 CancelPointer 撤销未完成手势。失焦通过 Application.focusChanged 直接通知，即使后台不运行 Update 也会取消；初始化时订阅，关闭时解除。
-- 所有调用在 Unity 主线程进行；业务 System 继续检查玩法阶段和操作许可。
+内置识别独立选择一个新按下的指针，不接管已按住的其他手指。点击要求整个按压过程最大偏移不超过 ClickTolerance；移出后返回不算点击。滑动在松开时按主轴输出方向，等幅斜线按横向。两者由阈值保证互斥。
 
-## 窗口与项目
+阈值按按下时屏幕短边换算到 ReferenceShortSide；基础帧仍保持真实像素坐标。方向键按下输出一次；UI 占用键盘导航或文本编辑时，不同时输出玩法方向。
 
-UIOpenOptions.BlockGameplayInput 由 UIWindowSession 持有，从开始加载至关闭完成；排队请求未开始时不占用。
-该选项只阻断 Gameplay，不会禁掉窗口自身。独立流程需要全部禁用时直接申请 All。
-GreedyGoose 启用滑动/方向键、关闭点击；项目 LevelControlSystem 订阅方向并统一处理方向、剪尾和重开，提供按钮可用状态；Guide 设置和恢复允许操作集合，Session 只判断业务条件，加载与退出持有 All。
+识别结束只清理识别状态，不删除基础样本、不递增 ResetVersion、不发出 PointerCanceled。业务回调若取消或屏蔽后立即解除，系统仍通过重置版本丢弃本轮剩余的旧识别结果。
 
-## 验证状态
+## 后续增加手势
 
-本轮只做静态核对，未运行测试、Unity 编译或真机验证。
-已有 InputGateTests 源码同步为凭据 API；UI/项目测试初始化顺序同步为先 Input 后 UI。
-实际 UI 取消、编辑焦点、鼠标/触摸、嵌套阻断和窗口加载失败仍需运行验收。
+稳定扩展点是 ReadFrame，不是当前 internal IGestureRecognizer。该内部接口只用于协调已有点击与滑动，不承担跨按压、多指或通用竞争调度。
 
-## 手势识别结构
+未来可在包内增加具体的长按、双击或缩放识别对象，由玩法局部持有，在已有 Update 中读取每一帧（包括空帧），返回各自类型的结果。它们不读取设备、不消费基础输入，也不需要额外 System 或全局注册器。
 
-UnityInputSystem 负责设备采集、指针归属、UI 命中和全局阻断；ClickRecognizer 与 SwipeRecognizer 只接收 GestureSample，返回 GestureResult，不读取 Unity 输入、不调用业务。
-IGestureRecognizer 提供 Begin / Update / End / Cancel。按住期间即使位置不变也调用 Update；样本包括屏幕位置、参考像素位移与未缩放的经过时间。返回结果统一由 System 发布，当前每次交互最多产生一个结果。
-配置决定创建哪些识别器。点击容差小于滑动距离，保证两者互斥，不依赖注册顺序。新增长按、双击时必须明确与现有识别器的互斥或延迟规则；当前没有通用优先级、竞争图、多指采集或动态注册机制。键盘方向不包装为手势。
-Gameplay 仅在进入阻断或失焦时取消一次；等待设备释放并经过一个空闲更新后恢复，不再维护独立的恢复帧编号。ArchContext 每帧调用一次 OnUpdate。
-保留现有阻断、指针归属、点击与滑动互斥、移出后返回的测试源码和采样入口，未运行测试或 Unity 编译；实际设备采集与恢复时序仍需运行验收。
+- 长按读取持续时间，输出开始/持续/结束；成立后不终止基础指针。
+- 双击在第一次松开后继续等待，并用空帧时间判断超时。立即单击或等待双击窗口，是这个组合自身的明确策略。
+- 缩放按稳定 ID 选择两根手指，输出中心位移和比例；业务决定镜头限制与单指接续。
+- 新识别对象比较 ResetVersion，变化时清除旧候选；其拥有者停用/退出时主动 Reset 并清理交互表现，恢复后只接收新的 Began。
+- 单击/双击、点击/长按等冲突由实际需要的组合处理。同一业务不要同时接收内置 Clicked 和组合自身的单击结果。
+
+新增手势只影响选择使用它的调用方，不改变基础帧或已有 Clicked/Direction 的行为。本次未新增这些手势类。
+
+## 验证
+
+Tests 通过可控的内部输入源，使用 ReadFrame、OnUpdate、Block、CancelPointer 等正式入口验证基础帧、多指、门控与内置识别。测试源不属于公开运行期扩展接口。
+
+实际设备、UGUI 派发、微信/抖音触摸和焦点恢复仍需要运行环境验收。July UI 的取消收尾与业务 PointerUp 提交语义应在升级联动中单独检查。
