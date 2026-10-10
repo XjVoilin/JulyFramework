@@ -112,5 +112,6 @@ COSCLI v1.0.8 随本包 Tools~/coscli 分发（Windows x64/macOS ARM64），项�
 
 - `ENABLE_WX_PERF_FEATURE` 由此选项管理，不要加入 `baseDefines`。关闭性能分析或切换其他平台后，应用编译设置会移除此宏；构建结束不自动切换宏。
 - 性能构建期间，HybridCLR Generate All 和微信 SDK 导出分别启用 Development Build，热更 DLL 也按 Development 编译。临时修改的 Unity/SDK 参数在各自执行结束（包括失败）后恢复；普通构建显式关闭 SDK 性能集成。
+- 仅微信性能构建在 Generate All 期间临时设置 `-s ERROR_ON_UNDEFINED_SYMBOLS=0`，保留其他链接参数并消除该设置的重复或冲突；成功、失败或异常后恢复原始参数。正式导出的完整参数和性能插件仍由微信 SDK 准备，普通微信和抖音构建不做此临时处理。
 - 业务 Debug（`JULYGF_DEBUG`）、QA、版本、资源路径、上传和 AOT 归档规则保持独立。热更沿用现有 AOT 哈希校验；首次切换性能选项后应重新全量构建，生成对应配置的基线。
 - 此工具仅用于诊断，不能发布现网。真机验收应看到 Perf 按钮，并能录制、停止及提交报告；关闭选项并重新生成主包后应无 Perf 入口。

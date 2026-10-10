@@ -77,6 +77,21 @@ namespace July.Release.Tests
             Assert.AreEqual("1.0.0", context.CoreVersion);
         }
 
+        [TestCase(null, "-s ERROR_ON_UNDEFINED_SYMBOLS=0")]
+        [TestCase("", "-s ERROR_ON_UNDEFINED_SYMBOLS=0")]
+        [TestCase("-s TOTAL_MEMORY=128MB", "-s TOTAL_MEMORY=128MB -s ERROR_ON_UNDEFINED_SYMBOLS=0")]
+        [TestCase("-s ERROR_ON_UNDEFINED_SYMBOLS=0", "-s ERROR_ON_UNDEFINED_SYMBOLS=0")]
+        [TestCase("-s ERROR_ON_UNDEFINED_SYMBOLS=1", "-s ERROR_ON_UNDEFINED_SYMBOLS=0")]
+        [TestCase("-sERROR_ON_UNDEFINED_SYMBOLS=1 -s ERROR_ON_UNDEFINED_SYMBOLS=0", "-s ERROR_ON_UNDEFINED_SYMBOLS=0")]
+        [TestCase("-s TOTAL_MEMORY=128MB -s ERROR_ON_UNDEFINED_SYMBOLS=1 -s ERROR_ON_UNDEFINED_SYMBOLS=0", "-s TOTAL_MEMORY=128MB -s ERROR_ON_UNDEFINED_SYMBOLS=0")]
+        [TestCase("-s EXPORTED_FUNCTIONS='[\"_main\", \"_malloc\"]' --profiling-funcs", "-s EXPORTED_FUNCTIONS='[\"_main\", \"_malloc\"]' --profiling-funcs -s ERROR_ON_UNDEFINED_SYMBOLS=0")]
+        public void WeChatAotArgsPreserveOtherSettingsAndReplaceConflicts(string original, string expected)
+        {
+            var prepared = HybridCLRGenerateAllStep.PrepareWeChatAotArgs(original);
+            Assert.AreEqual(expected, prepared);
+            Assert.AreEqual(prepared, HybridCLRGenerateAllStep.PrepareWeChatAotArgs(prepared));
+        }
+
         sealed class TestHost : IBuildHost
         {
             public bool Confirm(July.Build.BuildContext context, int count) => true;
