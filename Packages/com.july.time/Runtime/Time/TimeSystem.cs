@@ -39,6 +39,7 @@ namespace July.Time
         public float GameTime => UnityTime.time;
         public float RealTime => UnityTime.realtimeSinceStartup;
         public float DeltaTime => UnityTime.deltaTime;
+        public float FixedDeltaTime => UnityTime.fixedDeltaTime;
         public float UnscaledDeltaTime => UnityTime.unscaledDeltaTime;
         public int FrameCount => UnityTime.frameCount;
 

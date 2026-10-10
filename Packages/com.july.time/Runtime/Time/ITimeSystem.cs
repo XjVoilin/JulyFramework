@@ -13,6 +13,8 @@ namespace July.Time
         float GameTime { get; }
         float RealTime { get; }
         float DeltaTime { get; }
+        /// <summary>Unity 物理更新的固定时间步长（秒）。</summary>
+        float FixedDeltaTime { get; }
         float UnscaledDeltaTime { get; }
         int FrameCount { get; }
         float TimeScale { get; set; }

@@ -23,6 +23,7 @@ namespace July.Time.Tests
                 nameof(ITimeSystem.GameTime),
                 nameof(ITimeSystem.RealTime),
                 nameof(ITimeSystem.DeltaTime),
+                nameof(ITimeSystem.FixedDeltaTime),
                 nameof(ITimeSystem.UnscaledDeltaTime),
                 nameof(ITimeSystem.FrameCount),
                 nameof(ITimeSystem.TimeScale),
@@ -40,6 +41,21 @@ namespace July.Time.Tests
                 nameof(ITimeSystem.PauseTimer),
                 nameof(ITimeSystem.ResumeTimer)
             }));
+        }
+
+        [Test]
+        public void FixedDeltaTime_FollowsUnityFixedStepChanges()
+        {
+            ITimeSystem system = new TimeSystem();
+            var previous = UnityEngine.Time.fixedDeltaTime;
+            try
+            {
+                UnityEngine.Time.fixedDeltaTime = 0.02f;
+                Assert.That(system.FixedDeltaTime, Is.EqualTo(0.02f));
+                UnityEngine.Time.fixedDeltaTime = 0.01f;
+                Assert.That(system.FixedDeltaTime, Is.EqualTo(0.01f));
+            }
+            finally { UnityEngine.Time.fixedDeltaTime = previous; }
         }
 
         [Test]
