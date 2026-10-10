@@ -20,7 +20,9 @@ namespace July.Release.Editor
             set => Version = value;
         }
 
+        /// <summary>沿用现有 Debug 选项；微信性能分析不覆盖此值。</summary>
         public bool Development { get; set; }
+        public bool WeChatPerfAnalysis { get; set; }
         public bool StrictMetadataCheck { get; set; }
         public string CloudUrl { get; set; }
         public string CdnUrl { get; set; }
@@ -62,7 +64,7 @@ namespace July.Release.Editor
                 return "Core version is required.";
             if (!BuildUtils.IsValidVersion(CoreVersion))
                 return $"Core version is invalid: {CoreVersion}";
-            return null;
+            return PlatformPreparation.ValidateWeChatPerfAnalysis(Platform, WeChatPerfAnalysis);
         }
     }
 

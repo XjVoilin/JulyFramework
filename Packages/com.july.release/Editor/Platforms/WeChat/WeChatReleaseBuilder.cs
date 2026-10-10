@@ -45,16 +45,33 @@ namespace July.Release.Editor.WeChat
             Debug.Log(
                 $"[MiniGameBuild] 已配置微信首包为 CDN 模式: assetLoadType=0, CDN={wxConfig.ProjectConf.CDN}, dataFileSubPrefix={wxConfig.ProjectConf.dataFileSubPrefix}");
 
-            Debug.Log("[MiniGameBuild] 开始微信小游戏出包...");
-            var error = WeChatWASM.WXConvertCore.DoExport();
-            if ((int)error == 0)
+            var originalDevelopment = wxConfig.CompileOptions.DevelopBuild;
+            var originalPerfAnalysis = wxConfig.CompileOptions.enablePerfAnalysis;
+            try
             {
-                Debug.Log("[MiniGameBuild] 微信小游戏出包成功");
-                return true;
-            }
+                // 普通构建也显式关闭性能集成，避免沿用 SDK 面板残留的配置。
+                wxConfig.CompileOptions.enablePerfAnalysis = ctx.WeChatPerfAnalysis;
+                if (ctx.WeChatPerfAnalysis) wxConfig.CompileOptions.DevelopBuild = true;
+                EditorUtility.SetDirty(wxConfig);
+                AssetDatabase.SaveAssets();
+                Debug.Log($"[MiniGameBuild] 开始微信小游戏出包：Development={wxConfig.CompileOptions.DevelopBuild}, Perf={ctx.WeChatPerfAnalysis}");
+                var error = WeChatWASM.WXConvertCore.DoExport();
+                if ((int)error == 0)
+                {
+                    Debug.Log("[MiniGameBuild] 微信小游戏出包成功");
+                    return true;
+                }
 
-            Debug.LogError($"[MiniGameBuild] 微信小游戏出包失败: {error}");
-            return false;
+                Debug.LogError($"[MiniGameBuild] 微信小游戏出包失败: {error}");
+                return false;
+            }
+            finally
+            {
+                wxConfig.CompileOptions.DevelopBuild = originalDevelopment;
+                wxConfig.CompileOptions.enablePerfAnalysis = originalPerfAnalysis;
+                EditorUtility.SetDirty(wxConfig);
+                AssetDatabase.SaveAssets();
+            }
 #else
             Debug.LogError("[MiniGameBuild] 当前未定义 JULYGF_WX_MINIGAME，无法执行微信出包");
             return false;

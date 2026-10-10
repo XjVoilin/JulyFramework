@@ -12,6 +12,7 @@ namespace July.Release.Editor
     public sealed class PlatformPanel : IBuildToolPanel
     {
         const string PrefKeyDebug = "BuildTool_DebugBuild";
+        const string PrefKeyWeChatPerf = "BuildTool_WeChatPerfAnalysis";
 
         static readonly string[] EnvLabels = { "Dev", "Test", "Prod" };
 
@@ -26,6 +27,7 @@ namespace July.Release.Editor
             _platformIndex = System.Array.IndexOf(PlatformKeys.Options, EditorPlatformPref.Platform);
             if (_platformIndex < 0) _platformIndex = 0;
             _ctx.DebugBuild = ProjectEditorPrefs.GetBool(PrefKeyDebug, true);
+            _ctx.WeChatPerfAnalysis = ProjectEditorPrefs.GetBool(PrefKeyWeChatPerf, false);
             _envIndex = (int)_ctx.BootConfig.env;
         }
 
@@ -70,14 +72,28 @@ namespace July.Release.Editor
             EditorGUILayout.EndHorizontal();
 
             var targetPlatform = _ctx.CurrentPlatform;
+            if (targetPlatform == PlatformKeys.WeChat)
+            {
+                EditorGUI.BeginChangeCheck();
+                _ctx.WeChatPerfAnalysis = EditorGUILayout.ToggleLeft(
+                    new GUIContent("启用微信性能分析", "构建时启用 Development Build 和微信 Perf 工具。仅用于性能诊断，不可发布现网；不改变业务 Debug、版本或资源设置。"),
+                    _ctx.WeChatPerfAnalysis);
+                if (EditorGUI.EndChangeCheck())
+                    ProjectEditorPrefs.SetBool(PrefKeyWeChatPerf, _ctx.WeChatPerfAnalysis);
+                if (_ctx.WeChatPerfAnalysis)
+                    EditorGUILayout.HelpBox("性能分析使用 Development Build；切换此选项后需应用编译设置。热更需使用相同编译配置的 AOT 基线。", MessageType.Info);
+            }
+            var perfError = ValidateWeChatPerfAnalysis(targetPlatform, _ctx.UseWeChatPerfAnalysis);
+            if (perfError != null) EditorGUILayout.HelpBox(perfError, MessageType.Error);
             var needsSwitchDefines = currentTarget != PlatformBuildTarget
-                                    || !AreDefinesCurrent(targetPlatform, _ctx.DebugBuild);
+                                    || !AreDefinesCurrent(targetPlatform, _ctx.DebugBuild, _ctx.UseWeChatPerfAnalysis);
 
             if (needsSwitchDefines)
             {
                 EditorGUILayout.HelpBox("当前编译宏与目标不匹配，请先切换平台", MessageType.Warning);
-                if (GUILayout.Button("应用平台与 Debug 设置", GUILayout.Height(26)))
-                    SwitchPlatform(targetPlatform);
+                using (new EditorGUI.DisabledScope(perfError != null))
+                    if (GUILayout.Button("应用平台与编译设置", GUILayout.Height(26)))
+                        SwitchPlatform(targetPlatform);
             }
 
         }
@@ -101,7 +117,7 @@ namespace July.Release.Editor
         void SwitchPlatform(string platform)
         {
             if (!EditorUtility.DisplayDialog("切换平台",
-                    $"目标: {platform}{(_ctx.DebugBuild ? " · Debug" : "")}\n\n" +
+                    $"目标: {platform}{(_ctx.DebugBuild ? " · Debug" : "")}{(_ctx.UseWeChatPerfAnalysis ? " · 微信性能分析" : "")}\n\n" +
                     "将自动设置:\n" +
                     $"• Build Target → {PlatformBuildTargetLabel}\n" +
                     "• Scripting Define Symbols\n" +
@@ -112,7 +128,7 @@ namespace July.Release.Editor
                     "确认切换", "取消"))
                 return;
 
-            PlatformPreparation.Apply(platform, _ctx.DebugBuild);
+            PlatformPreparation.Apply(platform, _ctx.DebugBuild, _ctx.UseWeChatPerfAnalysis);
         }
     }
 }

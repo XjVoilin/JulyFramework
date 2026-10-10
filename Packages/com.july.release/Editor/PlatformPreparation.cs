@@ -13,6 +13,8 @@ namespace July.Release.Editor
     {
         internal static string[] BaseDefines => ReleaseProject.LoadBuildConfig().baseDefines;
 
+        internal const string WeChatPerfDefine = "ENABLE_WX_PERF_FEATURE";
+
         internal static readonly string[] DebugDefines = { "JULYGF_DEBUG" };
 
         internal static readonly Dictionary<string, string[]> PlatformDefineMap = new()
@@ -32,7 +34,7 @@ namespace July.Release.Editor
             return defines.ToArray();
         }
 
-        internal static string[] GetExpectedDefines(string platform, bool debug)
+        internal static string[] GetExpectedDefines(string platform, bool debug, bool weChatPerfAnalysis = false)
         {
             var defines = new List<string>(BaseDefines);
             if (PlatformDefineMap.TryGetValue(platform, out var platformDefines))
@@ -40,25 +42,30 @@ namespace July.Release.Editor
             if (debug)
                 defines.AddRange(DebugDefines);
 
+            // 此宏由性能选项独占，不能通过项目 baseDefines 常驻。
+            defines.RemoveAll(value => value == WeChatPerfDefine);
+            if (weChatPerfAnalysis)
+                defines.Add(WeChatPerfDefine);
+
             return defines
                 .Distinct(StringComparer.Ordinal)
                 .OrderBy(value => value, StringComparer.Ordinal)
                 .ToArray();
         }
 
-        internal static bool AreDefinesCurrent(string platform, bool debug)
+        internal static bool AreDefinesCurrent(string platform, bool debug, bool weChatPerfAnalysis = false)
         {
             var current = GetCurrentDefines();
             var expected = new HashSet<string>(
-                GetExpectedDefines(platform, debug), StringComparer.Ordinal);
+                GetExpectedDefines(platform, debug, weChatPerfAnalysis), StringComparer.Ordinal);
             return current.SetEquals(expected);
         }
 
-        internal static string DescribeDefineMismatch(string platform, bool debug)
+        internal static string DescribeDefineMismatch(string platform, bool debug, bool weChatPerfAnalysis = false)
         {
             var current = GetCurrentDefines();
             var expected = new HashSet<string>(
-                GetExpectedDefines(platform, debug), StringComparer.Ordinal);
+                GetExpectedDefines(platform, debug, weChatPerfAnalysis), StringComparer.Ordinal);
 
             if (current.SetEquals(expected))
                 return null;
@@ -91,12 +98,26 @@ namespace July.Release.Editor
         internal static BuildTargetGroup PlatformBuildTargetGroup => BuildTargetGroup.WebGL;
         internal const string PlatformBuildTargetLabel = "WebGL";
 #endif
-        public static void Apply(string platform, bool debug)
+        internal static string ValidateWeChatPerfAnalysis(string platform, bool enabled)
+        {
+            if (!enabled) return null;
+            if (platform != PlatformKeys.WeChat)
+                return "微信性能分析仅支持 WeChat 平台。";
+#if !UNITY_2021_2_OR_NEWER || UNITY_2023_2_OR_NEWER
+            return $"微信性能分析支持 Unity 2021.2–2023.1，当前版本为 {Application.unityVersion}。";
+#else
+            return null;
+#endif
+        }
+
+        public static void Apply(string platform, bool debug, bool weChatPerfAnalysis = false)
         {
             if (!PlatformDefineMap.ContainsKey(platform))
                 throw new ArgumentException($"Unsupported platform: {platform}");
-            var defines = GetExpectedDefines(platform, debug);
-            if (!AreDefinesCurrent(platform, debug))
+            var perfError = ValidateWeChatPerfAnalysis(platform, weChatPerfAnalysis);
+            if (perfError != null) throw new ArgumentException(perfError);
+            var defines = GetExpectedDefines(platform, debug, weChatPerfAnalysis);
+            if (!AreDefinesCurrent(platform, debug, weChatPerfAnalysis))
                 PlayerSettings.SetScriptingDefineSymbolsForGroup(PlatformBuildTargetGroup, string.Join(";", defines));
             PlayerSettings.SetUseDefaultGraphicsAPIs(PlatformBuildTarget, false);
             PlayerSettings.SetGraphicsAPIs(PlatformBuildTarget, new[] { GraphicsDeviceType.OpenGLES3 });
@@ -106,7 +127,7 @@ namespace July.Release.Editor
                 !EditorUserBuildSettings.SwitchActiveBuildTarget(PlatformBuildTargetGroup, PlatformBuildTarget))
                 throw new InvalidOperationException($"Cannot switch build target to {PlatformBuildTarget}");
             AssetDatabase.SaveAssets();
-            Debug.Log($"[Release] Platform ready: {platform}, debug={debug}, target={PlatformBuildTarget}");
+            Debug.Log($"[Release] Platform ready: {platform}, debug={debug}, weChatPerfAnalysis={weChatPerfAnalysis}, target={PlatformBuildTarget}");
         }
     }
 }

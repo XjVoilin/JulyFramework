@@ -60,6 +60,23 @@ namespace July.Release.Tests
             Assert.AreEqual("Tools/coscli/.cos.yaml",ReleaseConventions.CoscliConfig);
         }
 
+        [Test] public void PerformanceAnalysisRejectsOtherPlatformsWithoutChangingNormalBuilds()
+        {
+            var context = new BuildContext { Platform = "TikTok", CoreVersion = "1.0.0", PlanVersion = "1.0.0" };
+            Assert.IsNull(context.Validate());
+            context.WeChatPerfAnalysis = true;
+            StringAssert.Contains("WeChat", context.Validate());
+            context.Platform = "WeChat";
+#if UNITY_2021_2_OR_NEWER && !UNITY_2023_2_OR_NEWER
+            Assert.IsNull(context.Validate());
+#else
+            StringAssert.Contains("2021.2", context.Validate());
+#endif
+            Assert.IsFalse(context.Development);
+            Assert.IsFalse(context.IsQABuild);
+            Assert.AreEqual("1.0.0", context.CoreVersion);
+        }
+
         sealed class TestHost : IBuildHost
         {
             public bool Confirm(July.Build.BuildContext context, int count) => true;

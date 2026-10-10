@@ -105,3 +105,12 @@ EditorPrefs 按项目目录隔离，首次接入会使用新的构建面板偏�
 CI 平台准备、显式 -uploadCdn、release-build-result.json 及项目/框架职责见 [发布配置](Documentation~/configuration.md)。发布标签由 Jenkins 维护。
 
 COSCLI v1.0.8 随本包 Tools~/coscli 分发（Windows x64/macOS ARM64），项目只提供 Tools/coscli/.cos.yaml 凭证。来源和许可见 THIRD-PARTY-NOTICES.md。
+
+## 微信性能分析
+
+在构建工具的微信平台设置中勾选“启用微信性能分析”，然后点击“应用平台与编译设置”，等待脚本重新编译后按原流程构建。默认关闭；仅支持 SDK 文档声明的 Unity 2021.2–2023.1。
+
+- `ENABLE_WX_PERF_FEATURE` 由此选项管理，不要加入 `baseDefines`。关闭性能分析或切换其他平台后，应用编译设置会移除此宏；构建结束不自动切换宏。
+- 性能构建期间，HybridCLR Generate All 和微信 SDK 导出分别启用 Development Build，热更 DLL 也按 Development 编译。临时修改的 Unity/SDK 参数在各自执行结束（包括失败）后恢复；普通构建显式关闭 SDK 性能集成。
+- 业务 Debug（`JULYGF_DEBUG`）、QA、版本、资源路径、上传和 AOT 归档规则保持独立。热更沿用现有 AOT 哈希校验；首次切换性能选项后应重新全量构建，生成对应配置的基线。
+- 此工具仅用于诊断，不能发布现网。真机验收应看到 Perf 按钮，并能录制、停止及提交报告；关闭选项并重新生成主包后应无 Perf 入口。

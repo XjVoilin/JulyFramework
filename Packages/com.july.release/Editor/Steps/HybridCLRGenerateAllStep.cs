@@ -1,3 +1,5 @@
+using UnityEditor;
+
 namespace July.Release.Editor
 {
     /// <summary>
@@ -15,7 +17,17 @@ namespace July.Release.Editor
 
         public override bool Execute(BuildContext ctx)
         {
-            return HybridCLRBuildHelper.GenerateAllAndCopyDlls(ctx.Target);
+            // GenerateAll 内部读取全局 development，必须在编译 DLL 和裁剪 AOT 之前应用。
+            var originalDevelopment = EditorUserBuildSettings.development;
+            try
+            {
+                if (ctx.WeChatPerfAnalysis) EditorUserBuildSettings.development = true;
+                return HybridCLRBuildHelper.GenerateAllAndCopyDlls(ctx.Target);
+            }
+            finally
+            {
+                EditorUserBuildSettings.development = originalDevelopment;
+            }
         }
     }
 }

@@ -37,7 +37,7 @@ namespace July.Release.Editor
                 AotBackupStore.ValidateRestored(ctx, workspace, ReleaseProject.Profile.HybridCLR.MandatoryAotAssemblies);
             }
             return HybridCLRBuildHelper.CompileHotUpdateOnly(
-                ctx.Target, ctx.Platform, ctx.AOTBackupVersion, ctx.Development, ctx.StrictMetadataCheck);
+                ctx.Target, ctx.Platform, ctx.AOTBackupVersion, ctx.Development || ctx.WeChatPerfAnalysis, ctx.StrictMetadataCheck);
         }
     }
 }

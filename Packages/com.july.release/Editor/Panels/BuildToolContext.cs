@@ -58,6 +58,7 @@ namespace July.Release.Editor
                 Target = EditorUserBuildSettings.activeBuildTarget,
                 Platform = CurrentPlatform, Env = BootConfig.EnvName,
                 PlanVersion = BuildConfig.planVersion, Development = DebugBuild,
+                WeChatPerfAnalysis = UseWeChatPerfAnalysis,
                 CloudUrl = BuildConfig.cloudUrl, CdnUrl = BootConfig.cdnUrl,
             };
             Selection.ApplyTo(context);
@@ -65,6 +66,8 @@ namespace July.Release.Editor
         }
 
         public bool DebugBuild;
+        public bool WeChatPerfAnalysis;
+        public bool UseWeChatPerfAnalysis => CurrentPlatform == PlatformKeys.WeChat && WeChatPerfAnalysis;
         public string CurrentPlatform => EditorPlatformPref.Platform;
 
         // ── 构建结果（BuildPipelinePanel 写，VersionPanel/DiffPanel 读）──

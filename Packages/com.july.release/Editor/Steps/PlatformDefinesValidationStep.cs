@@ -22,11 +22,11 @@ namespace July.Release.Editor
                        $"目标应为 {PlatformPreparation.PlatformBuildTarget}。请先切换平台。";
             }
 
-            var mismatch = PlatformPreparation.DescribeDefineMismatch(ctx.Platform, ctx.Development);
+            var mismatch = PlatformPreparation.DescribeDefineMismatch(ctx.Platform, ctx.Development, ctx.WeChatPerfAnalysis);
             return string.IsNullOrEmpty(mismatch)
                 ? null
                 : $"当前编译宏与 {ctx.Platform}{(ctx.Development ? " Debug" : string.Empty)} 标准集合不一致（{mismatch}）。" +
-                  "请先在构建工具中切换平台；CI 请先单独执行 SyncPlatformDefines。";
+                  "请先在构建工具中应用平台与编译设置；CI 请使用相同选项单独执行 SyncPlatformDefines。";
         }
 
         public override bool Execute(BuildContext ctx) => true;
