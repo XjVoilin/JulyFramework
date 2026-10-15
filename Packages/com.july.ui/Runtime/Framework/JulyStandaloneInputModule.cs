@@ -14,6 +14,7 @@ namespace July.UI
         private bool dispatching;
         private bool cancelPending;
         private bool waitingForRelease;
+        private bool focusLost;
         private bool clearSelectionAtEndOfFrame;
         private int resumeAfterFrame = -1;
         private readonly List<PointerEventData> cancelledPointers = new();
@@ -29,6 +30,7 @@ namespace July.UI
         {
             gate.BlockStateChanged -= OnBlockStateChanged;
             gate = null;
+            waitingForRelease = true;
             RequestCancellation();
         }
 
@@ -49,12 +51,15 @@ namespace July.UI
             if (blocked == uiBlocked) return;
             uiBlocked = blocked;
             resumeAfterFrame = Time.frameCount;
-            if (blocked) RequestCancellation();
+            if (blocked)
+            {
+                waitingForRelease = true;
+                RequestCancellation();
+            }
         }
 
         private void RequestCancellation()
         {
-            waitingForRelease = true;
             clearSelectionAtEndOfFrame = true;
             resumeAfterFrame = Time.frameCount;
             cancelPending = true;
@@ -66,9 +71,14 @@ namespace July.UI
             // 基类失焦时走正常松开路径，可能发送 Drop；这里改为取消。
             if (!eventSystem.isFocused)
             {
-                if (!waitingForRelease) RequestCancellation();
+                if (!focusLost)
+                {
+                    focusLost = true;
+                    RequestCancellation();
+                }
                 return;
             }
+            focusLost = false;
             base.UpdateModule();
         }
 
@@ -81,6 +91,7 @@ namespace July.UI
 
         public override void DeactivateModule()
         {
+            waitingForRelease = true;
             RequestCancellation();
             base.DeactivateModule();
         }
@@ -99,6 +110,7 @@ namespace July.UI
             dispatching = true;
             try
             {
+                SuppressUnstartedTouchPresses();
                 base.Process();
             }
             finally
@@ -106,6 +118,20 @@ namespace July.UI
                 dispatching = false;
                 // 回调内申请阻断时，允许当前这一轮 UGUI 处理结束后统一收尾。
                 if (cancelPending) CancelInteractions();
+            }
+        }
+
+        private void SuppressUnstartedTouchPresses()
+        {
+            for (var i = 0; i < input.touchCount; i++)
+            {
+                var touch = input.GetTouch(i);
+                if (touch.type == TouchType.Indirect || touch.phase == TouchPhase.Began ||
+                    m_PointerData.ContainsKey(touch.fingerId)) continue;
+
+                // UGUI 会把首次建档的触摸视为按下；预建无按压状态，避免接管旧手指。
+                GetPointerData(touch.fingerId, out var pointer, true);
+                pointer.position = touch.position;
             }
         }
 

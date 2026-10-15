@@ -52,6 +52,7 @@ Shutdown also tolerates Unity destroying the persistent UI camera before the sys
 - UIOpenOptions.ShowMask/ClickMaskToClose 的弹窗背景遮罩仍保留，不与全局输入阻断混用。
 - UI 阻断取消按压与拖动，清除编辑焦点；必要的 PointerUp/EndDrag/Deselect 清理通知仍会发生，不发送 Click/Submit/Drop。
 - EventSystem 保持运行。JulyStandaloneInputModule 正常分发只调用 base.Process()，不复制按压、点击、拖动或导航流程。
+- 失焦取消当前交互，不新增全设备释放等待；恢复后允许新的鼠标按下和触摸 Began，不接管没有起始按下的旧触摸，也不解除既有 UI 阻断或释放等待。
 - 回调内申请阻断允许当前一轮原生处理完成，随后统一收尾；取消路径不合成 Click/Submit/Drop，不回滚本轮已执行的业务。
 - 解除 UI 阻断后等待触摸、鼠标按钮、导航轴及提交/取消键释放，再接收新操作；不恢复旧编辑焦点。只处理 EventSystem 交互，不接管任意控件自己轮询设备的 Update。
-- 本轮完成静态迁移，未运行测试或 Unity 编译，交互行为尚待运行验收。
+- 失焦恢复已通过隔离 Unity 2022.3.62f2 PlayMode 的六项真实 UGUI 交互回归及 July.UI 编译；完整宿主与真机仍需实际验收。

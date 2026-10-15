@@ -47,7 +47,7 @@ Paste a complete URL into Unity Package Manager through **Add package from git U
 | `com.july.scene` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.scene#com.july.scene@0.1.0` |
 | `com.july.tasks` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.tasks#com.july.tasks@0.1.0` |
 | `com.july.time` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.time#com.july.time@0.1.0` |
-| `com.july.ui` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.ui#com.july.ui@0.2.0` |
+| `com.july.ui` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.ui#com.july.ui@0.3.3` |
 | `com.july.ui.authoring` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.ui.authoring#com.july.ui.authoring@0.1.0` |
 
 ## Git dependency limitation

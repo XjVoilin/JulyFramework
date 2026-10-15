@@ -7,6 +7,12 @@
 - Add UIConfig.AdditionalCameraRendererIndices for explicitly configured non-default
   scene renderers. Default-only projects need no configuration changes.
 
+## 0.3.3 - 2026-10-15
+
+- Accept the first new mouse press or touch after focus returns, while canceling the interrupted UI interaction.
+- Ignore existing touches without a new Began and preserve UI block release waits; canceled drags do not produce a Drop.
+- Add six Unity PlayMode regression tests using real UGUI button and drag dispatch. All six pass in Unity 2022.3.62f2; the full July.UI assembly compiles.
+
 ## 0.3.0 - 2026-09-28
 
 - Depend on July Input 0.2.0 for shared Gameplay/UI blocking. Window sessions own gameplay block leases when configured.
