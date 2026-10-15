@@ -103,6 +103,105 @@ namespace July.Input.Tests
             Assert.That(clicks, Is.Zero);
         }
 
+        [TestCase(false)]
+        [TestCase(true)]
+        public void FocusRecovery_AcceptsTheFirstNewMousePress(bool hadActivePointer)
+        {
+            using var test = new InputTestContext();
+            var clicks = 0;
+            test.Input.Clicked += _ => clicks++;
+            if (hadActivePointer) test.Source.PressMouse(Vector2.zero);
+            test.Input.OnUpdate(0f);
+            test.Source.SetFocus(false);
+            test.Source.ReleaseMouse(Vector2.zero);
+            test.Input.OnUpdate(0f);
+
+            test.Source.PressMouse(Vector2.one);
+            test.Source.SetFocus(true);
+            var frame = test.Input.ReadFrame();
+            Assert.That(frame.PointerCount, Is.EqualTo(1));
+            Assert.That(frame.GetPointer(0).Phase, Is.EqualTo(PointerPhase.Began));
+            test.Input.OnUpdate(0f);
+            test.Source.ReleaseMouse(Vector2.one);
+            test.Input.OnUpdate(0f);
+            Assert.That(clicks, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void FocusRecovery_DoesNotAdoptAnOldHeldMousePress()
+        {
+            using var test = new InputTestContext();
+            var clicks = 0;
+            test.Input.Clicked += _ => clicks++;
+            test.Source.PressMouse(Vector2.zero);
+            test.Input.OnUpdate(0f);
+            test.Source.SetFocus(false);
+            test.Source.NextFrame();
+            test.Input.OnUpdate(0f);
+            test.Source.SetFocus(true);
+            test.Source.MoveMouse(Vector2.one);
+            test.Input.OnUpdate(0f);
+            Assert.That(test.Input.ReadFrame().PointerCount, Is.Zero);
+            test.Source.ReleaseMouse(Vector2.one);
+            test.Input.OnUpdate(0f);
+            Assert.That(test.Input.ReadFrame().PointerCount, Is.Zero);
+            Assert.That(clicks, Is.Zero);
+        }
+
+        [Test]
+        public void FocusRecovery_AcceptsNewTouchWithoutAdoptingAnOldHeldTouch()
+        {
+            using var test = new InputTestContext();
+            var clicks = 0;
+            test.Input.Clicked += _ => clicks++;
+            test.Source.NextFrame(FakeInputSource.TouchAt(4, Vector2.zero, TouchPhase.Began));
+            test.Input.OnUpdate(0f);
+            test.Source.SetFocus(false);
+            test.Source.NextFrame(FakeInputSource.TouchAt(4, Vector2.zero, TouchPhase.Stationary));
+            test.Input.OnUpdate(0f);
+            test.Source.SetFocus(true);
+            test.Source.NextFrame(
+                FakeInputSource.TouchAt(4, Vector2.zero, TouchPhase.Stationary),
+                FakeInputSource.TouchAt(9, Vector2.one, TouchPhase.Began));
+            var frame = test.Input.ReadFrame();
+            Assert.That(frame.PointerCount, Is.EqualTo(1));
+            Assert.That(frame.GetPointer(0).Id, Is.EqualTo(9));
+            Assert.That(frame.GetPointer(0).Phase, Is.EqualTo(PointerPhase.Began));
+            test.Input.OnUpdate(0f);
+            test.Source.NextFrame(
+                FakeInputSource.TouchAt(4, Vector2.zero, TouchPhase.Stationary),
+                FakeInputSource.TouchAt(9, Vector2.one, TouchPhase.Ended));
+            test.Input.OnUpdate(0f);
+            Assert.That(clicks, Is.EqualTo(1));
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void FocusRecovery_PreservesAnExistingReleaseWait(bool explicitlyCancelled)
+        {
+            using var test = new InputTestContext();
+            var clicks = 0;
+            test.Input.Clicked += _ => clicks++;
+            if (explicitlyCancelled) test.Input.CancelPointer();
+            else test.Input.Block(InputScope.Gameplay).Dispose();
+            test.Source.SetFocus(false);
+            test.Source.NextFrame();
+            test.Input.OnUpdate(0f);
+            test.Source.PressMouse(Vector2.one);
+            test.Source.SetFocus(true);
+            test.Input.OnUpdate(0f);
+            Assert.That(test.Input.ReadFrame().PointerCount, Is.Zero);
+            test.Source.ReleaseMouse(Vector2.one);
+            test.Input.OnUpdate(0f);
+            Assert.That(clicks, Is.Zero);
+
+            test.Source.PressMouse(Vector2.one);
+            test.Input.OnUpdate(0f);
+            test.Source.ReleaseMouse(Vector2.one);
+            test.Input.OnUpdate(0f);
+            Assert.That(clicks, Is.EqualTo(1));
+        }
+
         [Test]
         public void KeyboardCallbackBlockingAndUnblocking_SuppressesThePendingPointerClick()
         {

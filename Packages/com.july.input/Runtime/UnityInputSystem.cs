@@ -94,7 +94,10 @@ namespace July.Input
             if ((scope & InputScope.Gameplay) != 0) gameplayBlocks++;
             if ((scope & InputScope.UI) != 0) uiBlocks++;
             if ((before & InputScope.Gameplay) == 0 && GameplayBlocked)
+            {
+                gameplayNeedsRelease = true;
                 ResetPointers(PointerCancellationReason.Blocked);
+            }
             var lease = new InputBlock(this, scope);
             if (before != BlockedScopes) BlockStateChanged?.Invoke();
             return lease;
@@ -126,7 +129,11 @@ namespace July.Input
             }
         }
 
-        public void CancelPointer() => ResetPointers(PointerCancellationReason.Explicit);
+        public void CancelPointer()
+        {
+            gameplayNeedsRelease = true;
+            ResetPointers(PointerCancellationReason.Explicit);
+        }
 
         private void OnFocusChanged(bool focused)
         {
@@ -137,7 +144,6 @@ namespace July.Input
         private void ResetPointers(PointerCancellationReason reason, bool notify = true)
         {
             resetVersion++;
-            gameplayNeedsRelease = true;
             frameCanRecognize = false;
             samples.Clear();
             foreach (var pointer in activePointers.Values)
