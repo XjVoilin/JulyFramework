@@ -36,12 +36,73 @@ namespace July.Time.Tests
                 nameof(ITimeSystem.SyncServerTime),
                 nameof(ITimeSystem.ScheduleOnce),
                 nameof(ITimeSystem.ScheduleRepeat),
+                nameof(ITimeSystem.TryGetTimerRemainingTime),
                 nameof(ITimeSystem.CancelTimer),
                 nameof(ITimeSystem.CancelAllTimers),
                 nameof(ITimeSystem.PauseTimer),
                 nameof(ITimeSystem.ResumeTimer)
             }));
         }
+
+        [Test]
+        public void RemainingTime_FollowsAdvanceAndPause_ThenExpires()
+        {
+            var system = new TimeSystem();
+            var fired = 0;
+            var id = 0;
+            id = system.ScheduleOnce(2f, () =>
+            {
+                fired++;
+                Assert.That(system.TryGetTimerRemainingTime(id, out var duringCallback), Is.True);
+                Assert.That(duringCallback, Is.Zero);
+            });
+            AdvanceTimers(system, .5f, .5f);
+            Assert.That(system.TryGetTimerRemainingTime(id, out var remaining), Is.True);
+            Assert.That(remaining, Is.EqualTo(1.5f));
+            system.PauseTimer(id);
+            AdvanceTimers(system, 10f, 10f);
+            system.TryGetTimerRemainingTime(id, out remaining);
+            Assert.That(remaining, Is.EqualTo(1.5f));
+            system.ResumeTimer(id);
+            AdvanceTimers(system, 2f, 2f);
+            Assert.That(fired, Is.EqualTo(1));
+            Assert.That(system.TryGetTimerRemainingTime(id, out _), Is.False);
+            AdvanceTimers(system, 2f, 2f);
+            Assert.That(fired, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void RemainingTime_RejectsCancelledAndUnknownTimers()
+        {
+            var system = new TimeSystem();
+            var id = system.ScheduleOnce(10f, () => Assert.Fail("Cancelled timer fired."));
+            system.CancelTimer(id);
+            Assert.That(system.TryGetTimerRemainingTime(id, out _), Is.False);
+            Assert.That(system.TryGetTimerRemainingTime(-1, out _), Is.False);
+            var other = system.ScheduleOnce(10f, () => { });
+            system.CancelAllTimers();
+            Assert.That(system.TryGetTimerRemainingTime(other, out _), Is.False);
+        }
+
+        [Test]
+        public void RemainingTime_ReportsNextRepeat_AndRespectsClockChoice()
+        {
+            var system = new TimeSystem();
+            var scaled = system.ScheduleRepeat(2f, () => { });
+            var real = system.ScheduleOnce(2f, () => { }, useRealTime: true);
+            AdvanceTimers(system, 0f, .5f);
+            system.TryGetTimerRemainingTime(scaled, out var scaledRemaining);
+            system.TryGetTimerRemainingTime(real, out var realRemaining);
+            Assert.That(scaledRemaining, Is.EqualTo(2f));
+            Assert.That(realRemaining, Is.EqualTo(1.5f));
+            AdvanceTimers(system, 2.25f, 0f);
+            system.TryGetTimerRemainingTime(scaled, out scaledRemaining);
+            Assert.That(scaledRemaining, Is.EqualTo(1.75f));
+        }
+
+        private static void AdvanceTimers(TimeSystem system, float delta, float unscaledDelta)
+            => typeof(TimeSystem).GetMethod("UpdateTimers", System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.NonPublic).Invoke(system, new object[] { delta, unscaledDelta });
 
         [Test]
         public void FixedDeltaTime_FollowsUnityFixedStepChanges()

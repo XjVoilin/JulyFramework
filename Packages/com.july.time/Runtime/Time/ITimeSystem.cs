@@ -39,6 +39,11 @@ namespace July.Time
 
         int ScheduleOnce(float delay, Action callback, bool useRealTime = false);
         int ScheduleRepeat(float interval, Action callback, bool useRealTime = false, int repeatCount = -1);
+        /// <summary>
+        /// 查询有效定时器距离下次触发的剩余秒数，最小为零；暂停时保持不变。
+        /// 不存在、已取消或已完成的定时器返回 false。到期回调期间仍可查询，返回零。
+        /// </summary>
+        bool TryGetTimerRemainingTime(int timerId, out float seconds);
         bool CancelTimer(int timerId);
         void CancelAllTimers();
         bool PauseTimer(int timerId);

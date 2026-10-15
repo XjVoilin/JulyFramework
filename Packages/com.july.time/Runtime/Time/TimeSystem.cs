@@ -137,6 +137,21 @@ namespace July.Time
             return timerId;
         }
 
+        public bool TryGetTimerRemainingTime(int timerId, out float seconds)
+        {
+            lock (_timerLock)
+            {
+                if (_timers.TryGetValue(timerId, out var timer) && !timer.IsCancelled)
+                {
+                    seconds = Math.Max(0f, timer.RemainingTime);
+                    return true;
+                }
+            }
+
+            seconds = 0f;
+            return false;
+        }
+
         public bool CancelTimer(int timerId)
         {
             lock (_timerLock)
