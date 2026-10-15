@@ -1,13 +1,14 @@
-using July.Arch;
+using System;
 
 namespace July.Platform
 {
     /// <summary>编辑器及未接入平台没有真实加速度采样，不生成模拟数据。</summary>
-    public sealed class DefaultAccelerometerService : IAccelerometerService, ICanEvent
+    public sealed class DefaultAccelerometerService : AccelerometerServiceBase
     {
-        private const string Unsupported = "Accelerometer is not supported by the default platform adapter.";
-
-        public void Start() => this.Publish(new AccelerometerStartResultEvent(false, Unsupported));
-        public void Stop() => this.Publish(new AccelerometerStopResultEvent(false, Unsupported));
+        protected override bool IsSupported => false;
+        protected override void StartDevice(Action<bool, string> completed) => completed(false, Unsupported);
+        protected override void StopDevice(Action<bool, string> completed) => completed(false, Unsupported);
+        protected override void AttachSamples(long operation) { }
+        protected override void DetachSamples() { }
     }
 }

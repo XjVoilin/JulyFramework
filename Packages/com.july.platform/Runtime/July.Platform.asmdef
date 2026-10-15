@@ -4,7 +4,9 @@
     "references":  [
                        "July.Arch",
                        "UniTask",
-                       "UnityEngine.UI"
+                       "UnityEngine.UI",
+                       "WxWasmSDKRuntime",
+                       "TTLitJson"
                    ],
     "includePlatforms":  [
 

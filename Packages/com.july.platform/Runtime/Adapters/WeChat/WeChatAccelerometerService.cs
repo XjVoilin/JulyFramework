@@ -1,41 +1,50 @@
 #if JULYGF_WX_MINIGAME
-using July.Arch;
+using System;
 using UnityEngine;
 using WeChatWASM;
 
 namespace July.Platform
 {
-    public sealed class WeChatAccelerometerService : IAccelerometerService, ICanEvent
+    public sealed class WeChatAccelerometerService : AccelerometerServiceBase
     {
-        public void Start()
+        private Action<OnAccelerometerChangeListenerResult> _samples;
+        public override void Init() { WX.OnHide(OnHide); WX.OnShow(OnShow); }
+        protected override void OnShutdown() { WX.OffHide(OnHide); WX.OffShow(OnShow); }
+        private void OnHide(GeneralCallbackResult _) => SetForeground(false);
+        private void OnShow(OnShowListenerResult _) => SetForeground(true);
+
+        protected override void StartDevice(Action<bool, string> completed)
         {
             WX.StartAccelerometer(new StartAccelerometerOption
             {
-                success = _ =>
-                {
-                    WX.OnAccelerometerChange(OnAccelerometerChanged);
-                    this.Publish(new AccelerometerStartResultEvent(true));
-                },
-                fail = result => this.Publish(new AccelerometerStartResultEvent(false, result.errMsg)),
+                interval = "game",
+                success = _ => completed(true, null),
+                fail = result => completed(false, result.errMsg),
             });
         }
 
-        public void Stop()
+        protected override void StopDevice(Action<bool, string> completed)
         {
-            WX.OffAccelerometerChange(OnAccelerometerChanged);
             WX.StopAccelerometer(new StopAccelerometerOption
             {
-                success = _ => this.Publish(new AccelerometerStopResultEvent(true)),
-                fail = result => this.Publish(new AccelerometerStopResultEvent(false, result.errMsg)),
+                success = _ => completed(true, null),
+                fail = result => completed(false, result.errMsg),
             });
         }
 
-        public void Shutdown() => Stop();
+        protected override void AttachSamples(long operation)
+        {
+            _samples = sample => ReceiveSample(operation,
+                new Vector3((float)sample.x, (float)sample.y, (float)sample.z), Time.realtimeSinceStartupAsDouble);
+            WX.OnAccelerometerChange(_samples);
+        }
 
-        private void OnAccelerometerChanged(OnAccelerometerChangeListenerResult sample) =>
-            this.Publish(new AccelerometerSampleEvent(
-                new Vector3((float)sample.x, (float)sample.y, (float)sample.z),
-                Time.realtimeSinceStartupAsDouble));
+        protected override void DetachSamples()
+        {
+            if (_samples == null) return; // Not subscribed before Start succeeds or after an earlier detach.
+            WX.OffAccelerometerChange(_samples);
+            _samples = null;
+        }
     }
 }
 #endif

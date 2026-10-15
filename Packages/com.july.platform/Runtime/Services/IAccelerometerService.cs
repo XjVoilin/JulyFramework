@@ -45,11 +45,7 @@ namespace July.Platform
         }
     }
 
-    /// <summary>
-    /// 由一个小游戏在主线程控制启停，通过 July.Arch 接收结果和样本。
-    /// 调用方收到启动结果后才能停止，收到停止结果后才能重新启动；不协调重叠调用。
-    /// 不自动启动、不管理前后台，也不解释玩法的晃动阈值。
-    /// </summary>
+    /// <summary>主线程调用。Start/Stop 表达期望开关，平台负责完成 SDK 启停与前后台收尾。</summary>
     public interface IAccelerometerService : IPlatformService
     {
         /// <summary>请求启动，通过 AccelerometerStartResultEvent 通知结果。</summary>
