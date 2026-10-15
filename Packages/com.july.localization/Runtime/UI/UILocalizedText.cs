@@ -6,21 +6,21 @@ using UnityEngine.Serialization;
 namespace July.Localization
 {
     /// <summary>
-    /// 挂在带有 TMP 的物体上，填入 Key 即可自动本地化。
+    /// 挂在带有 TextMeshProUGUI 或 TextMeshPro 的物体上，填入 Key 即可自动本地化。
     /// 支持格式化参数，语言切换时自动刷新。
     /// </summary>
-    [RequireComponent(typeof(TextMeshProUGUI))]
+    [RequireComponent(typeof(TMP_Text))]
     public class UILocalizedText : ArchBehaviour
     {
         [FormerlySerializedAs("key")]
         [SerializeField] private string _key;
 
-        private TextMeshProUGUI _text;
+        private TMP_Text _text;
         private object[] _args;
 
         private void Awake()
         {
-            _text = GetComponent<TextMeshProUGUI>();
+            _text = GetComponent<TMP_Text>();
         }
 
         private void OnEnable()
