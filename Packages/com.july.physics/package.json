@@ -1,0 +1,13 @@
+{
+  "name": "com.july.physics",
+  "version": "0.1.0",
+  "displayName": "July Physics",
+  "description": "Reusable Unity physics configuration components for July projects.",
+  "unity": "2022.3",
+  "dependencies": {
+    "com.unity.modules.physics": "1.0.0"
+  },
+  "author": {
+    "name": "July"
+  }
+}
