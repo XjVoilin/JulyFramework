@@ -51,6 +51,8 @@ July uses package seams only where a capability has an independent installation 
 
 | Location | Responsibility |
 | --- | --- |
+| `com.july.assetcheck` | 仅编辑器使用的资源、URP 和项目配置检查，支持检查标准、修改、单文件及目录递归忽略。 |
+| `com.july.physics.authoring` | 仅编辑器使用的 Box／Sphere／Capsule 拟合，支持专用输出节点、批量替换和 Undo；不生成 Mesh 资源，不依赖原生插件。 |
 | `com.july.build` | Vendor-neutral reusable editor build pipeline. |
 | `com.july.build.hybridclr` | Strongly typed HybridCLR 8.7 build mechanics. |
 | `com.july.release` | Standard project release orchestration, editor/CI tools, backend version protocol, COS paths and optional project-installed platform SDK adapters. |

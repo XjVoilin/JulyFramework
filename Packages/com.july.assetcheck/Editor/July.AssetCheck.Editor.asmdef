@@ -1,0 +1,7 @@
+{
+  "name": "July.AssetCheck.Editor",
+  "rootNamespace": "July.AssetCheck",
+  "references": [],
+  "includePlatforms": ["Editor"],
+  "autoReferenced": true
+}

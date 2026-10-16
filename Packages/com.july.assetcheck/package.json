@@ -1,0 +1,14 @@
+{
+  "name": "com.july.assetcheck",
+  "version": "0.6.1",
+  "displayName": "July Asset Check",
+  "description": "用于 Unity 编辑器的资源、URP 和项目配置检查工具，支持检查标准、资源修改、单文件忽略及文件夹递归忽略。",
+  "unity": "2022.3",
+  "dependencies": {
+    "com.unity.modules.audio": "1.0.0",
+    "com.unity.modules.jsonserialize": "1.0.0"
+  },
+  "author": {
+    "name": "July"
+  }
+}

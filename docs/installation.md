@@ -55,3 +55,27 @@ Paste a complete URL into Unity Package Manager through **Add package from git U
 UPM package dependencies declare package names and semantic versions; they cannot infer another package's `?path=` inside this Git monorepo. A Git-based consumer must therefore list the selected package and its July dependency closure explicitly. The seed template demonstrates a complete pinned manifest. A scoped registry can resolve these transitive dependencies automatically when one is introduced later.
 
 Package tests are not part of a production installation. The seed template's validation script temporarily injects the full package set and its `testables` list only while verification runs.
+
+## 资源检查工具
+
+`com.july.assetcheck` 0.6.1 仅在编辑器运行，没有运行时代码或 July 包依赖。它依赖 Unity 内置的 Audio 和 JSON 模块；URP 为可选项，不产生 URP 程序集依赖。通过 Package Manager 的 **Add package from git URL** 安装：
+
+```text
+https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.assetcheck#com.july.assetcheck@0.6.1
+```
+
+它取代原 Diagnostics 中的小游戏纹理检查窗口。Diagnostics 0.1.3 已移除旧编辑器入口；使用下列独立版本标签更新现有安装，避免重复菜单：
+
+```text
+https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.diagnostics#com.july.diagnostics@0.1.3
+```
+
+## 碰撞体编辑工具
+
+`com.july.physics.authoring` 0.3.0 可独立安装，仅在编辑器运行。它从显示 Mesh 拟合原生 Box、Sphere、Capsule Collider，支持专用输出 Transform、批量替换和 Undo，不生成碰撞 Mesh 资源，也不依赖原生插件或其它 July 包：
+
+```text
+https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.physics.authoring#com.july.physics.authoring@0.3.0
+```
+
+项目专属的碰撞体配置和序列化引用更新保留在项目编辑器程序集。调用方式、算法限制和测试说明见包内 README。各 URL 均绑定不可变的独立包版本标签，不依赖 `main` 分支。

@@ -1,0 +1,15 @@
+{
+  "name": "com.july.physics.authoring",
+  "version": "0.3.0",
+  "displayName": "July Physics Authoring",
+  "description": "Editor-only automatic Box, Sphere and Capsule fitting from display meshes. No generated Mesh assets or native plugins.",
+  "unity": "2022.3",
+  "dependencies": {
+    "com.unity.modules.physics": "1.0.0",
+    "com.unity.modules.imgui": "1.0.0",
+    "com.unity.modules.jsonserialize": "1.0.0"
+  },
+  "author": {
+    "name": "July"
+  }
+}
