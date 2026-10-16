@@ -124,6 +124,8 @@ namespace July.AssetCheck.Tests
             var path = Texture();
             var importer = (TextureImporter)AssetImporter.GetAtPath(path);
             WriteFormat(importer, "WebGL", TextureImporterFormat.ASTC_4x4);
+            WriteFormat(importer, "MiniGame", TextureImporterFormat.Automatic);
+            WriteFormat(importer, "WeixinMiniGame", TextureImporterFormat.Automatic);
             importer.SaveAndReimport();
             var before = JsonUtility.ToJson(importer.GetPlatformTextureSettings("MiniGame"));
             using (var workspace = Workspace())
@@ -139,6 +141,96 @@ namespace July.AssetCheck.Tests
                 var remaining = workspace.GetReport(AssetCheckKind.Texture).Issues.Single();
                 Assert.That(remaining.HasProblem, Is.False);
                 Assert.That(remaining.UnverifiedFix().Targets, Does.Contain("MiniGame"));
+            }
+        }
+
+        [Test]
+        public void MissingMiniGameOverridesAreIncludedInFixAllAndPreserveAllowedWebGL()
+        {
+            var path = Texture();
+            var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+            WriteFormat(importer, "WebGL", TextureImporterFormat.ASTC_8x8);
+            WriteFormat(importer, "Android", TextureImporterFormat.ASTC_4x4);
+            importer.SaveAndReimport();
+            var defaults = JsonUtility.ToJson(importer.GetDefaultPlatformTextureSettings());
+            var android = JsonUtility.ToJson(importer.GetPlatformTextureSettings("Android"));
+            using (var workspace = Workspace())
+            {
+                workspace.StartScan(AssetCheckKind.Texture); Drain(workspace);
+                var report = workspace.GetReport(AssetCheckKind.Texture);
+                var issue = report.Issues.Single();
+                Assert.That(issue.HasProblem, Is.True, "缺少小游戏平台配置必须纳入已确认问题。");
+                Assert.That(issue.Unverified, Is.False);
+                Assert.That(report.UnverifiedOnlyFiles, Is.Zero);
+                Assert.That(issue.Actual, Does.Contain("未配置平台覆盖"));
+                Assert.That(issue.ConfirmedFix().Targets, Is.EquivalentTo(new[] { "MiniGame", "WeixinMiniGame" }));
+                var view = new AssetCheckResultsModel();
+                view.Bind(report);
+                workspace.StartFix(AssetCheckKind.Texture, view.AllFixable()); Drain(workspace);
+                Assert.That(workspace.LastFix.ModifiedFiles, Is.EqualTo(1));
+                Assert.That(workspace.LastFix.Rechecked, Is.True);
+                Assert.That(workspace.GetReport(AssetCheckKind.Texture).Issues, Is.Empty);
+            }
+            importer = (TextureImporter)AssetImporter.GetAtPath(path);
+            foreach (var target in new[] { "MiniGame", "WeixinMiniGame" })
+            {
+                var value = importer.GetPlatformTextureSettings(target);
+                Assert.That(value.overridden, Is.True);
+                Assert.That(value.format, Is.EqualTo(TextureImporterFormat.ASTC_6x6));
+            }
+            Assert.That(importer.GetPlatformTextureSettings("WebGL").format, Is.EqualTo(TextureImporterFormat.ASTC_8x8));
+            Assert.That(JsonUtility.ToJson(importer.GetDefaultPlatformTextureSettings()), Is.EqualTo(defaults));
+            Assert.That(JsonUtility.ToJson(importer.GetPlatformTextureSettings("Android")), Is.EqualTo(android));
+        }
+
+        [Test]
+        public void MissingAtlasMiniGameOverridesAreConfirmedEvenWithAllowedDefaultFormat()
+        {
+            var atlas = new SpriteAtlas();
+            var path = _root + "/missing.spriteatlas";
+            AssetDatabase.CreateAsset(atlas, path);
+            var defaults = atlas.GetPlatformSettings("DefaultTexturePlatform");
+            defaults.format = TextureImporterFormat.ASTC_8x8;
+            atlas.SetPlatformSettings(defaults);
+            var module = new TextureCheckModule();
+            var standards = new PlatformStandards();
+            var issue = module.Check(path, standards).Single(item => item.RuleId == "atlas.compression-format");
+            Assert.That(issue.HasProblem, Is.True);
+            Assert.That(issue.Unverified, Is.False);
+            Assert.That(issue.ConfirmedFix().Targets, Is.EquivalentTo(new[] { "MiniGame", "WeixinMiniGame" }));
+            module.Fix(path, new[] { issue.ConfirmedFix() }, standards);
+            atlas = AssetDatabase.LoadAssetAtPath<SpriteAtlas>(path);
+            Assert.That(module.Check(path, standards).Any(item => item.RuleId == issue.RuleId), Is.False);
+            Assert.That(atlas.GetPlatformSettings("DefaultTexturePlatform").format, Is.EqualTo(TextureImporterFormat.ASTC_8x8));
+            foreach (var target in new[] { "MiniGame", "WeixinMiniGame" })
+                Assert.That(atlas.GetPlatformSettings(target).format, Is.EqualTo(TextureImporterFormat.ASTC_6x6));
+        }
+
+        [Test]
+        public void MissingMiniGameTargetCanBeFixedWithoutRewritingExplicitUnknownOverride()
+        {
+            var path = Texture();
+            var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+            WriteFormat(importer, "WebGL", TextureImporterFormat.ASTC_8x8);
+            WriteFormat(importer, "MiniGame", TextureImporterFormat.Automatic);
+            importer.SaveAndReimport();
+            var before = JsonUtility.ToJson(importer.GetPlatformTextureSettings("MiniGame"));
+            using (var workspace = Workspace())
+            {
+                workspace.StartScan(AssetCheckKind.Texture); Drain(workspace);
+                var issue = workspace.GetReport(AssetCheckKind.Texture).Issues.Single();
+                Assert.That(issue.HasProblem, Is.True);
+                Assert.That(issue.UnverifiedTargets, Is.EqualTo(new[] { "MiniGame" }));
+                Assert.That(issue.ConfirmedFix().Targets, Is.EqualTo(new[] { "WeixinMiniGame" }));
+                var model = new AssetCheckResultsModel();
+                model.Bind(workspace.GetReport(AssetCheckKind.Texture));
+                workspace.StartFix(AssetCheckKind.Texture, model.AllFixable()); Drain(workspace);
+                importer = (TextureImporter)AssetImporter.GetAtPath(path);
+                Assert.That(importer.GetPlatformTextureSettings("WeixinMiniGame").format, Is.EqualTo(TextureImporterFormat.ASTC_6x6));
+                Assert.That(JsonUtility.ToJson(importer.GetPlatformTextureSettings("MiniGame")), Is.EqualTo(before));
+                var remaining = workspace.GetReport(AssetCheckKind.Texture).Issues.Single();
+                Assert.That(remaining.HasProblem, Is.False);
+                Assert.That(remaining.UnverifiedTargets, Is.EqualTo(new[] { "MiniGame" }));
             }
         }
 

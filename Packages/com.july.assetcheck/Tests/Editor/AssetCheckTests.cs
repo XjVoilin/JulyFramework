@@ -109,16 +109,16 @@ namespace July.AssetCheck.Tests
         }
 
         [Test]
-        public void UnknownAutomaticIsNotReportedAsPassingAndCanBeExplicitlyConfigured()
+        public void MissingMiniGameSettingsAreConfirmedAndCanBeConfigured()
         {
             var path = CreateTexture("automatic.png");
             var standards = new PlatformStandards();
             var module = new TextureCheckModule();
             var issue = module.Check(path, standards).Single();
             Assert.That(issue.Targets, Does.Contain("MiniGame"));
-#if !TUANJIE_1_5_OR_NEWER && !UNITY_WEIXINMINIGAME && !UNITY_MINIGAME
-            Assert.That(issue.Unverified, Is.True);
-#endif
+            Assert.That(issue.HasProblem, Is.True);
+            Assert.That(issue.UnverifiedTargets, Does.Not.Contain("MiniGame"));
+            Assert.That(issue.ConfirmedFix().Targets, Does.Contain("MiniGame"));
             module.Fix(path, new[] { issue }, standards);
             Assert.That(module.Check(path, standards), Is.Empty);
         }

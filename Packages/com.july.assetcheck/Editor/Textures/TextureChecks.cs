@@ -106,6 +106,13 @@ namespace July.AssetCheck
             var unknownTargets = new List<string>();
             foreach (var target in MiniGameProfile.TextureTargets)
             {
+                if (target != "WebGL" && !importer.GetPlatformTextureSettings(target).overridden)
+                {
+                    targets.Add(target);
+                    values.Add(target + "：未配置平台覆盖");
+                    hasProblem = true;
+                    continue;
+                }
                 var format = GetEffectiveFormat(importer, target);
                 if (standards.allowedFormats.Contains(format))
                     continue;

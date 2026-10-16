@@ -81,6 +81,15 @@ namespace July.AssetCheck.Tests
         public void KnownFormatFailureMustRemainVisibleWhenOtherTargetsAreUnverified()
         {
             var path = Texture();
+            var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+            foreach (var target in new[] { "MiniGame", "WeixinMiniGame" })
+            {
+                var settings = importer.GetPlatformTextureSettings(target);
+                settings.overridden = true;
+                settings.format = TextureImporterFormat.Automatic;
+                importer.SetPlatformTextureSettings(settings);
+            }
+            importer.SaveAndReimport();
             using (var workspace = new AssetCheckWorkspace(new AssetCheckSettingsFile(_config)))
             {
                 workspace.ChangeSettings(s => s.scope = _root);

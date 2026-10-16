@@ -38,6 +38,13 @@ namespace July.AssetCheck
             var unknownTargets = new List<string>();
             foreach (var target in MiniGameProfile.TextureTargets)
             {
+                if (target != "WebGL" && !atlas.GetPlatformSettings(target).overridden)
+                {
+                    targets.Add(target);
+                    values.Add(target + "：未配置平台覆盖");
+                    hasProblem = true;
+                    continue;
+                }
                 var settings = AtlasPlatformSettings.Effective(atlas, target);
                 if (standards.allowedAtlasFormats.Contains(settings.format))
                     continue;
