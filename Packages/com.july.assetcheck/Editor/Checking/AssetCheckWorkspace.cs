@@ -313,24 +313,39 @@ namespace July.AssetCheck
         {
             var module = _instances[kind];
             var groups = selection.GroupBy(issue => issue.TargetId).ToArray();
-            for (var index = 0; index < groups.Length; index++)
+            var batchImports = kind == AssetCheckKind.Texture;
+            var batchSize = batchImports ? 20 : 1;
+            for (var start = 0; start < groups.Length; start += batchSize)
             {
-                _file.EnsureUnchanged();
-                var group = groups[index];
-                var path = AssetCheckTarget.RequirePath(group.Key);
-                Activity = "修改 " + path;
-                Progress = (float)index / groups.Length;
-                var requested = group.ToDictionary(issue => issue.Key);
-                var current = module.Check(path, Settings.CurrentStandards)
-                    .Where(issue => issue.CanFix && requested.ContainsKey(issue.Key))
-                    .Select(issue => RestrictFix(issue, requested[issue.Key])).Where(issue => issue != null).ToArray();
-                if (current.Length > 0)
+                var end = Math.Min(start + batchSize, groups.Length);
+                if (batchImports) AssetDatabase.StartAssetEditing();
+                try
                 {
-                    module.Fix(path, current, Settings.CurrentStandards);
-                    LastFix.ModifiedFiles++;
+                    for (var index = start; index < end; index++)
+                    {
+                        _file.EnsureUnchanged();
+                        var group = groups[index];
+                        var path = AssetCheckTarget.RequirePath(group.Key);
+                        Activity = "修改 " + path;
+                        Progress = (float)index / groups.Length;
+                        var requested = group.ToDictionary(issue => issue.Key);
+                        var current = module.Check(path, Settings.CurrentStandards)
+                            .Where(issue => issue.CanFix && requested.ContainsKey(issue.Key))
+                            .Select(issue => RestrictFix(issue, requested[issue.Key])).Where(issue => issue != null).ToArray();
+                        if (current.Length > 0)
+                        {
+                            module.Fix(path, current, Settings.CurrentStandards);
+                            LastFix.ModifiedFiles++;
+                        }
+                        else
+                            LastFix.SkippedFiles++;
+                    }
                 }
-                else
-                    LastFix.SkippedFiles++;
+                finally
+                {
+                    if (batchImports) AssetDatabase.StopAssetEditing();
+                }
+                Progress = (float)end / groups.Length;
                 yield return true;
             }
             _mutating = false;
