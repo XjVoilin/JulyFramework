@@ -38,7 +38,7 @@ namespace July.AssetCheck
                 $"扫描范围：{report.Scope}\n问题 {report.Issues.Count(issue => issue.HasProblem)} 项；{report.UnverifiedAssets} 个文件含未验证项。";
             var state = report == null ? "选择扫描范围，开始检查资源。" :
                 report.Failure != null ? "检查失败，请查看底部错误信息后重新检查。" :
-                report.Stale ? "资源或检查标准已变化，请重新检查。" :
+                report.Stale ? "上次检查结果，资源或检查标准已变化，请重新检查后修改。" :
                 report.Cancelled ? "检查已取消，当前保留部分结果。" :
                 !report.Complete ? report.IsSnapshot ? "上次检查未完成，请重新检查。" : "正在检查，结果持续更新。" : "";
             if (report?.IsSnapshot == true) state = "上次结果 · 只读，重新检查后可修改。" + (state.Length > 0 ? " " + state : "");

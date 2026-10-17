@@ -407,11 +407,11 @@ namespace July.AssetCheck
         private void RefreshTab(AssetCheckKind kind)
         {
             var report = _workspace.GetReport(kind);
-            _tabCounts[kind].text = report == null ? "—" : report.Stale ? "•" :
-                !report.Complete && !report.Cancelled && report.Failure == null ? "…" : report.ProblemAssets.ToString();
+            _tabCounts[kind].text = report?.ProblemAssets.ToString() ?? "—";
             _tabCounts[kind].EnableInClassList("zero", report != null && report.Complete && report.ProblemAssets == 0);
-            _tabs[kind].tooltip = report == null ? "尚未检查" : report.Stale ? "资源或标准已变化，请重新检查" :
-                $"{report.ProblemAssets} 个问题文件，{report.UnverifiedOnlyFiles} 个仅未验证文件；Tab 数字仅表示问题文件数。";
+            _tabs[kind].tooltip = report == null ? "尚未检查" :
+                $"{report.ProblemAssets} 个问题文件，{report.UnverifiedOnlyFiles} 个仅未验证文件；Tab 数字仅表示问题文件数。" +
+                (report.Stale ? "\n上次检查结果，请重新检查后修改。" : "");
         }
     }
 }
