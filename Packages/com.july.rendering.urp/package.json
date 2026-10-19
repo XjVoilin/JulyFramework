@@ -1,0 +1,11 @@
+{
+  "name": "com.july.rendering.urp",
+  "version": "0.1.0",
+  "displayName": "July Rendering URP",
+  "description": "Reusable static-mesh highlighting for orthographic URP cameras.",
+  "unity": "2022.3",
+  "dependencies": {
+    "com.unity.render-pipelines.universal": "14.0.12"
+  },
+  "author": { "name": "July" }
+}

@@ -37,6 +37,7 @@ July uses package seams only where a capability has an independent installation 
 
 | Package | Responsibility |
 | --- | --- |
+| `com.july.rendering.urp` | Optional URP orthographic static-mesh highlighting, camera-local targets and shared-material effects. |
 | `com.july.animation` | General animation helpers for UI, sprites, and scene objects. |
 | `com.july.animation.spine` | Optional Spine-specific animation support. |
 | `com.july.ui` | UI runtime, controls, transitions, and window management. |

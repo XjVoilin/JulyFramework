@@ -1,0 +1,7 @@
+{
+  "name": "July.Rendering.URP.Tests",
+  "references": ["July.Rendering.URP"],
+  "includePlatforms": ["Editor"],
+  "optionalUnityReferences": ["TestAssemblies"],
+  "autoReferenced": false
+}

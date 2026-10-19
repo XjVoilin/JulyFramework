@@ -13,6 +13,10 @@ https://github.com/XjVoilin/JulyFramework.git?path=/Packages/<package-id>#<packa
 
 Paste a complete URL into Unity Package Manager through **Add package from git URL**, or add it to `Packages/manifest.json`.
 
+## URP mesh highlighting
+
+`com.july.rendering.urp` provides optional orthographic URP static-mesh highlighting. Select the released package using the immutable URL in the table below. Add `com.july.rendering.urp` to a consuming project's `testables` to run its native lifecycle tests. Its runtime assembly belongs in the player; do not list it as a HybridCLR hot-update assembly.
+
 ## Copyable package URLs
 
 | Package | Git URL |
@@ -42,6 +46,7 @@ Paste a complete URL into Unity Package Manager through **Add package from git U
 | `com.july.platform` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.platform#com.july.platform@0.3.1` |
 | `com.july.pooling` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.pooling#com.july.pooling@0.1.1` |
 | `com.july.reddot` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.reddot#com.july.reddot@0.1.1` |
+| `com.july.rendering.urp` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.rendering.urp#com.july.rendering.urp@0.1.0` |
 | `com.july.resource` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.resource#com.july.resource@0.1.0` |
 | `com.july.resource.yooasset` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.resource.yooasset#com.july.resource.yooasset@0.2.3` |
 | `com.july.scene` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.scene#com.july.scene@0.1.0` |
