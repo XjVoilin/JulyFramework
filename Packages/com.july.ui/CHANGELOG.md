@@ -2,12 +2,18 @@
 
 ## Unreleased
 
+## 0.4.0 - 2026-10-19
+
+- Handle WebImage request failures as warnings containing URL, result, response code and error; preserve successful downloads, caching and cancellation. Four Unity PlayMode regression tests pass.
+
+- Add UISmartButtonSprite to synchronize normal/disabled artwork with SmartButton interaction state, including initial state and reopen. The component does not own gameplay or advertising rules.
+
+## 0.3.3 - 2026-10-15
+
 - Match the scene camera renderer before stacking the framework UI camera; restore
   the pipeline default renderer when detached or returned to standalone UI.
 - Add UIConfig.AdditionalCameraRendererIndices for explicitly configured non-default
   scene renderers. Default-only projects need no configuration changes.
-
-## 0.3.3 - 2026-10-15
 
 - Accept the first new mouse press or touch after focus returns, while canceling the interrupted UI interaction.
 - Ignore existing touches without a new Began and preserve UI block release waits; canceled drags do not produce a Drop.

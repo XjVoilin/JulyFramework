@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.0 - 2026-10-19
+
+- Observe general operation completion so package-level aborts settle predownload waits.
+- Return worker-thread cancellation cleanup to the main thread; reuse YooAsset's
+  idempotent start instead of maintaining another started flag.
+- Add tag-based background predownloads with explicit start, pause and resume.
+- Share active predownloads with normal tag downloads; caller cancellation only
+  ends that caller's wait, and required waits bypass background pauses.
+- Settle shared waits during shutdown even when native cancellation does not
+  invoke the download-finish callback.
+- Require July Resource 0.2.0 for the new resource interface.
+
 ## 0.2.3 - 2026-07-22
 
 - Treat collector group descriptions as project-owned, non-functional metadata.

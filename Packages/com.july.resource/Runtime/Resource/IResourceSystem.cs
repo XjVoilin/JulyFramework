@@ -46,6 +46,22 @@ namespace July.Resource
 
         #region Download
 
+        /// <summary>
+        /// 开始指定标签的后台预下载；复用运行中的任务，恢复已暂停的任务。
+        /// 空集合不执行操作。文件缓存由资源实现持有，不要求调用方保存任务。
+        /// </summary>
+        void StartPreDownloads(params string[] tags);
+
+        /// <summary>
+        /// 暂停当前预下载。排除标签只跳过本次暂停，不恢复其原有暂停状态。
+        /// 不阻止后续显式 Start，也不阻断已被普通下载接续的必需准备。
+        /// 在途文件是否继续由底层实现决定。
+        /// </summary>
+        void PausePreDownloads(params string[] exceptTags);
+
+        /// <summary>恢复全部现有预下载，不创建新任务。</summary>
+        void ResumePreDownloads();
+
         UniTask<bool> DownloadByTagAsync(string tag, CancellationToken ct = default);
 
         UniTask<bool> DownloadByTagWithRetryAsync(string tag, int maxRetries = 3,

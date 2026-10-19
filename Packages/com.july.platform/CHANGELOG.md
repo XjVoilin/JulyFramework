@@ -2,6 +2,13 @@
 
 ## 未发布
 
+## 0.4.4 - 2026-10-19
+
+- 补齐 Platform 测试程序集对 July.Events 的直接引用，恢复加速度计事件测试编译。
+- 推荐流订阅状态查询先检查 `CanIUse.CheckFeedSubscribeStatus`，当前环境不支持时跳过 SDK 调用并记录普通日志。
+
+## 0.4.3 - 2026-10-15
+
 - 新增 IAccelerometerService.Start/Stop，沿用普通方法与 July.Arch 事件模式；分别发布 AccelerometerStartResultEvent、AccelerometerStopResultEvent 和 AccelerometerSampleEvent。
 - 微信、抖音适配器注册真实加速度计实现；默认适配器发布不支持的失败结果，不生成模拟样本。
 - 由小游戏在主线程控制启停顺序：收到启动结果后再停止，收到停止结果后再重新启动。不引入 Task、采样会话协调器或前后台管理。

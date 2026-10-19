@@ -83,10 +83,9 @@ namespace July.UI
             {
                 return;
             }
-
-            if (request.result != UnityWebRequest.Result.Success)
+            catch (UnityWebRequestException)
             {
-                Debug.LogWarning($"[WebImage] Load failed ({url}): {request.error}");
+                Debug.LogWarning($"[WebImage] Load failed ({url}): result={request.result}, responseCode={request.responseCode}, error={request.error}");
                 return;
             }
 

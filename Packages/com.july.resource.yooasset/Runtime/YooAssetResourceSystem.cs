@@ -21,6 +21,7 @@ namespace July.Resource.YooAsset
         private readonly Dictionary<string, SceneHandle> _sceneHandles = new();
         private UniTask _initializationTask;
         private bool _initializationStarted;
+        private YooAssetPreDownloadController _preDownloads;
 
         public ResourcePackage Package { get; private set; }
         public bool IsInitialized => Package != null &&
@@ -84,6 +85,9 @@ namespace July.Resource.YooAsset
 
             if (_options.UpdateManifestAfterInitialization)
                 await UpdateManifestAsync();
+
+            _preDownloads = new YooAssetPreDownloadController(CreateDownloader,
+                error => Debug.LogWarning($"[YooAssetResourceSystem] {error}"));
         }
 
         private InitializeParameters CreateDefaultInitializeParameters()
@@ -243,14 +247,35 @@ namespace July.Resource.YooAsset
             return null;
         }
 
+        public void StartPreDownloads(params string[] tags) => PreDownloads.Start(tags);
+
+        public void PausePreDownloads(params string[] exceptTags) => PreDownloads.Pause(exceptTags);
+
+        public void ResumePreDownloads() => PreDownloads.Resume();
+
+        private YooAssetPreDownloadController PreDownloads => _preDownloads ??
+            throw new InvalidOperationException("YooAsset 资源系统尚未完成初始化。");
+
         public async UniTask<bool> DownloadByTagAsync(string tag,
             CancellationToken ct = default)
         {
             if (string.IsNullOrWhiteSpace(tag))
                 throw new ArgumentException("Tag 不能为空。", nameof(tag));
             EnsurePackage();
-            var downloader = Package.CreateResourceDownloader(tag,
+            ct.ThrowIfCancellationRequested();
+            if (_preDownloads != null && _preDownloads.TryGet(tag, out var entry))
+                return await entry.WaitForUseAsync(ct);
+
+            return await DownloadByTagCoreAsync(tag, ct);
+        }
+
+        private ResourceDownloaderOperation CreateDownloader(string tag) =>
+            Package.CreateResourceDownloader(tag,
                 _options.MaxConcurrentDownloads, _options.DownloadRetryCount);
+
+        private async UniTask<bool> DownloadByTagCoreAsync(string tag, CancellationToken ct)
+        {
+            var downloader = CreateDownloader(tag);
             if (downloader.TotalDownloadCount == 0) return true;
 
             downloader.BeginDownload();
@@ -332,6 +357,8 @@ namespace July.Resource.YooAsset
 
         protected override void OnShutdown()
         {
+            _preDownloads?.Shutdown();
+            _preDownloads = null;
             foreach (var handle in _sceneHandles.Values)
                 if (handle != null && handle.IsValid) handle.Release();
             _sceneHandles.Clear();

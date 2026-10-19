@@ -4,6 +4,7 @@
     "references": [
         "July.Platform",
         "July.Arch",
+        "July.Events",
         "UniTask"
     ],
     "includePlatforms": [

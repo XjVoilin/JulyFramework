@@ -169,6 +169,12 @@ namespace July.Resource
 
         #region Download
 
+        public void StartPreDownloads(params string[] tags) { }
+
+        public void PausePreDownloads(params string[] exceptTags) { }
+
+        public void ResumePreDownloads() { }
+
         public UniTask<bool> DownloadByTagAsync(string tag, CancellationToken ct = default)
         {
             // Resources 模式无需下载，直接返回成功

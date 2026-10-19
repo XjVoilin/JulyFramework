@@ -117,6 +117,10 @@ namespace July.UI.Tests
                 return instance != null ? instance.GetComponent<T>() : null;
             }
 
+            public void StartPreDownloads(params string[] tags) => throw new NotSupportedException();
+            public void PausePreDownloads(params string[] exceptTags) => throw new NotSupportedException();
+            public void ResumePreDownloads() => throw new NotSupportedException();
+
             public UniTask<bool> DownloadByTagAsync(string tag, CancellationToken ct = default) =>
                 throw new NotSupportedException();
 

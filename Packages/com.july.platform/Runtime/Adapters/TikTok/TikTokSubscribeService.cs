@@ -54,6 +54,12 @@ namespace July.Platform
         
         public void CheckFeedSubscribeStatus()
         {
+            if (!CanIUse.CheckFeedSubscribeStatus)
+            {
+                Debug.Log("[TikTokSubscribe] 当前环境不支持推荐流订阅状态查询，跳过查询");
+                return;
+            }
+
             var param = new JsonData
             {
                 ["type"] = "play",

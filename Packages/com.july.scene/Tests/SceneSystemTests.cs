@@ -53,6 +53,10 @@ namespace July.Scene.Tests
             public UniTask<T> InstantiateAsync<T>(string fileName, Transform parent = null,
                 CancellationToken ct = default) where T : Component => throw new NotSupportedException();
 
+            public void StartPreDownloads(params string[] tags) => throw new NotSupportedException();
+            public void PausePreDownloads(params string[] exceptTags) => throw new NotSupportedException();
+            public void ResumePreDownloads() => throw new NotSupportedException();
+
             public UniTask<bool> DownloadByTagAsync(string tag, CancellationToken ct = default) =>
                 throw new NotSupportedException();
 
