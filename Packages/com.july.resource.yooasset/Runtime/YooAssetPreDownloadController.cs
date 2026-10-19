@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using July.Logging;
 using YooAsset;
 
 namespace July.Resource.YooAsset
@@ -12,17 +13,14 @@ namespace July.Resource.YooAsset
     {
         private readonly Func<string, ResourceDownloaderOperation> _createDownloader;
         private readonly Action<string> _reportFailure;
-        private readonly Action<string> _writeLog;
         private readonly Dictionary<string, Entry> _entries = new(StringComparer.Ordinal);
         private bool _isShutdown;
 
         internal YooAssetPreDownloadController(
-            Func<string, ResourceDownloaderOperation> createDownloader, Action<string> reportFailure,
-            Action<string> writeLog)
+            Func<string, ResourceDownloaderOperation> createDownloader, Action<string> reportFailure)
         {
             _createDownloader = createDownloader;
             _reportFailure = reportFailure;
-            _writeLog = writeLog;
         }
 
         internal void Start(string[] tags)
@@ -125,7 +123,7 @@ namespace July.Resource.YooAsset
                 var progress = _downloader.TotalDownloadBytes == 0 ? 1d :
                     (double)_downloader.CurrentDownloadBytes / _downloader.TotalDownloadBytes;
                 var error = state == "Failed" ? $"; error={_downloader.Error}" : string.Empty;
-                _owner._writeLog($"[July.Resource.Download] [{Tag}] PreDownload {state}; progress={progress:P0}; " +
+                JLogger.Log($"[July.Resource.Download] [{Tag}] PreDownload {state}; progress={progress:P0}; " +
                     $"files={_downloader.CurrentDownloadCount}/{_downloader.TotalDownloadCount}; " +
                     $"bytes={_downloader.CurrentDownloadBytes}/{_downloader.TotalDownloadBytes}{error}");
             }

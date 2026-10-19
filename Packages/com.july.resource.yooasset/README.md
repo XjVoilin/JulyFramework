@@ -97,5 +97,5 @@ Use `WeChatYooAssetFileSystem.CreateInitializeParameters(...)` or
 
 Predownloads log `[July.Resource.Download] [tag] PreDownload` with Started,
 Progress, Ready (cached), Succeeded, Failed or Canceled. Progress is limited
-to one line per second; final states log immediately. All builds include these
-logs without an Editor panel. Ordinary downloads keep their existing behavior.
+to one line per second; final states log immediately. Logs use JLogger directly and follow
+its JULYGF_DEBUG switch, without an Editor panel or injected log callback. Ordinary downloads keep their existing behavior.

@@ -296,7 +296,7 @@ internal static class PreDownloadChecks
                 var native = package.CreateResourceDownloader(tag, 1, 0);
                 Native.Add(native);
                 return native;
-            }, Errors.Add, _ => { });
+            }, Errors.Add);
             Set(Resources, "<Package>k__BackingField", package);
             Set(Resources, "_preDownloads", Controller);
         }

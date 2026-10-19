@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.2 - 2026-10-19
+
+- Write predownload logs directly through JLogger and its JULYGF_DEBUG switch;
+  remove the extra log callback parameter.
+
 ## 0.3.1 - 2026-10-19
 
 - Log predownload start, throttled progress, cache readiness and final results

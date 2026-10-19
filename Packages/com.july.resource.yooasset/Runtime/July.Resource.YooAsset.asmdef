@@ -1,8 +1,9 @@
-﻿{
+{
     "name":  "July.Resource.YooAsset",
     "rootNamespace":  "July.Resource.YooAsset",
     "references":  [
                        "July.Resource",
+                       "July.Logging",
                        "July.Arch",
                        "UniTask",
                        "YooAsset"
