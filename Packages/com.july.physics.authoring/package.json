@@ -1,8 +1,8 @@
 {
   "name": "com.july.physics.authoring",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "displayName": "July Physics Authoring",
-  "description": "Editor-only automatic Box, Sphere and Capsule fitting from display meshes. No generated Mesh assets or native plugins.",
+  "description": "Unity 基础碰撞体制作工具。运行时仅包含无逻辑标记组件，拟合与 Inspector 仅在 Editor 执行。",
   "unity": "2022.3",
   "dependencies": {
     "com.unity.modules.physics": "1.0.0",

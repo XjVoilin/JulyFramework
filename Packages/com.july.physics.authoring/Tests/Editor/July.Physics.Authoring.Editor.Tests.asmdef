@@ -1,6 +1,6 @@
 {
   "name": "July.Physics.Authoring.Editor.Tests",
-  "references": ["July.Physics.Authoring.Editor"],
+  "references": ["July.Physics.Authoring.Editor", "July.Physics.Authoring"],
   "includePlatforms": ["Editor"],
   "optionalUnityReferences": ["TestAssemblies"],
   "autoReferenced": false

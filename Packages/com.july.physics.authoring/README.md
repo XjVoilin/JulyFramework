@@ -1,38 +1,36 @@
 # July Physics Authoring
 
-Editor-only Box, Sphere and Capsule fitting for Unity 2022.3. Version 0.3.0 accepts a selected output Transform instead of a Collider. Version 0.2.0 replaced the former convex Mesh output. The package has no native plugin and creates no Mesh objects or Mesh asset files. Prefabs use Unity primitive Colliders at runtime.
+Unity 2022.3 的基础碰撞体制作工具，从显示 Mesh 拟合少量 Box、Sphere、Capsule，不生成 Mesh 对象、碰撞网格资产或原生插件。
 
-## Use
+## 使用
 
-In Prefab mode, select the dedicated collision parent in the Hierarchy and choose **JulyGF → 根据 Mesh 生成碰撞体…** from its right-click menu (also under GameObject). The parent needs only a Transform, and may be empty. `ColliderAuthoringWindow.Open(outputTransform)` accepts any name; it never finds a group by a fixed name or a Collider component. Persistent prefab-group Transforms open the corresponding node in Prefab mode. Scene prefab instances must be edited in Prefab mode; ordinary scene objects can be edited directly.
+在专用于碰撞体的父节点挂载 `ColliderAuthoringTarget`，通过该组件的 Inspector 调整。组件没有字段或运行逻辑，所在 Transform 就是完整输出范围，不依赖节点名称或已有 Collider；空分组、改名和 inactive 分组均可制作。独立 `ColliderAuthoringWindow` 及旧菜单、Inspector 顶部扩展已移除。
 
-The panel scans display MeshFilters. Sources are collapsed by default; expand to replace/add/remove Mesh and coordinate-node pairs or rescan. The selected parent is the dedicated output group. Changing it in the panel also reloads sources and group defaults. Set **贴合误差** and **最大形状数**, then generate. Sources/submeshes are combined into one object-wide budget. Display meshes are read with Editor MeshData access; their Read/Write setting and geometry remain unchanged.
+Prefab 应在 Prefab 模式中编辑；资源组件或场景 Prefab 实例的 Inspector 提供进入 Prefab 模式的按钮，普通场景对象可以直接操作。来源默认扫描最近 Rigidbody 下的显示 Mesh，或者当前 Prefab/对象根；项目可通过上下文提供明确显示来源。展开“来源 Mesh”可更换模型扫描根并重新扫描。
 
-Generated `JulyShape_Box_000`, `JulyShape_Sphere_001`, or `JulyShape_Capsule_002` children are independent for normal Transform/Collider editing. The selected parent and shape children may be renamed without affecting targeting. Existing groups supply their shared Collider settings; groups containing different settings must be split or normalized before opening. Empty groups use the parent layer and default non-Trigger/enabled settings. The package does not infer click/physical purpose or depend on a child Collider to open. Sources default to the nearest owning Rigidbody, or the current Prefab root; project Editor code may provide an authoritative display reference.
+主要参数为“贴合误差”和“最大形状数”；高级设置包含材质和启用状态。生成会替换输出节点上的 Collider 和全部子节点，包括手调结果，保留父节点及 `ColliderAuthoringTarget`。输出范围不能包含 Renderer 或 Rigidbody；父节点及祖先须统一缩放、无剪切，显示来源可保留镜像或非均匀缩放。
 
-Generation replaces Colliders directly on the output node and all children. The node must be dedicated to shapes and must not contain Renderer or Rigidbody components. The output transform and ancestors require uniform scale without shear; source display transforms may be mirrored or nonuniform. Replacement and project callbacks form one Undo group; callback failure restores the previous result. No asset is saved implicitly. Save the prefab or scene after editing.
+生成、项目回调构成一个 Undo 操作，回调失败恢复原结果。Undo/Redo 保留本次手选的来源根并重新扫描，不恢复默认来源范围。组件 Inspector 共享进行中状态，避免切换选中、重建 Inspector 后重复生成，不增加任务队列或逐对象缓存。当前 Prefab 模式直接更新，无需关闭重开。Inspector 不强制保存，沿用 Unity 的 Prefab Auto Save 设置或手动保存。
 
-## Fitting and controls
+## 拟合参数
 
-Geometry is conservatively rasterized into voxels, with 32 cells along the longest dimension. Exterior flood fill estimates the occupied volume across all sources, preserving holes larger than this resolution. Candidate oriented Boxes, Spheres and Capsules enclose voxel samples. A bounded search retains four alternative split plans, based on principal axes and cross-section density changes. It chooses fewer shapes when the fit is adequate, and only accepts extra shapes when the complete plan measurably reduces estimated excess volume.
+- 最大形状数默认 6，范围 1–16，限制整个物品的总形状数，而非单 Mesh 数量。
+- 贴合误差默认 0.4，范围 0.05–1，表示体素估计的多余覆盖体积比例；越小越倾向细化，不代表屏幕像素或精确几何误差。
 
-- **最大形状数** defaults to 6, range 1–16, for the entire object.
-- **贴合误差** defaults to 0.4, range 0.05–1. It is the estimated excess covering volume relative to voxel occupied volume, not a screen-space or exact geometric error guarantee. Lower values can require more shapes. Conservative voxel enclosure and overlapping primitive volumes can overestimate this ratio.
+几何按最长轴 32 格保守体素化，结合外部填充、主轴和截面变化拟合，有限搜索保留四种候选拆分方案。达到数量预算仍不满足目标时，返回当前方案并明确提示复核、手调或增加预算。小孔、细枝、薄片、开放网格及接近体素尺寸的细节需人工检查。
 
-Generation returns the best plan found within the budget. `MeetsTolerance=false` means it still needs review/manual adjustment or a larger budget; it is not labeled as having met the target. Tiny holes, narrow branches, open meshes and features near the voxel size need manual inspection. This is a deterministic approximation, not a globally optimal decomposition or a guarantee of click accuracy.
+显示网格通过 Editor MeshData 读取，不改变 Read/Write、导入设置或原始几何。已有 Prefab 不会在导入时自动重建，旧碰撞 Mesh 资产也不会自动删除。
 
-## Calling from project tools
+## 项目接入
 
-`ColliderGeometry.Scan(root)` collects editable sources. `await ColliderGeneration.GenerateAsync(request)` fits and replaces one group and returns `Collider[]`, estimated excess coverage and whether the requested tolerance was reached. This same method is used for sequential batch operations. There are no mesh-output-path, hull-vertex, native-platform, sampling or seed settings.
+`ColliderAuthoringContext.Create(output, settings)` 读取分组共有设置并收集来源。原窗口中的上下文配置迁至 `ColliderAuthoringContext.Opening`，项目继续设置 `SourceRoot` 或请求属性，不再判断是否显示 Inspector。
 
-`ColliderAuthoringWindow.Open(Transform)` opens one explicit replacement group, including an empty one. `ColliderAuthoringWindow.ContextOpening` receives SourceRoot and Request (no Collider dependency), allowing project Editor code to choose display sources and Collider properties. `ColliderGeneration.Applied` runs inside the Undo transaction so project code can configure its components and references through Undo/SerializedObject. The package does not depend on game types or runtime lifecycle/event services.
+`ColliderGeneration.GenerateAsync(request)` 执行同一套拟合、替换和撤销流程，也可供项目批量工具直接调用；等待期间调用方不得修改请求。`ColliderGeneration.Applied` 在撤销事务内运行，项目通过 Undo/SerializedObject 配置组件和绑定，异常将恢复原结果。
 
-The panel edits one serializable `ColliderGenerationRequest` directly. Callers must leave the request unchanged until `GenerateAsync` completes. Mesh inputs are validated when read; the editable output is checked again after background fitting because the user may close Prefab mode or change the scene during that time. Resource folder creation belongs to the consuming prefab tool.
+本机最近使用参数由 `ColliderAuthoringContext.LastSettings()` 读取，不保存逐 Prefab 的参数或来源配置。项目按自身资源结构选择需要制作的碰撞体分组并挂载标记。
 
-Only the local Editor panel's most recent parameters are remembered, using a new preference key independent of version 0.1. No per-prefab authoring component or parameter asset is created.
+## 程序集与验证
 
-## Existing content and tests
+`July.Physics.Authoring` 普通程序集只包含空的 `ColliderAuthoringTarget`，可随 Prefab 在运行时保留。`July.Physics.Authoring.Editor` 包含 Inspector、上下文和拟合算法，仅在 Editor 编译。标记组件不会把算法和界面带入 Player；本版不增加构建剥离流程。
 
-Existing prefabs are not rewritten on import. Explicit regeneration converts the selected group to primitive shapes and replaces hand edits. Previous collision Mesh files are neither modified nor automatically deleted, because other assets or Undo may still reference them. Clean up confirmed unused assets separately.
-
-With Unity Test Framework installed, add `com.july.physics.authoring` to `testables` and run EditMode tests. Tests cover automatic Box/Sphere/Capsule choice, separated meshes with one shared budget, ring-hole picking, unreadable meshes and mirrored transforms, no new Mesh objects/assets, Undo/Redo, callback rollback, invalid output scale protection, empty/renamed/inactive group entry, sibling scope preservation, and mixed group rejection. Game-specific integration tests belong to the consuming project.
+安装 Unity Test Framework 并在 manifest 的 `testables` 中加入 `com.july.physics.authoring`，运行 `July.Physics.Authoring.Tests` 的 EditMode 测试。包内覆盖基础形状选择、整物品预算、环孔、不可读网格、坐标转换、Undo/Redo、回调回滚、混合设置、空组及标记保留；项目专属绑定和 Prefab 流程由项目集成检查覆盖。

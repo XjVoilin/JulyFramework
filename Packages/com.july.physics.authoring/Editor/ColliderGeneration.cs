@@ -36,6 +36,36 @@ namespace July.Physics.Authoring
         /// <summary>Editor integration, within the replacement Undo group. A failure restores the old group.</summary>
         public static event Action<ColliderGenerationResult> Applied;
 
+        /// <summary>从明确的输出分组读取共有设置，创建生成请求。</summary>
+        public static ColliderGenerationRequest CreateRequest(Transform outputRoot, ColliderGenerationSettings settings)
+        {
+            ValidateOutput(outputRoot);
+            var request = new ColliderGenerationRequest
+            {
+                OutputRoot = outputRoot, Settings = settings, Layer = outputRoot.gameObject.layer
+            };
+            var shapes = outputRoot.GetComponentsInChildren<Collider>(true);
+            if (shapes.Length == 0) return request;
+            var sample = shapes[0];
+            foreach (var shape in shapes)
+            {
+                var difference = shape.gameObject.layer != sample.gameObject.layer ? "Layer 图层" :
+                    shape.isTrigger != sample.isTrigger ? "Is Trigger" :
+                    shape.enabled != sample.enabled ? "Enabled 启用状态" :
+                    shape.sharedMaterial != sample.sharedMaterial ? "物理材质" :
+                    shape.contactOffset != sample.contactOffset ? "Contact Offset 接触偏移" : null;
+                if (difference != null)
+                    throw new ArgumentException($"分组“{outputRoot.name}”内“{AnimationUtility.CalculateTransformPath(sample.transform, outputRoot)}”" +
+                        $"与“{AnimationUtility.CalculateTransformPath(shape.transform, outputRoot)}”的 {difference} 不一致，请先统一该设置。原碰撞体未修改。");
+            }
+            request.Layer = sample.gameObject.layer;
+            request.IsTrigger = sample.isTrigger;
+            request.Enabled = sample.enabled;
+            request.Material = sample.sharedMaterial;
+            request.ContactOffset = sample.contactOffset;
+            return request;
+        }
+
         public static async Task<ColliderGenerationResult> GenerateAsync(ColliderGenerationRequest request)
         {
             Validate(request);

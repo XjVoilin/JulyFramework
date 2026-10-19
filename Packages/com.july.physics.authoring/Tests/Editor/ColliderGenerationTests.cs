@@ -153,15 +153,15 @@ namespace July.Physics.Authoring.Tests
             sibling.transform.SetParent(_root.transform, false);
             var untouched = sibling.AddComponent<SphereCollider>();
             untouched.radius = 2.7f;
+            var marker = _output.gameObject.AddComponent<ColliderAuthoringTarget>();
+            var editor = UnityEditor.Editor.CreateEditor(marker);
+            Assert.That(editor.GetType().Name, Is.EqualTo("ColliderAuthoringInspector"));
+            Object.DestroyImmediate(editor);
             ColliderAuthoringContext context = null;
             Action<ColliderAuthoringContext> capture = value => context = value;
-            ColliderAuthoringWindow.ContextOpening += capture;
-            try { ColliderAuthoringWindow.Open(_output); }
-            finally
-            {
-                ColliderAuthoringWindow.ContextOpening -= capture;
-                EditorWindow.GetWindow<ColliderAuthoringWindow>().Close();
-            }
+            ColliderAuthoringContext.Opening += capture;
+            try { ColliderAuthoringContext.Create(_output, new ColliderGenerationSettings()); }
+            finally { ColliderAuthoringContext.Opening -= capture; }
             Assert.That(context.Request.OutputRoot, Is.SameAs(_output));
             Assert.That(context.Request.Layer, Is.EqualTo(17));
             Assert.That(context.Request.Sources.Count, Is.EqualTo(1));
@@ -170,11 +170,21 @@ namespace July.Physics.Authoring.Tests
             yield return Fit(result => {
                 Assert.That(result.Colliders.All(shape => shape.gameObject.layer == 17));
                 Assert.That(untouched.radius, Is.EqualTo(2.7f));
+                Assert.That(_output.GetComponent<ColliderAuthoringTarget>(), Is.SameAs(marker));
             });
             _output.name = "RenamedAgain";
-            try { ColliderAuthoringWindow.Open(_output); }
-            finally { EditorWindow.GetWindow<ColliderAuthoringWindow>().Close(); }
+            _request = ColliderAuthoringContext.Create(_output, new ColliderGenerationSettings()).Request;
             yield return Fit(_ => Assert.That(untouched.radius, Is.EqualTo(2.7f)));
+        }
+
+        [Test] public void MixedGroupIdentifiesTheConflictingNodesAndSetting()
+        {
+            var child = new GameObject("DisabledShape");
+            child.transform.SetParent(_output, false);
+            child.AddComponent<BoxCollider>().enabled = false;
+            var error = Assert.Throws<ArgumentException>(() => ColliderGeneration.CreateRequest(_output, new ColliderGenerationSettings()));
+            Assert.That(error.Message, Does.Contain("DisabledShape").And.Contain("Enabled").And.Contain("Shapes"));
+            Assert.That(_output.GetComponentsInChildren<Collider>(true).Length, Is.EqualTo(2));
         }
 
         [Test] public void MixedPurposeGroupIsRejectedWithoutChangingItsShapes()
@@ -183,12 +193,8 @@ namespace July.Physics.Authoring.Tests
             child.transform.SetParent(_output, false);
             child.layer = 5;
             child.AddComponent<SphereCollider>();
-            try
-            {
-                Assert.Throws<ArgumentException>(() => ColliderAuthoringWindow.Open(_output));
-                Assert.That(_output.GetComponentsInChildren<Collider>(true).Length, Is.EqualTo(2));
-            }
-            finally { EditorWindow.GetWindow<ColliderAuthoringWindow>().Close(); }
+            Assert.Throws<ArgumentException>(() => ColliderAuthoringContext.Create(_output, new ColliderGenerationSettings()));
+            Assert.That(_output.GetComponentsInChildren<Collider>(true).Length, Is.EqualTo(2));
         }
     }
 }
