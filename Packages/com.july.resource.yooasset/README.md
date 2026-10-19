@@ -94,3 +94,8 @@ that cannot embed both SDK definitions should leave the mini-game adapter disabl
 Use `WeChatYooAssetFileSystem.CreateInitializeParameters(...)` or
 `TikTokYooAssetFileSystem.CreateInitializeParameters(...)` as the
 `YooAssetOptions.CreateInitializeParameters` factory.
+
+Predownloads log `[July.Resource.Download] [tag] PreDownload` with Started,
+Progress, Ready (cached), Succeeded, Failed or Canceled. Progress is limited
+to one line per second; final states log immediately. All builds include these
+logs without an Editor panel. Ordinary downloads keep their existing behavior.

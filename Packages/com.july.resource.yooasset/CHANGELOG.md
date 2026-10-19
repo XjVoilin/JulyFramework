@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.1 - 2026-10-19
+
+- Log predownload start, throttled progress, cache readiness and final results
+  in all builds without an Editor panel or separate diagnostics object.
+
 ## 0.3.0 - 2026-10-19
 
 - Observe general operation completion so package-level aborts settle predownload waits.

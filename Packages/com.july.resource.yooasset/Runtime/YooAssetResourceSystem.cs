@@ -87,7 +87,7 @@ namespace July.Resource.YooAsset
                 await UpdateManifestAsync();
 
             _preDownloads = new YooAssetPreDownloadController(CreateDownloader,
-                error => Debug.LogWarning($"[YooAssetResourceSystem] {error}"));
+                error => Debug.LogWarning($"[YooAssetResourceSystem] {error}"), message => Debug.Log(message));
         }
 
         private InitializeParameters CreateDefaultInitializeParameters()

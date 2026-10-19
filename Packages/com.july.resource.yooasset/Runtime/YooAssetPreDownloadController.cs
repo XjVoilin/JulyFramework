@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using YooAsset;
@@ -11,14 +12,17 @@ namespace July.Resource.YooAsset
     {
         private readonly Func<string, ResourceDownloaderOperation> _createDownloader;
         private readonly Action<string> _reportFailure;
+        private readonly Action<string> _writeLog;
         private readonly Dictionary<string, Entry> _entries = new(StringComparer.Ordinal);
         private bool _isShutdown;
 
         internal YooAssetPreDownloadController(
-            Func<string, ResourceDownloaderOperation> createDownloader, Action<string> reportFailure)
+            Func<string, ResourceDownloaderOperation> createDownloader, Action<string> reportFailure,
+            Action<string> writeLog)
         {
             _createDownloader = createDownloader;
             _reportFailure = reportFailure;
+            _writeLog = writeLog;
         }
 
         internal void Start(string[] tags)
@@ -93,6 +97,7 @@ namespace July.Resource.YooAsset
             private bool _backgroundPaused;
             private bool _completed;
             private int _requiredWaiters;
+            private long _nextProgressLog;
 
             internal string Tag { get; }
 
@@ -103,6 +108,26 @@ namespace July.Resource.YooAsset
                 _downloader = downloader;
                 _owner = owner;
                 _downloader.Completed += OnCompleted;
+                _downloader.DownloadUpdateCallback += OnProgress;
+                _nextProgressLog = Stopwatch.GetTimestamp() + Stopwatch.Frequency;
+                Log("Started");
+            }
+
+            private void OnProgress(DownloadUpdateData data)
+            {
+                if (Stopwatch.GetTimestamp() < _nextProgressLog) return;
+                _nextProgressLog = Stopwatch.GetTimestamp() + Stopwatch.Frequency;
+                Log("Progress");
+            }
+
+            private void Log(string state)
+            {
+                var progress = _downloader.TotalDownloadBytes == 0 ? 1d :
+                    (double)_downloader.CurrentDownloadBytes / _downloader.TotalDownloadBytes;
+                var error = state == "Failed" ? $"; error={_downloader.Error}" : string.Empty;
+                _owner._writeLog($"[July.Resource.Download] [{Tag}] PreDownload {state}; progress={progress:P0}; " +
+                    $"files={_downloader.CurrentDownloadCount}/{_downloader.TotalDownloadCount}; " +
+                    $"bytes={_downloader.CurrentDownloadBytes}/{_downloader.TotalDownloadBytes}{error}");
             }
 
             internal void SetBackgroundPaused(bool paused)
@@ -157,6 +182,8 @@ namespace July.Resource.YooAsset
                 if (_completed) return;
                 _completed = true;
                 _downloader.Completed -= OnCompleted;
+                _downloader.DownloadUpdateCallback -= OnProgress;
+                Log(succeeded ? _downloader.TotalDownloadCount == 0 ? "Ready" : "Succeeded" : "Failed");
                 // 先移表，再交付结果；失败后的同步重试不会接回旧条目。
                 _owner.Complete(this, succeeded, _downloader.Error);
                 _completion.TrySetResult(succeeded);
@@ -168,6 +195,8 @@ namespace July.Resource.YooAsset
                 _completed = true;
                 _downloader.Completed -= OnCompleted;
                 _downloader.CancelDownload();
+                _downloader.DownloadUpdateCallback -= OnProgress;
+                Log("Canceled");
                 // 关闭后不保证还有下一次PlayerLoop，主动结束全部共享等待。
                 _completion.TrySetCanceled();
             }
