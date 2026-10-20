@@ -17,7 +17,7 @@ namespace July.Platform
         {
             WX.StartAccelerometer(new StartAccelerometerOption
             {
-                interval = "game",
+                interval = "ui",
                 success = _ => completed(true, null),
                 fail = result => completed(false, result.errMsg),
             });
