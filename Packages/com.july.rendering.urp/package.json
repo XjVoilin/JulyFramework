@@ -1,6 +1,6 @@
 {
   "name": "com.july.rendering.urp",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "displayName": "July Rendering URP",
   "description": "Camera-local static-mesh highlighting with dual-channel masks and smooth local composition for orthographic URP cameras.",
   "unity": "2022.3",

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.1 - 2026-10-20
+
+- Match the silhouette vertex projection to ordinary URP surfaces (world xyz, then constant-w projection).
+- Bias only the visible mask by one depth unit, without slope bias, to tolerate same-surface rounding differences between independently compiled passes. Do not write scene depth or change the complete silhouette/composite.
+- Add a rendered depth regression: a one-unit difference must remain visible, while a 64-unit depth separation must still be occluded. iPhone red/green diagnostics confirmed self-occlusion in 0.2.0; this patch still requires device retesting.
+
+
 ## 0.2.0 - 2026-10-20
 
 - Replace shared-stencil directional geometry with complete/visible RG8 masks and one local composite; preserve component/Shader GUIDs and material parameter names.

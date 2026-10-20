@@ -27,7 +27,9 @@ Shader "July/URP/Mesh Highlight"
         Varyings MaskVert(Attributes input)
         {
             Varyings output;
-            output.positionCS = TransformObjectToHClip(input.positionOS);
+            // Match ordinary URP surface vertex programs: world xyz, then constant-w projection.
+            float3 positionWS = TransformObjectToWorld(input.positionOS);
+            output.positionCS = TransformWorldToHClip(positionWS);
             return output;
         }
         half4 MaskFrag(Varyings input) : SV_Target { return 1; }
@@ -45,6 +47,9 @@ Shader "July/URP/Mesh Highlight"
         {
             Name "VisibleSilhouette"
             Cull Back ZTest LEqual ZWrite Off ColorMask G
+            // Favor the same surface across independently compiled depth calculations.
+            // Units only: no slope bias that could grow on grazing-angle surfaces.
+            Offset 0, -1
             HLSLPROGRAM
             #pragma vertex MaskVert
             #pragma fragment MaskFrag
