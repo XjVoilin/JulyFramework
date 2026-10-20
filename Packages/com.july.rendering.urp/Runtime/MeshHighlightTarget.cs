@@ -4,90 +4,72 @@ using UnityEngine.Rendering;
 
 namespace July.Rendering.URP
 {
-    /// <summary>A preconfigured static-mesh object, sharing its normal geometry and highlight material.</summary>
     [DisallowMultipleComponent]
     public sealed class MeshHighlightTarget : MonoBehaviour
     {
-        private readonly struct Surface
-        {
-            internal readonly MeshRenderer Renderer;
-            internal readonly Mesh Mesh;
-            internal readonly int SubMeshCount;
-
-            internal Surface(MeshRenderer renderer)
-            {
-                Renderer = renderer;
-                Mesh = renderer.GetComponent<MeshFilter>().sharedMesh;
-                SubMeshCount = Mesh.subMeshCount;
-            }
-        }
-
-        [SerializeField] private MeshRenderer[] _renderers;
-        [SerializeField] private Material _material;
-        private Surface[] _surfaces;
-        private MaterialPropertyBlock _properties;
-        private bool _highlighted;
-        private readonly Matrix4x4[] _directionMatrices = new Matrix4x4[4];
-        private readonly Vector4[] _directions = new Vector4[4];
-        private static readonly int DirectionId = Shader.PropertyToID("_HighlightDirection");
+        [SerializeField] MeshRenderer[] _renderers;
+        [SerializeField] Material _material;
+        Mesh[] _meshes;
+        bool _highlighted;
 
         public bool IsHighlighted => _highlighted && isActiveAndEnabled;
+        internal Material Material => _material;
 
-        private void Awake()
+        void Awake()
         {
-            // Serialized package inputs form the configuration boundary. Invalid assets must not silently skip draws.
-            if (_material == null || _material.shader.name != "July/URP/Mesh Highlight" || !_material.enableInstancing)
-                throw new InvalidOperationException($"{name}: assign a July/URP/Mesh Highlight material with GPU Instancing enabled.");
+            if (_material == null || _material.shader.name != "July/URP/Mesh Highlight")
+                throw new InvalidOperationException(name + ": configure the mask highlight material.");
             if (_renderers == null || _renderers.Length == 0)
-                throw new InvalidOperationException($"{name}: configure at least one static MeshRenderer for highlighting.");
-            _surfaces = new Surface[_renderers.Length];
-            for (var i = 0; i < _renderers.Length; i++) _surfaces[i] = new Surface(_renderers[i]);
-            _properties = new MaterialPropertyBlock();
+                throw new InvalidOperationException(name + ": configure the static MeshRenderers.");
+            _meshes = new Mesh[_renderers.Length];
+            for (int i = 0; i < _renderers.Length; i++)
+                _meshes[i] = _renderers[i].GetComponent<MeshFilter>().sharedMesh;
         }
 
-        public void SetHighlighted(bool highlighted) => _highlighted = highlighted;
+        public void SetHighlighted(bool value) => _highlighted = value;
+        void OnDisable() => _highlighted = false;
 
-        private void OnDisable() => _highlighted = false;
-
-        internal void RecordHighlight(CommandBuffer commands, float aspect)
+        internal bool GetScreenRect(Camera camera, int width, int height, out Rect rect)
         {
-            // All surfaces share one stencil silhouette: finish each stage before advancing to the next.
-            DrawDirections(commands, 0, aspect);
-            DrawSubMeshes(commands, 1);
-            DrawSubMeshes(commands, 2);
-            DrawDirections(commands, 3, aspect);
-            DrawDirections(commands, 4, aspect);
-            DrawSubMeshes(commands, 5);
-            DrawSubMeshes(commands, 6);
-            DrawSubMeshes(commands, 7);
-        }
-
-        private void DrawDirections(CommandBuffer commands, int pass, float aspect)
-        {
-            const float diagonal = 0.70711f;
-            for (var i = 0; i < 4; i++)
-                _directions[i] = new Vector4(i == 0 || i == 3 ? -diagonal : diagonal,
-                    (i < 2 ? diagonal : -diagonal) * aspect, 0f, 0f);
-            _properties.SetVectorArray(DirectionId, _directions);
-            foreach (var surface in _surfaces)
+            // Orthographic projection is affine. Project each renderer's AABB directly,
+            // so an off-screen/disconnected node cannot inflate the group's scissor.
+            var view = camera.worldToCameraMatrix;
+            var projection = camera.projectionMatrix * view;
+            float margin = (_material.GetFloat("_OutlineWidth") + _material.GetFloat("_GlowWidth") * 1.25f) *
+                (height / camera.orthographicSize + width) * .01f + 2;
+            Vector2 min = new Vector2(width, height), max = Vector2.zero;
+            bool found = false;
+            foreach (var renderer in _renderers)
             {
-                if (!surface.Renderer.enabled || !surface.Renderer.gameObject.activeInHierarchy) continue;
-                var matrix = surface.Renderer.transform.localToWorldMatrix;
-                for (var i = 0; i < 4; i++) _directionMatrices[i] = matrix;
-                for (var subMesh = 0; subMesh < surface.SubMeshCount; subMesh++)
-                    commands.DrawMeshInstanced(surface.Mesh, subMesh, _material, pass,
-                        _directionMatrices, 4, _properties);
+                if (!renderer.enabled || !renderer.gameObject.activeInHierarchy) continue;
+                var bounds = renderer.bounds;
+                var center = projection.MultiplyPoint3x4(bounds.center);
+                var extent = bounds.extents;
+                float depth = -view.MultiplyPoint3x4(bounds.center).z;
+                float depthExtent = Mathf.Abs(view.m20) * extent.x + Mathf.Abs(view.m21) * extent.y + Mathf.Abs(view.m22) * extent.z;
+                if (depth + depthExtent < camera.nearClipPlane || depth - depthExtent > camera.farClipPlane) continue;
+                float xExtent = Mathf.Abs(projection.m00) * extent.x + Mathf.Abs(projection.m01) * extent.y + Mathf.Abs(projection.m02) * extent.z;
+                float yExtent = Mathf.Abs(projection.m10) * extent.x + Mathf.Abs(projection.m11) * extent.y + Mathf.Abs(projection.m12) * extent.z;
+                var lower = new Vector2((center.x - xExtent + 1) * .5f * width - margin,
+                    (center.y - yExtent + 1) * .5f * height - margin);
+                var upper = new Vector2((center.x + xExtent + 1) * .5f * width + margin,
+                    (center.y + yExtent + 1) * .5f * height + margin);
+                if (upper.x <= 0 || upper.y <= 0 || lower.x >= width || lower.y >= height) continue;
+                min = Vector2.Min(min, lower); max = Vector2.Max(max, upper); found = true;
             }
+            rect = found ? Rect.MinMaxRect(Mathf.Max(0, Mathf.Floor(min.x)), Mathf.Max(0, Mathf.Floor(min.y)),
+                Mathf.Min(width, Mathf.Ceil(max.x)), Mathf.Min(height, Mathf.Ceil(max.y))) : default;
+            return found && rect.width > 0 && rect.height > 0;
         }
 
-        private void DrawSubMeshes(CommandBuffer commands, int pass)
+        internal void RecordMask(CommandBuffer commands, int pass)
         {
-            foreach (var surface in _surfaces)
+            for (int i = 0; i < _renderers.Length; i++)
             {
-                if (!surface.Renderer.enabled || !surface.Renderer.gameObject.activeInHierarchy) continue;
-                for (var subMesh = 0; subMesh < surface.SubMeshCount; subMesh++)
-                    commands.DrawMesh(surface.Mesh, surface.Renderer.transform.localToWorldMatrix,
-                        _material, subMesh, pass, _properties);
+                var renderer = _renderers[i];
+                if (!renderer.enabled || !renderer.gameObject.activeInHierarchy) continue;
+                for (int subMesh = 0; subMesh < _meshes[i].subMeshCount; subMesh++)
+                    commands.DrawMesh(_meshes[i], renderer.localToWorldMatrix, _material, subMesh, pass);
             }
         }
     }

@@ -46,7 +46,7 @@ Paste a complete URL into Unity Package Manager through **Add package from git U
 | `com.july.platform` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.platform#com.july.platform@0.3.1` |
 | `com.july.pooling` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.pooling#com.july.pooling@0.1.1` |
 | `com.july.reddot` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.reddot#com.july.reddot@0.1.1` |
-| `com.july.rendering.urp` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.rendering.urp#com.july.rendering.urp@0.1.0` |
+| `com.july.rendering.urp` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.rendering.urp#com.july.rendering.urp@0.2.0` |
 | `com.july.resource` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.resource#com.july.resource@0.1.0` |
 | `com.july.resource.yooasset` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.resource.yooasset#com.july.resource.yooasset@0.2.3` |
 | `com.july.scene` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.scene#com.july.scene@0.1.0` |
