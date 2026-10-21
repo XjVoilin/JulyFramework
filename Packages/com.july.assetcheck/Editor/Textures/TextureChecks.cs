@@ -96,7 +96,7 @@ namespace July.AssetCheck
 
         public void Check(TextureCheckContext context)
         {
-            if (context.IsAtlas) return;
+            if (context.IsAtlas || context.Standards.requireUncompressedAtlasSources && context.IsAtlasSource) return;
             var importer = context.Importer;
             var standards = context.Standards;
             var targets = new List<string>();
@@ -174,9 +174,23 @@ namespace July.AssetCheck
         private readonly IAssetCheckRule<TextureCheckContext>[] _rules = AssetCheckRules<TextureCheckContext>.Create();
         public AssetCheckKind Kind => AssetCheckKind.Texture;
         public string RulesFingerprint => AssetCheckRules<TextureCheckContext>.Fingerprint;
+        private AtlasSourceTextures _atlasSources;
 
-        public string[] Collect(string scope) => AssetDatabase.FindAssets("t:Texture2D", new[] { scope })
-            .Concat(AssetDatabase.FindAssets("t:SpriteAtlas", new[] { scope })).Distinct().ToArray();
+        public string[] Collect(string scope)
+        {
+            _atlasSources = null;
+            return AssetDatabase.FindAssets("t:Texture2D", new[] { scope })
+                .Concat(AssetDatabase.FindAssets("t:SpriteAtlas", new[] { scope })).Distinct().ToArray();
+        }
+
+        private bool IsAtlasSource(TextureImporter importer, TextureStandards standards)
+        {
+            if (!standards.requireUncompressedAtlasSources || importer == null || importer.textureType != TextureImporterType.Sprite)
+                return false;
+            if (_atlasSources == null || _atlasSources.Revision != AssetCheckAssetChanges.Revision)
+                _atlasSources = new AtlasSourceTextures();
+            return _atlasSources.Contains(importer.assetPath);
+        }
 
         public List<AssetCheckIssue> Check(string assetPath, PlatformStandards standards)
         {
@@ -190,7 +204,7 @@ namespace July.AssetCheck
                 return issues;
             }
             AssetCheckRules<TextureCheckContext>.Check(_rules,
-                new TextureCheckContext(assetPath, importer, atlas, standards.texture, issues));
+                new TextureCheckContext(assetPath, importer, atlas, standards.texture, issues, IsAtlasSource(importer, standards.texture)));
             return issues;
         }
 
@@ -206,7 +220,7 @@ namespace July.AssetCheck
                 return;
             }
             var importer = (TextureImporter)AssetImporter.GetAtPath(assetPath);
-            var textureContext = new TextureCheckContext(assetPath, importer, null, standards.texture, new List<AssetCheckIssue>());
+            var textureContext = new TextureCheckContext(assetPath, importer, null, standards.texture, new List<AssetCheckIssue>(), IsAtlasSource(importer, standards.texture));
             foreach (var issue in issues) AssetCheckRules<TextureCheckContext>.Fix(textureContext, issue);
             importer.SaveAndReimport();
         }

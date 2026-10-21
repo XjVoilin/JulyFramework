@@ -38,6 +38,7 @@ namespace July.AssetCheck
 
         public int maxTextureSize = 1024;
         public bool allowReadWrite;
+        public bool requireUncompressedAtlasSources = true;
         public TextureImporterFormat atlasCompressionFormat = TextureImporterFormat.ASTC_6x6;
         public int maxAtlasSize = 2048;
         public bool allowAtlasReadWrite;
@@ -127,7 +128,7 @@ namespace July.AssetCheck
 
         public static AssetCheckSettings CreateDefault() => new AssetCheckSettings
         {
-            version = 3,
+            version = 4,
             platform = AssetCheckPlatform.MiniGame,
             scope = "Assets",
             standards = new List<PlatformStandards> { new() },
@@ -166,7 +167,16 @@ namespace July.AssetCheck
                 entry.texture.allowedAtlasFormats = LegacyFormats(entry.texture.atlasCompressionFormat);
             }
 
-            version = 3;
+            return UpgradeVersionThree();
+        }
+
+        internal AssetCheckSettings UpgradeVersionThree()
+        {
+            if (standards == null || standards.Any(entry => entry == null || entry.texture == null))
+                throw new InvalidDataException("旧版配置缺少贴图标准。");
+            foreach (var entry in standards)
+                entry.texture.requireUncompressedAtlasSources = true;
+            version = 4;
             Validate();
             return this;
         }
@@ -179,7 +189,7 @@ namespace July.AssetCheck
         // 仅在配置读写边界调用；内部调用方依赖已经建立的校验契约。
         public void Validate()
         {
-            if (version != 3)
+            if (version != 4)
                 throw new InvalidDataException("不支持的资源检查配置版本，请检查 version 字段。");
             if (!Enum.IsDefined(typeof(AssetCheckPlatform), platform))
                 throw new InvalidDataException("资源检查配置包含不支持的平台。");

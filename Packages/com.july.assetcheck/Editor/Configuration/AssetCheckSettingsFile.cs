@@ -60,6 +60,11 @@ namespace July.AssetCheck
                 settings = settings.UpgradeVersionTwo();
                 needsSave = true;
             }
+            else if (settings.version == 3)
+            {
+                settings = settings.UpgradeVersionThree();
+                needsSave = true;
+            }
             else
                 settings.Validate();
             return settings;

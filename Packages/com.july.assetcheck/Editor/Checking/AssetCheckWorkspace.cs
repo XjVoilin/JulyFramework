@@ -413,6 +413,14 @@ namespace July.AssetCheck
             foreach (var report in _reports.Values)
             {
                 var registration = _modules.Single(entry => entry.Kind == report.Kind);
+                // 源图可能由扫描目录外的图集收录；新增、移除或编辑图集会改变格式规则。
+                if (report.Kind == AssetCheckKind.Texture && Settings.CurrentStandards.texture.requireUncompressedAtlasSources &&
+                    paths.Any(path => path.EndsWith(".spriteatlas", StringComparison.OrdinalIgnoreCase) ||
+                                      path.EndsWith(".spriteatlasv2", StringComparison.OrdinalIgnoreCase)))
+                {
+                    MarkStale(report);
+                    continue;
+                }
                 foreach (var path in paths)
                 {
                     var inScope = !registration.ProjectWide && (path == Settings.scope || path.StartsWith(Settings.scope + "/", StringComparison.Ordinal));

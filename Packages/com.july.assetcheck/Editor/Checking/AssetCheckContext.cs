@@ -80,10 +80,11 @@ namespace July.AssetCheck
         public TextureImporter Importer { get; }
         public SpriteAtlas Atlas { get; }
         public bool IsAtlas => Atlas != null;
+        public bool IsAtlasSource { get; }
         public TextureStandards Standards { get; }
         internal TextureCheckContext(string path, TextureImporter importer, SpriteAtlas atlas, TextureStandards standards,
-            List<AssetCheckIssue> issues) : base(path, AssetCheckKind.Texture, issues)
-        { Importer = importer; Atlas = atlas; Standards = standards; }
+            List<AssetCheckIssue> issues, bool isAtlasSource = false) : base(path, AssetCheckKind.Texture, issues)
+        { Importer = importer; Atlas = atlas; Standards = standards; IsAtlasSource = isAtlasSource; }
     }
 
     public sealed class ModelCheckContext : AssetCheckContext

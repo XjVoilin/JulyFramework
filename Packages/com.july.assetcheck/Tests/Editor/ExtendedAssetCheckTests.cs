@@ -52,13 +52,13 @@ namespace July.AssetCheck.Tests
             legacy.ignoredAssets.Add(new IgnoredAsset { guid = new string('b', 32), kind = AssetCheckKind.Model });
             File.WriteAllText(Path.Combine(_config, AssetCheckSettingsFile.FileName), JsonUtility.ToJson(legacy));
             var result = new AssetCheckSettingsFile(_config).LoadOrCreate();
-            Assert.That(result.version, Is.EqualTo(3));
+            Assert.That(result.version, Is.EqualTo(4));
             Assert.That(result.CurrentStandards.texture.compressionFormat, Is.EqualTo(TextureImporterFormat.ASTC_8x8));
             Assert.That(result.CurrentStandards.texture.maxTextureSize, Is.EqualTo(1024));
             Assert.That(result.CurrentStandards.model.maxTrianglesPerMesh, Is.EqualTo(777));
             Assert.That(result.CurrentStandards.model.allowLights, Is.True);
             Assert.That(result.ignoredAssets.Single().guid, Is.EqualTo(new string('b', 32)));
-            Assert.That(new AssetCheckSettingsFile(_config).LoadOrCreate().version, Is.EqualTo(3));
+            Assert.That(new AssetCheckSettingsFile(_config).LoadOrCreate().version, Is.EqualTo(4));
         }
 
         [Test]

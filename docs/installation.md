@@ -63,10 +63,10 @@ Package tests are not part of a production installation. The seed template's val
 
 ## 资源检查工具
 
-`com.july.assetcheck` 0.6.1 仅在编辑器运行，没有运行时代码或 July 包依赖。它依赖 Unity 内置的 Audio 和 JSON 模块；URP 为可选项，不产生 URP 程序集依赖。通过 Package Manager 的 **Add package from git URL** 安装：
+`com.july.assetcheck` 0.7.0 仅在编辑器运行，没有运行时代码或 July 包依赖。它依赖 Unity 内置的 Audio 和 JSON 模块；URP 为可选项，不产生 URP 程序集依赖。通过 Package Manager 的 **Add package from git URL** 安装：
 
 ```text
-https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.assetcheck#com.july.assetcheck@0.6.1
+https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.assetcheck#com.july.assetcheck@0.7.0
 ```
 
 它取代原 Diagnostics 中的小游戏纹理检查窗口。Diagnostics 0.1.3 已移除旧编辑器入口；使用下列独立版本标签更新现有安装，避免重复菜单：

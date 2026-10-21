@@ -41,7 +41,7 @@ namespace July.AssetCheck.Tests
         public void DefaultsAllowSixAndEightAndRejectTargetsOutsideTheAllowedSet()
         {
             var settings = AssetCheckSettings.CreateDefault();
-            Assert.That(settings.version, Is.EqualTo(3));
+            Assert.That(settings.version, Is.EqualTo(4));
             Assert.That(settings.CurrentStandards.texture.allowedFormats,
                 Is.EqualTo(new[] { TextureImporterFormat.ASTC_6x6, TextureImporterFormat.ASTC_8x8 }));
             settings.CurrentStandards.texture.compressionFormat = TextureImporterFormat.ASTC_4x4;
@@ -63,7 +63,7 @@ namespace July.AssetCheck.Tests
             old.CurrentStandards.model.allowLights = true;
             File.WriteAllText(Path.Combine(_config, AssetCheckSettingsFile.FileName), JsonUtility.ToJson(old));
             var current = new AssetCheckSettingsFile(_config).LoadOrCreate();
-            Assert.That(current.version, Is.EqualTo(3));
+            Assert.That(current.version, Is.EqualTo(4));
             Assert.That(current.CurrentStandards.texture.compressionFormat, Is.EqualTo(target));
             Assert.That(current.CurrentStandards.texture.allowedFormats.Length, Is.EqualTo(count));
             Assert.That(current.CurrentStandards.texture.allowedAtlasFormats.Length, Is.EqualTo(count));

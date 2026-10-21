@@ -160,7 +160,7 @@ namespace July.AssetCheck.Tests
             legacy.version = 2;
             var text = JsonUtility.ToJson(legacy);
             File.WriteAllText(path, text);
-            Assert.That(new AssetCheckSettingsFile(_config).ReadExistingOrDefault().version, Is.EqualTo(3));
+            Assert.That(new AssetCheckSettingsFile(_config).ReadExistingOrDefault().version, Is.EqualTo(4));
             Assert.That(File.ReadAllText(path), Is.EqualTo(text));
         }
 
