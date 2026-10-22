@@ -10,20 +10,18 @@ namespace July.Platform
     public sealed class WeChatPlatformAdapter : IPlatformAdapter
     {
         private readonly int _platformType;
-        private readonly int _maxFramebufferLongEdge;
-        private readonly string _rewardedAdUnitId;
+        private readonly PlatformConfig _config;
         private IDeviceService _device;
 
         public int PlatformType => _platformType;
 
-        public WeChatPlatformAdapter(int platformType, int maxFramebufferLongEdge, string rewardedAdUnitId)
+        public WeChatPlatformAdapter(int platformType, PlatformConfig config)
         {
-            if (maxFramebufferLongEdge <= 0)
-                throw new ArgumentOutOfRangeException(nameof(maxFramebufferLongEdge));
+            _config = config ?? throw new ArgumentNullException(nameof(config));
+            if (config.EnableFramebufferLongEdgeLimit && config.MaxFramebufferLongEdge <= 0)
+                throw new ArgumentOutOfRangeException(nameof(config.MaxFramebufferLongEdge));
 
             _platformType = platformType;
-            _maxFramebufferLongEdge = maxFramebufferLongEdge;
-            _rewardedAdUnitId = rewardedAdUnitId;
         }
 
         public async UniTask ConfigureAsync(
@@ -39,12 +37,12 @@ namespace July.Platform
             cancellationToken.ThrowIfCancellationRequested();
             JsBridge.Init();
 
-            registry.Register<IADsService>(new WeChatADsService(_rewardedAdUnitId));
+            registry.Register<IADsService>(new WeChatADsService(_config.WeChatRewardedAdUnitId));
             registry.Register<IAuthorizeService>(new WeChatAuthorizeService());
             registry.Register<IShareService>(new WeChatShareService());
             registry.Register<IAccelerometerService>(new WeChatAccelerometerService());
             registry.Register<IDeviceService>(
-                new WeChatDeviceService(_maxFramebufferLongEdge));
+                new WeChatDeviceService(_config));
             registry.Register<ILifecycleService>(new WeChatLifecycleService());
             registry.Register<ISocialService>(new WeChatSocialService());
             registry.Register<ISubscribeService>(new WeChatSubscribeService());

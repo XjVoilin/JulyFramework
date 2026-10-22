@@ -58,9 +58,9 @@ namespace July.Bootstrap
         private IPlatformAdapter CreatePlatformAdapter()
         {
 #if JULYGF_WX_MINIGAME
-            return new WeChatPlatformAdapter(3, _platform.MaxFramebufferLongEdge, _platform.WeChatRewardedAdUnitId);
+            return new WeChatPlatformAdapter(3, _platform);
 #elif JULYGF_DY_MINIGAME
-            return new TikTokPlatformAdapter(4, _platform.MaxFramebufferLongEdge, _platform.TikTokRewardedAdUnitId);
+            return new TikTokPlatformAdapter(4, _platform);
 #else
             return new DefaultPlatformAdapter(1);
 #endif

@@ -8,15 +8,15 @@ namespace July.Platform
 {
     internal sealed class WeChatDeviceService : IDeviceService, ICanEvent
     {
-        private readonly int _maxFramebufferLongEdge;
+        private readonly PlatformConfig _config;
         private int _benchmarkLevel;
         private double _effectiveDpr;
         private DeviceInfoData _cachedInfo;
         private string _platform;
 
-        internal WeChatDeviceService(int maxFramebufferLongEdge)
+        internal WeChatDeviceService(PlatformConfig config)
         {
-            _maxFramebufferLongEdge = maxFramebufferLongEdge;
+            _config = config;
         }
 
         public void Init()
@@ -57,17 +57,30 @@ namespace July.Platform
                 return defaultDpr;
             }
 
-            var performanceScale = benchmarkLevel >= highThreshold
-                ? 1d
-                : benchmarkLevel >= midThreshold || benchmarkLevel == -1
-                    ? 0.7d
-                    : 0.5d;
+            var performanceScale = 1d;
+            if (_config.EnableDprPerformanceScaling)
+            {
+                performanceScale = benchmarkLevel >= highThreshold
+                    ? 1d
+                    : benchmarkLevel >= midThreshold || benchmarkLevel == -1
+                        ? 0.7d
+                        : 0.5d;
+            }
             var performanceDpr = defaultDpr * performanceScale;
-            var targetDpr = DevicePixelRatioBudget.Limit(
-                performanceDpr,
-                windowInfo.windowWidth,
-                windowInfo.windowHeight,
-                _maxFramebufferLongEdge);
+            var targetDpr = performanceDpr;
+            if (_config.EnableFramebufferLongEdgeLimit)
+            {
+                targetDpr = DevicePixelRatioBudget.Limit(
+                    performanceDpr,
+                    windowInfo.windowWidth,
+                    windowInfo.windowHeight,
+                    _config.MaxFramebufferLongEdge);
+            }
+            else if (_config.EnableDprPerformanceScaling)
+            {
+                // 仅关闭长边限制时，仍保留原性能策略的最低 DPR。
+                targetDpr = System.Math.Max(1d, targetDpr);
+            }
 
             if (targetDpr < defaultDpr)
                 WXBase.SetDevicePixelRatio(targetDpr);
@@ -76,7 +89,9 @@ namespace July.Platform
                 $"[DPR] platform={_platform}, benchmarkLevel={benchmarkLevel}, " +
                 $"window={windowInfo.windowWidth}x{windowInfo.windowHeight}, " +
                 $"default={defaultDpr:F3}, performanceScale={performanceScale:F2}, " +
-                $"maxLongEdge={_maxFramebufferLongEdge}, target={targetDpr:F3}");
+                $"performanceScalingEnabled={_config.EnableDprPerformanceScaling}, " +
+                $"longEdgeLimitEnabled={_config.EnableFramebufferLongEdgeLimit}, " +
+                $"maxLongEdge={_config.MaxFramebufferLongEdge}, target={targetDpr:F3}");
             return targetDpr;
         }
 

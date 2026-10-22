@@ -10,20 +10,18 @@ namespace July.Platform
     public sealed class TikTokPlatformAdapter : IPlatformAdapter
     {
         private readonly int _platformType;
-        private readonly int _maxFramebufferLongEdge;
-        private readonly string _rewardedAdUnitId;
+        private readonly PlatformConfig _config;
         private IDeviceService _device;
 
         public int PlatformType => _platformType;
 
-        public TikTokPlatformAdapter(int platformType, int maxFramebufferLongEdge, string rewardedAdUnitId)
+        public TikTokPlatformAdapter(int platformType, PlatformConfig config)
         {
-            if (maxFramebufferLongEdge <= 0)
-                throw new ArgumentOutOfRangeException(nameof(maxFramebufferLongEdge));
+            _config = config ?? throw new ArgumentNullException(nameof(config));
+            if (config.EnableFramebufferLongEdgeLimit && config.MaxFramebufferLongEdge <= 0)
+                throw new ArgumentOutOfRangeException(nameof(config.MaxFramebufferLongEdge));
 
             _platformType = platformType;
-            _maxFramebufferLongEdge = maxFramebufferLongEdge;
-            _rewardedAdUnitId = rewardedAdUnitId;
         }
 
         public async UniTask ConfigureAsync(
@@ -38,12 +36,12 @@ namespace July.Platform
             await completion.Task;
             cancellationToken.ThrowIfCancellationRequested();
 
-            registry.Register<IADsService>(new TikTokADsService(_rewardedAdUnitId));
+            registry.Register<IADsService>(new TikTokADsService(_config.TikTokRewardedAdUnitId));
             registry.Register<IAuthorizeService>(new TikTokAuthorizeService());
             registry.Register<IShareService>(new TikTokShareService());
             registry.Register<IAccelerometerService>(new TikTokAccelerometerService());
             registry.Register<IDeviceService>(
-                new TikTokDeviceService(_maxFramebufferLongEdge));
+                new TikTokDeviceService(_config));
             registry.Register<ILifecycleService>(new TikTokLifecycleService());
             registry.Register<IPurchaseService>(new TikTokPurchaseService());
             registry.Register<ISocialService>(new TikTokSocialService());

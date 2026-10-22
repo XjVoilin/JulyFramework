@@ -12,6 +12,8 @@ Bootstrap.Configure(pipeline, gameConfig.Bootstrap, launchView,
 
 ## 配置与职责
 
+Bootstrap 0.3.1 配套 Platform 0.5.0：`Bootstrap.Platform.EnableDprPerformanceScaling` 控制小游戏 DPR 性能降档，`EnableFramebufferLongEdgeLimit` 控制最长边限制。框架默认均开启；两个都关闭时保留平台默认 DPR，`MaxFramebufferLongEdge` 不生效。配置在设备服务初始化时应用，修改后需重建 Player 并冷启动验收。微信、抖音适配器构造现在接收完整 `PlatformConfig`，例如 `new WeChatPlatformAdapter(3, platformConfig)`；直接构造适配器的接入方需要同步调整。
+
 `Bootstrap.Deployment` 是部署配置：Environment 选择环境，ConfigServerUrls 提供各环境的配置服务器入口，CdnBaseUrl 提供资源下载根地址。Inspector 显示“部署配置”；Release 包仍负责发布流程和两端共享协议。
 
 BootstrapConfig 组合 DeploymentConfig、ThinkingDataConfig、PlatformConfig、ResourceStartupConfig、HotUpdateConfig 和日志通道。Resource 直接显示 PackageName、PlayMode、StartupDownloadTags，不再包含 Content。HotUpdate 只保存 AdditionalAotMetadataAssemblies 和 Registrar 定位信息；热更程序集仅在 HybridCLR Settings 配置。具体业务注册仍由项目 HotUpdateRegistrar 实现。

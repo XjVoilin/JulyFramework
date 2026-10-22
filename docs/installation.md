@@ -28,6 +28,7 @@ Paste a complete URL into Unity Package Manager through **Add package from git U
 | `com.july.animation.spine` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.animation.spine#com.july.animation.spine@0.1.1` |
 | `com.july.arch` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.arch#com.july.arch@0.1.0` |
 | `com.july.audio` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.audio#com.july.audio@0.1.0` |
+| `com.july.bootstrap` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.bootstrap#com.july.bootstrap@0.3.1` |
 | `com.july.build` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.build#com.july.build@0.3.0` |
 | `com.july.build.hybridclr` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.build.hybridclr#com.july.build.hybridclr@0.1.0` |
 | `com.july.config` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.config#com.july.config@0.2.0` |
@@ -43,7 +44,7 @@ Paste a complete URL into Unity Package Manager through **Add package from git U
 | `com.july.networking` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.networking#com.july.networking@0.3.0` |
 | `com.july.networking.protobuf` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.networking.protobuf#com.july.networking.protobuf@0.1.0` |
 | `com.july.persistence` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.persistence#com.july.persistence@0.3.0` |
-| `com.july.platform` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.platform#com.july.platform@0.4.5` |
+| `com.july.platform` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.platform#com.july.platform@0.5.0` |
 | `com.july.pooling` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.pooling#com.july.pooling@0.1.1` |
 | `com.july.reddot` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.reddot#com.july.reddot@0.1.1` |
 | `com.july.rendering.urp` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.rendering.urp#com.july.rendering.urp@0.2.1` |
