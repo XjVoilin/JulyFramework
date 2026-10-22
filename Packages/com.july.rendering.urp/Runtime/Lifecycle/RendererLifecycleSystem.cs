@@ -4,12 +4,12 @@ using July.Scene;
 
 namespace July.Rendering.URP.Lifecycle
 {
-    public sealed class IdleRendererReclaimSystem : SystemBase
+    public sealed class RendererLifecycleSystem : SystemBase
     {
-        private IdleRendererReclaimConfig _config;
+        private RendererLifecycleConfig _config;
         private IdleRendererReclaimer _reclaimer;
 
-        public void Configure(IdleRendererReclaimConfig config) => _config = config;
+        public void Configure(RendererLifecycleConfig config) => _config = config;
 
         protected override UniTask OnInitializeAsync()
         {

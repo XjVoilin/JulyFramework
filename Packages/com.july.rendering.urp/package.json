@@ -1,8 +1,8 @@
 {
   "name": "com.july.rendering.urp",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "displayName": "July Rendering URP",
-  "description": "URP static-mesh highlighting and opt-in idle Renderer2D lifecycle management with July Arch scene integration.",
+  "description": "URP static-mesh highlighting and opt-in idle renderer lifecycle management with July Arch scene integration.",
   "unity": "2022.3",
   "dependencies": {
     "com.unity.render-pipelines.universal": "14.0.12",

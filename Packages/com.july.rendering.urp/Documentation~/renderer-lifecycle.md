@@ -1,22 +1,25 @@
 # July URP Renderer Lifecycle
 
-显式启用一个闲置 Renderer2D 的资源回收。基线为 Unity 2022.3 / URP 14；通过 RendererData.SetDirty 与 Pipeline.GetRenderer 由 URP 销毁旧实例、更新缓存，新实例的全屏附件在后续绘制时按需建立。无 URP 补丁、直接 Dispose、反射缓存操作或 Blitter 恢复。
+显式配置多个 Renderer 的闲置回收。基线为 Unity 2022.3 / URP 14；通过 RendererData.SetDirty 与 Pipeline.GetRenderer 由 URP 销毁旧实例、更新缓存，新实例的全屏附件在后续绘制时按需建立。不修改 URP，不直接 Dispose Renderer，不操作反射缓存或恢复 Blitter。
 
-## 接入与职责
+## 接入与配置
 
-配置 IdleRendererReclaimConfig 的 Pipeline、明确索引和该索引对应的 Renderer2DData；注册前调用 IdleRendererReclaimSystem.Configure，再沿 July Arch 初始化。UI 保持原有相机组合，无须请求回收；项目宿主只装配配置。
+`RendererLifecycleConfig.Pipeline` 指定管线；`Renderers` 的每一项填写该管线 Renderer List 中的 `RendererIndex` 和对应的 `ScriptableRendererData`。支持配置 Renderer2DData 和 UniversalRendererData；项目负责确认所配 Renderer 及其 Feature 支持释放后重新创建。索引必须非负，列表非空，不允许重复索引或重复 Data；调整管线列表时同步配置。
 
-高亮、回收核心与场景接入统一位于 July.Rendering.URP 程序集，显式依赖 URP/Core、July.Arch、July.Scene 和 UniTask。IdleRendererReclaimSystem监听场景加载完成、失败/取消、卸载完成，请求检查；场景事件不直接代表闲置。IdleRendererReclaimer 亦可由框架生命周期独立持有。
+例如管线索引 0 使用 Renderer2DData、索引 1 使用 UniversalRendererData 时，将两项均加入列表。进入 3D 场景后回收闲置的 2D Renderer；返回 2D 场景后回收闲置的 3D Renderer。未列出的 Renderer 不参与回收。旧的单项 RendererIndex/RendererData 配置须迁移至 Renderers 列表。
 
-## 回收契约
+注册前调用 RendererLifecycleSystem.Configure，再沿 July Arch 初始化。UI 保持原有相机组合，无须请求回收；项目宿主只装配配置。高亮、回收核心与场景接入统一位于 July.Rendering.URP 程序集，依赖 URP/Core、July.Arch、July.Scene 和 UniTask。
 
-- 只处理明确配置的一个 Renderer2D，当前为默认索引0。不自动回收其他 Renderer 或未知 Feature。
-- 记录实际绘制；没有绘制过的不重建。请求期间，若本轮绘制过、任何启用相机或其活动 Overlay 仍使用它，保留请求等待；完全闲置后只重建一次。
-- 相机每次经 URP 解析实例，不得跨重建保留旧 Renderer、Pass、Feature 引用。禁用相机的手动绘制在执行期间受保护，之后通过 URP 获取替换实例。
-- RendererData 必须对应管线索引；未发生实例替换时快速失败。变更管线列表须同步配置。其他管线活动时暂停回收。
-- 重建销毁整个旧实例的材质、Pass、Feature 和附件；启用前须确认兼容。自定义持有资源的使用者不属于自动相机检查范围。
-- 关闭模块解除回调/事件订阅，不销毁归 URP 所有的实例。
+## 调度与有效期
 
-代价为交接时创建新实例，切回时重建附件。桌面代表路径的结果不替代手机内存、切换耗时、完整 HUD 和新增 Feature 验收。
+- 场景加载完成、失败/取消及卸载完成只请求检查，不直接证明闲置。
+- 每项分别记录请求和实际绘制。某项正在使用不会阻塞其他项回收；没有绘制过的新实例不重复重建。
+- 帧末若本轮没有绘制、所有启用相机及其活动 Overlay 均不使用该实例，才执行重建；仍被使用的项保留请求等待。
+- 其他管线活动时暂停回收。RendererData 必须与管线索引对应，未发生实例替换时抛出带索引的异常。
+- 相机每次经 URP 解析实例，不得跨回收保存旧 Renderer、Pass 或 Feature 内部资源引用。禁用相机的手动绘制在执行期间受到保护，后续绘制通过 URP 获取新实例。
+- 回收会执行整个旧实例及其 Feature 的释放流程，包括颜色、深度、阴影、后处理和自定义 Feature 所持资源；实际释放范围由该 Renderer 实现决定。它并不卸载 RendererData 资源。
+- 关闭模块解除事件和渲染回调，取消所有待处理请求，不销毁归 URP 所有的实例。
 
-July.Rendering.URP 运行程序集属于 AOT。发布时沿项目现有构建流程重新生成 HybridCLR 裁剪/泛型引用并重建 Player；仅更新热更 DLL 无法向旧 Player 增加此能力。
+代价为交接时创建新实例，切回时重建附件。新增 Renderer 或 Feature 时验证其重建行为；桌面验证不替代手机内存、切换耗时及画面验收。
+
+July.Rendering.URP 属于 AOT。正式发布沿项目正常构建流程生成 HybridCLR 裁剪/泛型引用并重建 Player；仅更新热更 DLL 无法替换此能力。
