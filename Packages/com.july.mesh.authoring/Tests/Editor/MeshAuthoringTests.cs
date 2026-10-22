@@ -374,6 +374,52 @@ namespace July.Mesh.Authoring.Tests
             finally { window.Close(); Selection.objects = beforeSelection; }
         }
 
+        [UnityTest] public IEnumerator SelectAllAndDeselectAllIncludeOffscreenRowsWithoutChangingCandidatesOrOrder()
+        {
+            var meshes = Enumerable.Range(0, 12).Select(i => AssetMesh("Select" + i)).ToArray();
+            var beforeSelection = Selection.objects;
+            var window = EditorWindow.GetWindow<MeshAuthoringWindow>(); window.position = new Rect(80, 80, 920, 600);
+            void Click(string name)
+            {
+                var button = window.rootVisualElement.Q<ToolbarButton>(name);
+                Assert.That(button, Is.Not.Null);
+                using (var submit = NavigationSubmitEvent.GetPooled()) { submit.target = button; button.SendEvent(submit); }
+            }
+            try
+            {
+                Selection.objects = meshes; window.ReadSelection();
+                for (int i = 0; window.Workspace.Working && i < 5000; i++) { window.Workspace.Tick(); yield return null; }
+                window.Workspace.Request(window.Workspace.Rows[0], 40, false);
+                for (int i = 0; window.Workspace.Working && i < 5000; i++) { window.Workspace.Tick(); yield return null; }
+                window.SortBy(MeshListSort.ReducedTriangles);
+                yield return null; yield return null;
+                var visible = window.rootVisualElement.Query<Toggle>("mesh-check").ToList();
+                Assert.That(visible.Count, Is.GreaterThan(0));
+                Assert.That(visible.Count, Is.LessThan(meshes.Length), "必须涵盖虚拟列表中不可见的项目。");
+                var order = window.DisplayRows.ToArray();
+                var ratios = order.Select(row => row.Ratio).ToArray();
+                var candidates = order.Select(row => row.Candidate).ToArray();
+                var summary = window.rootVisualElement.Q<Label>("mesh-selection-summary");
+                Click("mesh-deselect-all"); Click("mesh-deselect-all");
+                Assert.That(window.Workspace.Rows.All(row => !row.Checked), Is.True);
+                Assert.That(visible.All(toggle => !toggle.value), Is.True);
+                Assert.That(summary.text, Is.EqualTo("已勾选 0 / 12 项 · 预计减少 0 面"));
+                Click("mesh-select-all"); Click("mesh-select-all");
+                Assert.That(window.Workspace.Rows.All(row => row.Checked), Is.True);
+                Assert.That(visible.All(toggle => toggle.value), Is.True);
+                long reduced = order.Sum(row => (long)row.CurrentTriangles - row.CandidateTriangles);
+                Assert.That(summary.text, Is.EqualTo($"已勾选 12 / 12 项 · 预计减少 {reduced:N0} 面"));
+                CollectionAssert.AreEqual(order, window.DisplayRows);
+                CollectionAssert.AreEqual(ratios, window.DisplayRows.Select(row => row.Ratio));
+                CollectionAssert.AreEqual(candidates, window.DisplayRows.Select(row => row.Candidate));
+                foreach (var mesh in meshes) Assert.That(MeshGeometry.Read(mesh).Triangles, Is.EqualTo(1152));
+                window.Workspace.Clear();
+                Click("mesh-select-all"); Click("mesh-deselect-all");
+                Assert.That(summary.text, Is.EqualTo("已勾选 0 / 0 项 · 预计减少 0 面"));
+            }
+            finally { window.Close(); Selection.objects = beforeSelection; }
+        }
+
         [UnityTest] public IEnumerator SortingUsesActualResultsAndKeepsOrderUntilExplicitlyRequested()
         {
             var large = Grid(false, 48); large.name = "Mesh10"; AssetDatabase.CreateAsset(large, Folder + "/Mesh10.asset");

@@ -49,6 +49,8 @@ namespace July.Mesh.Authoring
             rootVisualElement.RegisterCallback<GeometryChangedEvent>(e => ResizeRows(e.newRect.width));
             var toolbar = new Toolbar();
             toolbar.Add(new ToolbarButton(ReadSelection) { text = "读取所选" });
+            toolbar.Add(new ToolbarButton(() => SetAllChecked(true)) { name = "mesh-select-all", text = "全选", tooltip = "勾选列表全部 Mesh，包括未显示的项目。" });
+            toolbar.Add(new ToolbarButton(() => SetAllChecked(false)) { name = "mesh-deselect-all", text = "取消全选", tooltip = "取消列表全部 Mesh 的勾选。" });
             toolbar.Add(new Label("保真") { style = { marginLeft = 8, marginRight = 5, unityTextAlign = TextAnchor.MiddleLeft } });
             var fidelity = new PopupField<string>(new List<string> { "保守", "均衡", "宽松" }, 0);
             fidelity.style.width = 80;
@@ -95,6 +97,12 @@ namespace July.Mesh.Authoring
                 Refresh(true);
             }
             catch (Exception error) { message.text = error.Message; }
+        }
+
+        void SetAllChecked(bool value)
+        {
+            foreach (var row in workspace.Rows) row.Checked = value;
+            Refresh();
         }
 
         internal void RestoreAllRecommendations()
