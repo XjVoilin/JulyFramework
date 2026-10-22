@@ -1,0 +1,8 @@
+{
+  "name": "July.Mesh.Authoring.Editor",
+  "rootNamespace": "July.Mesh.Authoring",
+  "includePlatforms": [
+    "Editor"
+  ],
+  "autoReferenced": true
+}

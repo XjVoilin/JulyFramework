@@ -1,0 +1,12 @@
+{
+  "name": "July.Mesh.Authoring.Editor.Tests",
+  "references": [
+    "July.Mesh.Authoring.Editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

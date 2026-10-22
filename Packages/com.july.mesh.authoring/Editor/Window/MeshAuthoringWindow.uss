@@ -1,0 +1,33 @@
+.mesh-window { padding: 0; }
+.mesh-sortbar { flex-direction: row; align-items: center; padding-left: 10px; padding-right: 10px; height: 30px; flex-shrink: 0; border-bottom-width: 1px; border-bottom-color: rgb(180, 180, 180); background-color: rgb(205, 205, 205); }
+.mesh-sortbar > Label { flex-grow: 1; }
+.mesh-sort { background-color: rgba(0, 0, 0, 0); border-width: 0; border-radius: 0; margin-left: 12px; padding-left: 5px; padding-right: 5px; height: 27px; }
+.mesh-sort.sorted { border-bottom-width: 2px; border-bottom-color: rgb(53, 111, 155); }
+.mesh-item { padding: 9px 10px 6px 10px; border-bottom-width: 1px; border-bottom-color: rgb(180, 180, 180); }
+.mesh-item-header { flex-direction: row; align-items: center; height: 25px; margin-bottom: 6px; }
+.mesh-name { -unity-font-style: bold; max-width: 42%; text-overflow: ellipsis; overflow: hidden; }
+.mesh-source { flex-grow: 1; flex-shrink: 1; margin-left: 8px; color: rgb(85, 85, 85); font-size: 11px; text-overflow: ellipsis; overflow: hidden; }
+.mesh-saved { margin-left: 8px; -unity-text-align: middle-right; }
+.mesh-content { flex-direction: row; }
+.mesh-preview-column { flex-grow: 1; flex-shrink: 1; flex-basis: 0; min-width: 80px; margin-right: 12px; }
+.mesh-thumbnail { height: 116px; background-color: rgb(184, 184, 184); }
+.mesh-caption { flex-direction: row; justify-content: space-between; margin-top: 3px; }
+.mesh-controls { width: 126px; flex-shrink: 0; padding-left: 5px; justify-content: center; }
+.mesh-ratio-line { flex-direction: row; align-items: center; }
+.mesh-ratio-line > FloatField { flex-grow: 1; flex-shrink: 1; min-width: 50px; }
+.mesh-controls > Slider { margin-top: 10px; margin-bottom: 8px; }
+.mesh-actual { font-size: 11px; white-space: normal; margin-bottom: 5px; }
+.mesh-state { font-size: 11px; white-space: normal; margin-top: 6px; max-height: 30px; overflow: hidden; color: rgb(85, 85, 85); }
+.mesh-dark .mesh-sortbar { background-color: rgb(48, 48, 48); border-bottom-color: rgb(36, 36, 36); }
+.mesh-dark .mesh-item { border-bottom-color: rgb(36, 36, 36); }
+.mesh-dark .mesh-thumbnail { background-color: rgb(51, 51, 51); }
+.mesh-dark .mesh-source, .mesh-dark .mesh-state { color: rgb(188, 188, 188); }
+.mesh-dark .mesh-sort.sorted { border-bottom-color: rgb(134, 181, 220); }
+.mesh-compact .mesh-content { flex-wrap: wrap; }
+.mesh-compact .mesh-controls { width: 100%; flex-direction: row; align-items: center; padding-left: 0; margin-top: 7px; }
+.mesh-compact .mesh-controls > Slider { flex-grow: 1; margin-left: 8px; margin-right: 8px; }
+.mesh-compact .mesh-actual { max-width: 108px; margin-right: 5px; }
+.mesh-compact .mesh-ratio-line { width: 112px; flex-shrink: 0; }
+.mesh-compact .mesh-preview-column { margin-right: 8px; }
+.mesh-footer { flex-direction: row; flex-wrap: wrap; align-items: center; padding: 6px 8px; flex-shrink: 0; }
+.mesh-footer > Label { flex-grow: 1; flex-shrink: 1; white-space: normal; max-width: 100%; min-width: 95px; }
