@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- 将闲置 Renderer2D 回收并入原包，运行时代码统一归属 July.Rendering.URP；删除额外生命周期程序集，保持源码命名空间和 Unity GUID。
+- 明确增加 July.Arch、July.Scene、UniTask 程序集引用及对应包依赖，不依赖 July.UI 或游戏身份。
+- 保持公开 SetDirty/GetRenderer 回收与相机使用者保护；不修改 URP 源码，不直接 Dispose Renderer，不恢复 Blitter。正常发布时重新生成 HybridCLR 引用/裁剪配置并重建 AOT Player。
+
 ## 0.2.1 - 2026-10-20
 
 - Match the silhouette vertex projection to ordinary URP surfaces (world xyz, then constant-w projection).

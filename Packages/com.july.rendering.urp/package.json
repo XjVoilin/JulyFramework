@@ -1,11 +1,14 @@
 {
   "name": "com.july.rendering.urp",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "displayName": "July Rendering URP",
-  "description": "Camera-local static-mesh highlighting with dual-channel masks and smooth local composition for orthographic URP cameras.",
+  "description": "URP static-mesh highlighting and opt-in idle Renderer2D lifecycle management with July Arch scene integration.",
   "unity": "2022.3",
   "dependencies": {
-    "com.unity.render-pipelines.universal": "14.0.12"
+    "com.unity.render-pipelines.universal": "14.0.12",
+    "com.july.arch": "0.1.3",
+    "com.july.scene": "0.1.1",
+    "com.cysharp.unitask": "2.5.10"
   },
   "author": {
     "name": "July"

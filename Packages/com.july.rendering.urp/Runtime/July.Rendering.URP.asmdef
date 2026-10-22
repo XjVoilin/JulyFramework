@@ -1,7 +1,13 @@
 {
   "name": "July.Rendering.URP",
   "rootNamespace": "July.Rendering.URP",
-  "references": ["Unity.RenderPipelines.Core.Runtime", "Unity.RenderPipelines.Universal.Runtime"],
+  "references": [
+    "Unity.RenderPipelines.Core.Runtime",
+    "Unity.RenderPipelines.Universal.Runtime",
+    "July.Arch",
+    "July.Scene",
+    "UniTask"
+  ],
   "autoReferenced": true,
   "noEngineReferences": false
 }

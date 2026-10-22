@@ -28,7 +28,7 @@ cameraHighlight.Target = null;
 - 颜色、宽度、强度及遮挡扫描参数由共享材质配置。内部、遮挡和黑边保持点采样规则；黄色外辉使用独立线性过滤，保留亚像素覆盖透明度以平滑呼吸变化。
 - 限定 RG8 可渲染格式与 GLES3 级 Shader 支持；透视相机、MSAA、SkinnedMeshRenderer、单相机多个并发选中目标、其他渲染管线及 RenderGraph 不在当前范围。
 
-运行代码只依赖 URP/Core，不依赖 July.Arch、July.UI 或游戏身份；不创建全局 System，不要求游戏提供绘制回调。
+运行时代码统一编译到 `July.Rendering.URP`，包含高亮绘制、闲置 Renderer2D 回收及 July.Arch/Scene 生命周期接入；程序集显式依赖 URP/Core、July.Arch、July.Scene 和 UniTask。功能仍按类和目录组织，高亮组件不创建全局 System，不要求游戏提供绘制回调。包不依赖 July.UI 或游戏身份。
 
 ## 同表面深度精度
 
@@ -47,3 +47,11 @@ cameraHighlight.Target = null;
 0.2.0 的隔离集成检查覆盖材质保持、遮挡、取消、屏幕边缘及 GLES3 六程序编译；额外的实际 Shader 连续帧夹具验证了外辉透明度过渡。此前 PC GPU/CPU、RT 生命周期测试提供桌面证据，外辉平滑后未重新采集完整性能矩阵。微信 iOS/Android 的效果、内存与持续性能仍待设备验收；发布标签不代表已完成设备验收或已证明所有场景更快。
 
 0.2.0 的 iPhone 双色诊断确认过无遮挡物品出现误遮挡；0.2.1 针对此机制修正，实际 iPhone 复测仍待完成。
+
+## 闲置 Renderer2D 回收
+
+通过 `IdleRendererReclaimSystem.Configure(IdleRendererReclaimConfig)` 配置明确的 Pipeline、Renderer 索引及对应 Renderer2DData，再沿 July Arch 注册和初始化。场景加载完成、失败/取消和卸载完成只请求检查；核心在帧末确认本轮未绘制、启用相机和活动堆栈均不使用后，通过公开 SetDirty/GetRenderer 释放旧实例并替换缓存。UI 继续负责自己的相机组合，无须管理 Renderer 资源。
+
+生命周期配置/类型保留原命名空间和Unity GUID，统一归属 `July.Rendering.URP` 程序集；调用方只引用该程序集，没有独立 lifecycle 包或运行程序集。回收会重建旧实例的材质、Pass 和 Feature，只对显式验证过的 Renderer2D 启用；当前不自动处理 UniversalRenderer 或未知 Feature。关闭模块只解除自身订阅。
+
+配置和占用契约见[生命周期说明](Documentation~/renderer-lifecycle.md)。运行程序集属于 AOT，正常发布需重新生成 HybridCLR 引用/裁剪配置并重建 Player，不能仅更新热更 DLL。桌面验证不能替代完整 HUD 与手机内存、切换耗时验收。
