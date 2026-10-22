@@ -374,7 +374,7 @@ namespace July.Mesh.Authoring.Tests
             finally { window.Close(); Selection.objects = beforeSelection; }
         }
 
-        [UnityTest] public IEnumerator SortingUsesActualResultsKeepsIdentityAndDefersWhileEditing()
+        [UnityTest] public IEnumerator SortingUsesActualResultsAndKeepsOrderUntilExplicitlyRequested()
         {
             var large = Grid(false, 48); large.name = "Mesh10"; AssetDatabase.CreateAsset(large, Folder + "/Mesh10.asset");
             var small = Grid(false, 12); small.name = "Mesh2"; AssetDatabase.CreateAsset(small, Folder + "/Mesh2.asset");
@@ -431,16 +431,22 @@ namespace July.Mesh.Authoring.Tests
                 Assert.That(window.DisplayRows[0], Is.SameAs(largeRow), "输入期间不能重排行。");
                 Assert.That(field.value, Is.EqualTo(30));
                 window.rootVisualElement.focusController.focusedElement?.Blur();
-                for (int i = 0; window.DisplayRows[0] != smallRow && i < 200; i++) yield return null;
-                Assert.That(window.DisplayRows[0], Is.SameAs(smallRow));
+                yield return null; yield return null; yield return null;
+                Assert.That(window.DisplayRows[0], Is.SameAs(largeRow), "输入结束后仍须保持行位置。");
                 var slider = window.rootVisualElement.Query<Slider>("mesh-slider").ToList()[0];
                 using (var down = PointerDownEvent.GetPooled(new Event { type = EventType.MouseDown, button = 0, mousePosition = slider.worldBound.center })) { down.target = slider; slider.SendEvent(down); }
                 slider.value = 1;
                 for (int i = 0; window.Workspace.Working && i < 5000; i++) { window.Workspace.Tick(); yield return null; }
-                Assert.That(smallRow.ActualRatio, Is.LessThan(largeRow.ActualRatio));
-                Assert.That(window.DisplayRows[0], Is.SameAs(smallRow), "拖动期间不能重排行。");
+                Assert.That(largeRow.ActualRatio, Is.LessThan(smallRow.ActualRatio));
+                Assert.That(window.DisplayRows[0], Is.SameAs(largeRow), "拖动期间不能重排行。");
                 using (var cancel = PointerCancelEvent.GetPooled()) { cancel.target = slider; slider.SendEvent(cancel); }
-                for (int i = 0; window.DisplayRows[0] != largeRow && i < 200; i++) yield return null;
+                yield return null; yield return null; yield return null;
+                Assert.That(window.DisplayRows[0], Is.SameAs(largeRow), "拖动结束后仍须保持行位置。");
+                window.SortBy(MeshListSort.RetainedRatio); // Ascending, using the latest result.
+                Assert.That(window.DisplayRows[0], Is.SameAs(largeRow));
+                window.SortBy(MeshListSort.RetainedRatio); // Descending.
+                Assert.That(window.DisplayRows[0], Is.SameAs(smallRow), "再次点击排序按钮才根据新结果重排。");
+                window.SortBy(MeshListSort.RetainedRatio);
                 Assert.That(window.DisplayRows[0], Is.SameAs(largeRow));
                 var name = window.rootVisualElement.Query<Label>("mesh-name").ToList()[0];
                 Selection.activeObject = small;

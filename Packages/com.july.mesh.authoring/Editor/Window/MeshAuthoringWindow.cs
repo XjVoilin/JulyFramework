@@ -92,7 +92,7 @@ namespace July.Mesh.Authoring
                 foreach (var row in rows) workspace.Initialize(row);
                 message.text = rows.Count == 0 ? "选择中没有可处理的独立 .asset Mesh。" : "已读取选择；比例调整只更新候选，点击应用才修改资源。";
                 if (unsupported > 0) message.text += $" 已跳过 {unsupported} 个非独立 Mesh；模型内 Mesh 请先通过 Prefab 制作流程提取。";
-                Refresh();
+                Refresh(true);
             }
             catch (Exception error) { message.text = error.Message; }
         }
@@ -157,10 +157,10 @@ namespace July.Mesh.Authoring
         {
             var header = new Button(() => SortBy(column)) { name = "mesh-sort-" + column, text = title,
                 tooltip = column == MeshListSort.Name
-                    ? "按 Mesh 名称自然排序，默认从低到高，再次点击切换方向；不随生成结果重排。"
+                    ? "按 Mesh 名称自然排序，默认从低到高，再次点击切换方向；调整比例后保持行位置，点击排序按钮才重排。"
                     : column == MeshListSort.RetainedRatio
-                    ? "按候选实际面数保留比例排序，首次从低到高，再次点击切换方向。"
-                    : "按当前面数减候选实际面数排序，首次从高到低，再次点击切换方向。" };
+                    ? "按候选实际面数保留比例排序，首次从低到高，再次点击切换方向；调整后点击按钮才重排。"
+                    : "按当前面数减候选实际面数排序，首次从高到低，再次点击切换方向；调整后点击按钮才重排。" };
             header.AddToClassList("mesh-sort"); return header;
         }
 
@@ -188,7 +188,7 @@ namespace July.Mesh.Authoring
             if (list == null) return;
             var ordered = displayRows.Where(workspace.Rows.Contains).ToList();
             ordered.AddRange(workspace.Rows.Where(row => !ordered.Contains(row)));
-            if (!views.Any(view => view.Editing) && (sort == MeshListSort.Name || explicitSort || !workspace.Working))
+            if (explicitSort)
             {
                 if (sort == MeshListSort.Name)
                 {
@@ -245,8 +245,7 @@ namespace July.Mesh.Authoring
             MeshRow row;
             UnityEngine.Mesh renderedOriginal, renderedCandidate;
             Texture2D originalTexture, candidateTexture;
-            bool focused, dragging;
-            internal bool Editing => focused || dragging;
+            bool focused;
 
             internal RowView(MeshAuthoringWindow window)
             {
@@ -285,10 +284,6 @@ namespace July.Mesh.Authoring
                 ratioLine.Add(ratio); ratioLine.Add(new Label("%"));
                 slider = new Slider(1, 100) { name = "mesh-slider" };
                 slider.RegisterValueChangedCallback(e => window.workspace.Request(row, e.newValue, false));
-                slider.RegisterCallback<PointerDownEvent>(e => { if (e.button == 0) dragging = true; }, TrickleDown.TrickleDown);
-                slider.RegisterCallback<PointerUpEvent>(e => EndDrag(), TrickleDown.TrickleDown);
-                slider.RegisterCallback<PointerCaptureOutEvent>(e => EndDrag());
-                slider.RegisterCallback<PointerCancelEvent>(e => EndDrag());
                 controls.Add(slider);
                 actual = new Label(); actual.AddToClassList("mesh-actual"); controls.Add(actual);
                 controls.Add(new Button(() =>
@@ -297,12 +292,6 @@ namespace July.Mesh.Authoring
                     catch (Exception error) { row.Error = error.Message; window.Refresh(); }
                 }) { text = "恢复推荐" });
                 state = new Label(); state.AddToClassList("mesh-state"); Root.Add(state);
-            }
-
-            void EndDrag()
-            {
-                dragging = false;
-                window.rootVisualElement.schedule.Execute(window.Refresh);
             }
 
             void Locate(ClickEvent e)
@@ -367,7 +356,7 @@ namespace July.Mesh.Authoring
 
             internal void Release()
             {
-                row = null; renderedOriginal = null; renderedCandidate = null; focused = false; dragging = false;
+                row = null; renderedOriginal = null; renderedCandidate = null; focused = false;
                 if (originalTexture) DestroyImmediate(originalTexture); if (candidateTexture) DestroyImmediate(candidateTexture);
                 originalTexture = null; candidateTexture = null;
                 originalImage.image = null; candidateImage.image = null;
