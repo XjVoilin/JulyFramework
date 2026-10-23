@@ -93,6 +93,102 @@ namespace July.Mesh.Authoring.Tests
             Assert.That(mesh.isReadable, Is.False);
         }
 
+        [TestCase(false)]
+        [TestCase(true)]
+        public void ApplyPreservesReadWriteAcrossRepeatedEditsAndReload(bool readable)
+        {
+            var mesh = AssetMesh("ReadWriteApply");
+            SetReadWrite(mesh, readable);
+            mesh = Reload(mesh);
+            string identity = MeshAssetEdits.Identity(mesh);
+            string baseline = MeshGeometry.Read(mesh).Fingerprint();
+            foreach (float ratio in new[] { 60f, 30f })
+            {
+                string expected;
+                using (var row = new MeshRow { Source = mesh })
+                {
+                    row.Load();
+                    Assert.That(row.BaselineHash, Is.EqualTo(baseline));
+                    row.Ratio = ratio; row.Automatic = false;
+                    row.SetCandidate(Reduce(row.Geometry, ratio, false));
+                    expected = row.CandidateHash;
+                    MeshAssets.Apply(row, 0);
+                    Assert.That(mesh.isReadable, Is.EqualTo(readable), "应用必须保持目标的 Read/Write。");
+                }
+                mesh = Reload(mesh);
+                Assert.That(mesh.isReadable, Is.EqualTo(readable), "保存重载后也必须保持设置。");
+                Assert.That(MeshAssetEdits.Identity(mesh), Is.EqualTo(identity));
+                Assert.That(MeshGeometry.Read(mesh).Fingerprint(), Is.EqualTo(expected));
+            }
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void RestorePreservesCurrentReadWriteInsteadOfCachedBaselineSetting(bool readable)
+        {
+            var mesh = AssetMesh("ReadWriteRestore");
+            SetReadWrite(mesh, !readable);
+            mesh = Reload(mesh);
+            string baseline = MeshGeometry.Read(mesh).Fingerprint();
+            string identity = MeshAssetEdits.Identity(mesh);
+            using (var row = new MeshRow { Source = mesh })
+            {
+                row.Load(); row.Ratio = 40; row.Automatic = false;
+                row.SetCandidate(Reduce(row.Geometry, 40, false));
+                MeshAssets.Apply(row, 0);
+                // 用户在减面后改变发布设置，还原几何时应保持当前选择。
+                SetReadWrite(mesh, readable);
+                MeshAssets.Restore(row);
+                Assert.That(mesh.isReadable, Is.EqualTo(readable), "还原不能写回缓存基准的 Read/Write。");
+            }
+            mesh = Reload(mesh);
+            Assert.That(mesh.isReadable, Is.EqualTo(readable));
+            Assert.That(MeshAssetEdits.Identity(mesh), Is.EqualTo(identity));
+            Assert.That(MeshGeometry.Read(mesh).Fingerprint(), Is.EqualTo(baseline));
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void FailedWritePreservesGeometryAndReadWrite(bool readable)
+        {
+            var mesh = AssetMesh("ReadWriteRollback");
+            SetReadWrite(mesh, readable);
+            mesh = Reload(mesh);
+            string baseline = MeshGeometry.Read(mesh).Fingerprint();
+            string identity = MeshAssetEdits.Identity(mesh);
+            using (var row = new MeshRow { Source = mesh })
+            {
+                row.Load(); row.Ratio = 40; row.Automatic = false;
+                row.SetCandidate(Reduce(row.Geometry, 40, false));
+                row.CandidateHash = "invalid expected geometry hash";
+                var error = Assert.Throws<InvalidOperationException>(() => MeshAssets.Apply(row, 0));
+                Assert.That(error.Message, Does.Contain("写入后的 Mesh 与预览不一致"));
+                Assert.That(mesh.isReadable, Is.EqualTo(readable));
+            }
+            mesh = Reload(mesh);
+            Assert.That(mesh.isReadable, Is.EqualTo(readable));
+            Assert.That(MeshAssetEdits.Identity(mesh), Is.EqualTo(identity));
+            Assert.That(MeshGeometry.Read(mesh).Fingerprint(), Is.EqualTo(baseline));
+        }
+
+        static void SetReadWrite(UMesh mesh, bool readable)
+        {
+            using (var serialized = new SerializedObject(mesh))
+            {
+                serialized.FindProperty("m_IsReadable").boolValue = readable;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+            }
+            EditorUtility.SetDirty(mesh); AssetDatabase.SaveAssetIfDirty(mesh);
+        }
+
+        static UMesh Reload(UMesh mesh)
+        {
+            string path = AssetDatabase.GetAssetPath(mesh);
+            Resources.UnloadAsset(mesh);
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate | ImportAssetOptions.ForceSynchronousImport);
+            return AssetDatabase.LoadAssetAtPath<UMesh>(path);
+        }
+
         [Test] public void SubmeshOrderAndSharedBoundarySurvive()
         {
             var mesh = Own(Grid()); int[] indices = mesh.triangles;

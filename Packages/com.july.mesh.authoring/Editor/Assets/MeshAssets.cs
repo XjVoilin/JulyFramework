@@ -38,6 +38,7 @@ namespace July.Mesh.Authoring
         static void Write(MeshRow row, UMesh result, string expectedHash, bool applied, float ratio, bool automatic, int fidelity)
         {
             MeshAssetEdits.CheckColliderUse(row.Source);
+            bool readable = row.Source.isReadable;
             var before = UnityEngine.Object.Instantiate(row.Source);
             try
             {
@@ -46,6 +47,7 @@ namespace July.Mesh.Authoring
                 // CopySerialized 不会可靠地清理已使用的 GPU 缓冲；先使旧布局和缓冲失效。
                 row.Source.Clear(false);
                 EditorUtility.CopySerialized(result, row.Source); row.Source.name = name;
+                SetReadWrite(row.Source, readable);
                 EditorUtility.SetDirty(row.Source); AssetDatabase.SaveAssetIfDirty(row.Source);
                 string hash = MeshGeometry.Read(row.Source).Fingerprint();
                 if (hash != expectedHash) throw new InvalidOperationException("写入后的 Mesh 与预览不一致。");
@@ -55,10 +57,21 @@ namespace July.Mesh.Authoring
             {
                 row.Source.Clear(false);
                 EditorUtility.CopySerialized(before, row.Source);
+                SetReadWrite(row.Source, readable);
                 EditorUtility.SetDirty(row.Source); AssetDatabase.SaveAssetIfDirty(row.Source); throw;
             }
             finally { UnityEngine.Object.DestroyImmediate(before); }
             row.Load(true);
+        }
+
+        static void SetReadWrite(UMesh mesh, bool readable)
+        {
+            // 候选和缓存只提供几何，发布时是否保留 CPU 数据由目标资源决定。
+            using (var serialized = new SerializedObject(mesh))
+            {
+                serialized.FindProperty("m_IsReadable").boolValue = readable;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+            }
         }
 
         static void Validate(MeshRow row)
