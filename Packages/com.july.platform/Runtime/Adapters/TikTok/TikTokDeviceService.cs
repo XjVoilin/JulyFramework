@@ -9,14 +9,14 @@ namespace July.Platform
 {
     internal sealed class TikTokDeviceService : IDeviceService, ICanEvent
     {
-        private readonly PlatformConfig _config;
+        private readonly DprConfig _dprConfig;
         private double _effectiveDpr;
         private DeviceInfoData _cachedInfo;
         private string _platform;
 
-        internal TikTokDeviceService(PlatformConfig config)
+        internal TikTokDeviceService(DprConfig config)
         {
-            _config = config;
+            _dprConfig = config;
         }
 
         public void Init()
@@ -48,8 +48,6 @@ namespace July.Platform
             double logicalWidth,
             double logicalHeight)
         {
-            const double highThreshold = 8.51;
-            const double midThreshold = 7.30;
             if (IsPc())
             {
                 Debug.Log(
@@ -57,30 +55,9 @@ namespace July.Platform
                 return defaultDpr;
             }
 
-            var performanceScale = 1d;
-            if (_config.EnableDprPerformanceScaling)
-            {
-                performanceScale = overall >= highThreshold
-                    ? 1d
-                    : overall >= midThreshold || overall < 0d
-                        ? 0.7d
-                        : 0.5d;
-            }
-            var performanceDpr = defaultDpr * performanceScale;
-            var targetDpr = performanceDpr;
-            if (_config.EnableFramebufferLongEdgeLimit)
-            {
-                targetDpr = DevicePixelRatioBudget.Limit(
-                    performanceDpr,
-                    logicalWidth,
-                    logicalHeight,
-                    _config.MaxFramebufferLongEdge);
-            }
-            else if (_config.EnableDprPerformanceScaling)
-            {
-                // 仅关闭长边限制时，仍保留原性能策略的最低 DPR。
-                targetDpr = System.Math.Max(1d, targetDpr);
-            }
+            var tier = GetPerformanceTier(overall);
+            var targetDpr = DevicePixelRatioPolicy.Calculate(
+                _dprConfig, tier, defaultDpr, logicalWidth, logicalHeight);
 
             if (targetDpr < defaultDpr)
             {
@@ -89,12 +66,20 @@ namespace July.Platform
             }
 
             Debug.Log(
-                $"[DPR] overall={overall}, screen={logicalWidth}x{logicalHeight}, " +
-                $"default={defaultDpr:F3}, performanceScale={performanceScale:F2}, " +
-                $"performanceScalingEnabled={_config.EnableDprPerformanceScaling}, " +
-                $"longEdgeLimitEnabled={_config.EnableFramebufferLongEdgeLimit}, " +
-                $"maxLongEdge={_config.MaxFramebufferLongEdge}, target={targetDpr:F3}");
+                $"[DPR] platform={_platform}, overall={overall}, tier={tier}, " +
+                $"window={logicalWidth}x{logicalHeight}, default={defaultDpr:F3}, " +
+                $"pixelBudgetEnabled={_dprConfig.EnablePixelBudget}, " +
+                $"target={targetDpr:F3}, estimatedSize={(logicalWidth * targetDpr):F0}x{(logicalHeight * targetDpr):F0}");
             return targetDpr;
+        }
+
+        private static DevicePerformanceTier GetPerformanceTier(double overall)
+        {
+            if (overall >= 8.51)
+                return DevicePerformanceTier.High;
+            if (overall < 0d || overall >= 7.30)
+                return DevicePerformanceTier.Medium;
+            return DevicePerformanceTier.Low;
         }
 
         public bool IsPc()

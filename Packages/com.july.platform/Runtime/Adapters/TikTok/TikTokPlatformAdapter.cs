@@ -18,8 +18,6 @@ namespace July.Platform
         public TikTokPlatformAdapter(int platformType, PlatformConfig config)
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
-            if (config.EnableFramebufferLongEdgeLimit && config.MaxFramebufferLongEdge <= 0)
-                throw new ArgumentOutOfRangeException(nameof(config.MaxFramebufferLongEdge));
 
             _platformType = platformType;
         }
@@ -41,7 +39,7 @@ namespace July.Platform
             registry.Register<IShareService>(new TikTokShareService());
             registry.Register<IAccelerometerService>(new TikTokAccelerometerService());
             registry.Register<IDeviceService>(
-                new TikTokDeviceService(_config));
+                new TikTokDeviceService(_config.Dpr));
             registry.Register<ILifecycleService>(new TikTokLifecycleService());
             registry.Register<IPurchaseService>(new TikTokPurchaseService());
             registry.Register<ISocialService>(new TikTokSocialService());

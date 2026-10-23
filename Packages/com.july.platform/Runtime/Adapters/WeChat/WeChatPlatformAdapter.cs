@@ -18,8 +18,6 @@ namespace July.Platform
         public WeChatPlatformAdapter(int platformType, PlatformConfig config)
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
-            if (config.EnableFramebufferLongEdgeLimit && config.MaxFramebufferLongEdge <= 0)
-                throw new ArgumentOutOfRangeException(nameof(config.MaxFramebufferLongEdge));
 
             _platformType = platformType;
         }
@@ -42,7 +40,7 @@ namespace July.Platform
             registry.Register<IShareService>(new WeChatShareService());
             registry.Register<IAccelerometerService>(new WeChatAccelerometerService());
             registry.Register<IDeviceService>(
-                new WeChatDeviceService(_config));
+                new WeChatDeviceService(_config.Dpr));
             registry.Register<ILifecycleService>(new WeChatLifecycleService());
             registry.Register<ISocialService>(new WeChatSocialService());
             registry.Register<ISubscribeService>(new WeChatSubscribeService());

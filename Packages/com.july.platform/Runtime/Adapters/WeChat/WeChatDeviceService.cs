@@ -8,15 +8,15 @@ namespace July.Platform
 {
     internal sealed class WeChatDeviceService : IDeviceService, ICanEvent
     {
-        private readonly PlatformConfig _config;
+        private readonly DprConfig _dprConfig;
         private int _benchmarkLevel;
         private double _effectiveDpr;
         private DeviceInfoData _cachedInfo;
         private string _platform;
 
-        internal WeChatDeviceService(PlatformConfig config)
+        internal WeChatDeviceService(DprConfig config)
         {
-            _config = config;
+            _dprConfig = config;
         }
 
         public void Init()
@@ -45,11 +45,14 @@ namespace July.Platform
 
         private double ApplyDpr(int benchmarkLevel)
         {
-            var isIOS = _platform == "ios";
-            var highThreshold = isIOS ? 36 : 30;
-            var midThreshold = isIOS ? 30 : 23;
             var windowInfo = WX.GetWindowInfo();
             var defaultDpr = windowInfo.pixelRatio;
+            if (_platform == "devtools")
+            {
+                Debug.Log(
+                    $"[DPR] platform={_platform}, skipped=devtools, default={defaultDpr:F3}");
+                return defaultDpr;
+            }
             if (IsPc())
             {
                 Debug.Log(
@@ -57,42 +60,29 @@ namespace July.Platform
                 return defaultDpr;
             }
 
-            var performanceScale = 1d;
-            if (_config.EnableDprPerformanceScaling)
-            {
-                performanceScale = benchmarkLevel >= highThreshold
-                    ? 1d
-                    : benchmarkLevel >= midThreshold || benchmarkLevel == -1
-                        ? 0.7d
-                        : 0.5d;
-            }
-            var performanceDpr = defaultDpr * performanceScale;
-            var targetDpr = performanceDpr;
-            if (_config.EnableFramebufferLongEdgeLimit)
-            {
-                targetDpr = DevicePixelRatioBudget.Limit(
-                    performanceDpr,
-                    windowInfo.windowWidth,
-                    windowInfo.windowHeight,
-                    _config.MaxFramebufferLongEdge);
-            }
-            else if (_config.EnableDprPerformanceScaling)
-            {
-                // 仅关闭长边限制时，仍保留原性能策略的最低 DPR。
-                targetDpr = System.Math.Max(1d, targetDpr);
-            }
+            var tier = GetPerformanceTier(benchmarkLevel);
+            var targetDpr = DevicePixelRatioPolicy.Calculate(
+                _dprConfig, tier, defaultDpr, windowInfo.windowWidth, windowInfo.windowHeight);
 
             if (targetDpr < defaultDpr)
                 WXBase.SetDevicePixelRatio(targetDpr);
 
             Debug.Log(
-                $"[DPR] platform={_platform}, benchmarkLevel={benchmarkLevel}, " +
-                $"window={windowInfo.windowWidth}x{windowInfo.windowHeight}, " +
-                $"default={defaultDpr:F3}, performanceScale={performanceScale:F2}, " +
-                $"performanceScalingEnabled={_config.EnableDprPerformanceScaling}, " +
-                $"longEdgeLimitEnabled={_config.EnableFramebufferLongEdgeLimit}, " +
-                $"maxLongEdge={_config.MaxFramebufferLongEdge}, target={targetDpr:F3}");
+                $"[DPR] platform={_platform}, benchmarkLevel={benchmarkLevel}, tier={tier}, " +
+                $"window={windowInfo.windowWidth}x{windowInfo.windowHeight}, default={defaultDpr:F3}, " +
+                $"pixelBudgetEnabled={_dprConfig.EnablePixelBudget}, " +
+                $"target={targetDpr:F3}, estimatedSize={(windowInfo.windowWidth * targetDpr):F0}x{(windowInfo.windowHeight * targetDpr):F0}");
             return targetDpr;
+        }
+
+        private DevicePerformanceTier GetPerformanceTier(int benchmarkLevel)
+        {
+            var isIOS = _platform == "ios";
+            if (benchmarkLevel >= (isIOS ? 36 : 30))
+                return DevicePerformanceTier.High;
+            if (benchmarkLevel == -1 || benchmarkLevel >= (isIOS ? 30 : 23))
+                return DevicePerformanceTier.Medium;
+            return DevicePerformanceTier.Low;
         }
 
         public bool IsPc()
