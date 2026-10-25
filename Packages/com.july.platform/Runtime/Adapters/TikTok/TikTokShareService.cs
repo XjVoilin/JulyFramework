@@ -1,3 +1,4 @@
+using July.Logging;
 using July.Arch;
 #if JULYGF_DY_MINIGAME
 using UnityEngine;
@@ -10,7 +11,7 @@ namespace July.Platform
     {
         public void Share(int shareId, string title, string imageUrl, string templateId, string query)
         {
-            Debug.Log($"[TikTokShare] Share shareId={shareId}, title={title}, imageUrl={imageUrl}, templateId={templateId}, query={query}");
+            JLogger.Log($"[TikTokShare] Share shareId={shareId}, title={title}, imageUrl={imageUrl}, templateId={templateId}, query={query}");
 
             var shareJson = new JsonData();
             shareJson["title"] = title;
@@ -22,17 +23,17 @@ namespace July.Platform
             TT.ShareAppMessage(shareJson,
                 _ =>
                 {
-                    Debug.Log($"[TikTokShare] Success shareId={shareId}");
+                    JLogger.Log($"[TikTokShare] Success shareId={shareId}");
                     this.Publish(new ShareResultEvent(shareId, true));
                 },
                 err =>
                 {
-                    Debug.Log($"[TikTokShare] Fail shareId={shareId}, err={err}");
+                    JLogger.LogWarning($"[TikTokShare] Fail shareId={shareId}, err={err}");
                     this.Publish(new ShareResultEvent(shareId, false, err));
                 },
                 () =>
                 {
-                    Debug.Log($"[TikTokShare] Cancel shareId={shareId}");
+                    JLogger.Log($"[TikTokShare] Cancel shareId={shareId}");
                     this.Publish(new ShareResultEvent(shareId, false, "cancel"));
                 });
         }

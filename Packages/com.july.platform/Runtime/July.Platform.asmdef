@@ -2,6 +2,7 @@
     "name":  "July.Platform",
     "rootNamespace":  "July.Platform",
     "references":  [
+                       "July.Logging",
                        "July.Arch",
                        "UniTask",
                        "UnityEngine.UI",

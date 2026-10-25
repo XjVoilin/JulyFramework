@@ -1,6 +1,6 @@
 ﻿{
     "name":  "com.july.persistence",
-    "version":  "0.3.1",
+    "version":  "0.3.2",
     "displayName":  "July Persistence",
     "description":  "Local persistence systems, platform-aware preferences and composition-time Store persistence.",
     "unity":  "2022.3",

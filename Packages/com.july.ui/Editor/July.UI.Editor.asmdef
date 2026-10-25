@@ -2,6 +2,7 @@
     "name":  "July.UI.Editor",
     "rootNamespace":  "July.UI.Editor",
     "references":  [
+                       "July.Logging",
                        "July.UI",
                        "July.Arch",
                        "Unity.TextMeshPro",

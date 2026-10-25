@@ -1,3 +1,4 @@
+using July.Logging;
 #if JULYGF_WX_MINIGAME
 using System;
 using System.Runtime.InteropServices;
@@ -34,7 +35,7 @@ namespace July.Platform
         {
             if (data is not string msgStr)
             {
-                Debug.LogError("[WeChatSocial] data must be a JSON string for OpenData context");
+                JLogger.LogError("[WeChatSocial] data must be a JSON string for OpenData context");
                 return;
             }
 
@@ -88,7 +89,7 @@ namespace July.Platform
             }
             catch (Exception e)
             {
-                Debug.LogError($"[WeChatSocial] GetRelationFriendsRawAsync failed: {e.Message}");
+                JLogger.LogError($"[WeChatSocial] GetRelationFriendsRawAsync failed: {e.Message}");
                 return RelationFriendRawResult.Fail(e.Message);
             }
         }
@@ -97,21 +98,21 @@ namespace July.Platform
         {
             if (rawImage == null)
             {
-                Debug.LogError("[WeChatSocial] Rank RawImage is null.");
+                JLogger.LogError("[WeChatSocial] Rank RawImage is null.");
                 return false;
             }
 
             var canvas = rawImage.canvas;
             if (canvas == null)
             {
-                Debug.LogError("[WeChatSocial] Rank RawImage is not under a Canvas.");
+                JLogger.LogError("[WeChatSocial] Rank RawImage is not under a Canvas.");
                 return false;
             }
 
             var camera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
             if (canvas.renderMode != RenderMode.ScreenSpaceOverlay && camera == null)
             {
-                Debug.LogError("[WeChatSocial] Canvas worldCamera is missing.");
+                JLogger.LogError("[WeChatSocial] Canvas worldCamera is missing.");
                 return false;
             }
 
@@ -130,7 +131,7 @@ namespace July.Platform
 
             if (width <= 0 || height <= 0)
             {
-                Debug.LogError($"[WeChatSocial] Invalid rank viewport: ({left}, {bottom}) - ({right}, {top}).");
+                JLogger.LogError($"[WeChatSocial] Invalid rank viewport: ({left}, {bottom}) - ({right}, {top}).");
                 return false;
             }
 

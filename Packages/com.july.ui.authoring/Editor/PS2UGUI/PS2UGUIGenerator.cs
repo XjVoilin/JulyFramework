@@ -1,3 +1,4 @@
+using July.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -52,7 +53,7 @@ namespace July.UI.Authoring.Editor
         {
             if (!IsSupportedPrefabJsonPath(jsonAssetPath))
             {
-                Debug.LogError($"PS2UGUI: 不支持的文件路径 → {jsonAssetPath}");
+                JLogger.LogError($"PS2UGUI: 不支持的文件路径 → {jsonAssetPath}");
                 return;
             }
 
@@ -60,7 +61,7 @@ namespace July.UI.Authoring.Editor
 
             if (data == null || data.canvas == null || data.children == null)
             {
-                Debug.LogError($"PS2UGUI: JSON 转换失败 → {jsonAssetPath}");
+                JLogger.LogError($"PS2UGUI: JSON 转换失败 → {jsonAssetPath}");
                 return;
             }
 

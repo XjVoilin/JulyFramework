@@ -1,6 +1,7 @@
 {
   "name": "July.Mesh.Authoring.Editor",
   "rootNamespace": "July.Mesh.Authoring",
+  "references": ["July.Logging"],
   "includePlatforms": [
     "Editor"
   ],

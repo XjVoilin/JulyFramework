@@ -1,3 +1,4 @@
+using July.Logging;
 #if UNITY_WEBGL && JULYGF_WX_MINIGAME
 using YooAsset;
 
@@ -89,7 +90,7 @@ internal class WXFSLoadBundleOperation : FSLoadBundleOperation
             _steps = ESteps.Done;
             Status = EOperationStatus.Failed;
             Error = "WebGL platform not support sync load method !";
-            UnityEngine.Debug.LogError(Error);
+            JLogger.LogError(Error);
         }
     }
 }

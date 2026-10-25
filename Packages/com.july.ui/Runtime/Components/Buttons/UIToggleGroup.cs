@@ -1,3 +1,4 @@
+using July.Logging;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -95,7 +96,7 @@ namespace July.UI
         internal void NotifyItemClicked(UIToggleItem item)
         {
             var index = _items.IndexOf(item);
-            SelectAsync(index).Forget(Debug.LogException);
+            SelectAsync(index).Forget(JLogger.LogException);
         }
 
         internal void NotifyLockedItemClicked(UIToggleItem item)

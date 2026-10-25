@@ -1,3 +1,4 @@
+using July.Logging;
 #if JULYGF_DY_MINIGAME
 using System;
 using System.Threading;
@@ -23,7 +24,7 @@ namespace July.Platform
                 },
                 error =>
                 {
-                    Debug.LogError($"TT.Login failed: {error}");
+                    JLogger.LogWarning($"TT.Login failed: {error}");
                     tcs.TrySetException(new Exception($"TT.Login failed: {error}"));
                 });
             var loginCode = await tcs.Task;

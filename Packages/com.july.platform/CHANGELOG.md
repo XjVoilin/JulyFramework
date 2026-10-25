@@ -1,5 +1,10 @@
 # 更新记录
 
+## 0.5.2 - 2026-10-25
+
+- Use JLogger across platform services and adapters, with explicit assembly and package dependencies.
+- Keep expected advertising, sharing and optional SDK-operation failures below error severity to avoid unnecessary error reporting.
+
 ## 未发布
 
 - 删除 DprConfig 的 EnableLongEdgeLimit/MaxLongEdge、两端构造校验/日志及公共策略的长边分支。仅按设备档位的整帧像素预算降 DPR，预算内的细长窗口保持默认尺寸。

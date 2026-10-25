@@ -1,5 +1,9 @@
 # 更新记录
 
+## 0.4.1 - 2026-10-25
+
+- Route unhandled guide-run exceptions through JLogger and declare the logging dependency.
+
 ## 0.4.0 - 2026-09-28
 
 - 删除 Context.Fail、_reportedFailure 和多异常合并机制；Procedure 的错误直接经运行任务传播，LastFailure 仅保留实际任务失败供诊断。同步移除专属上报用例，未运行测试。

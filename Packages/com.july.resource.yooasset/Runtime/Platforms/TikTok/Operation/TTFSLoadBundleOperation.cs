@@ -1,3 +1,4 @@
+using July.Logging;
 #if UNITY_WEBGL && JULYGF_DY_MINIGAME
 using UnityEngine;
 using UnityEngine.Networking;
@@ -91,7 +92,7 @@ internal class TTFSLoadBundleOperation : FSLoadBundleOperation
             _steps = ESteps.Done;
             Status = EOperationStatus.Failed;
             Error = "WebGL platform not support sync load method !";
-            UnityEngine.Debug.LogError(Error);
+            JLogger.LogError(Error);
         }
     }
 }

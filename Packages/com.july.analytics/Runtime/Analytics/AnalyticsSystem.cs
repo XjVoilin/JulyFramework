@@ -1,3 +1,4 @@
+using July.Logging;
 using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
@@ -84,7 +85,7 @@ namespace July.Analytics
             Action<IAnalyticsChannel> action)
         {
             try { action(channel); }
-            catch (Exception exception) { Debug.LogException(exception); }
+            catch (Exception exception) { JLogger.LogException(exception); }
         }
     }
 }

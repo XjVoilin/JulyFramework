@@ -1,3 +1,4 @@
+using July.Logging;
 #if JULYGF_WX_MINIGAME
 using System;
 using System.Threading;
@@ -24,7 +25,7 @@ namespace July.Platform
                 },
                 fail = res =>
                 {
-                    Debug.LogError($"WX.Login failed: {res.errMsg}");
+                    JLogger.LogWarning($"WX.Login failed: {res.errMsg}");
                     tcs.TrySetException(new Exception($"WX.Login failed: {res.errMsg}"));
                 },
             });

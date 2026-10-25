@@ -1,3 +1,4 @@
+using July.Logging;
 using July.Arch;
 using July.Platform;
 #if JULYGF_WX_MINIGAME
@@ -49,13 +50,13 @@ namespace July.Platform
             var defaultDpr = windowInfo.pixelRatio;
             if (_platform == "devtools")
             {
-                Debug.Log(
+                JLogger.Log(
                     $"[DPR] platform={_platform}, skipped=devtools, default={defaultDpr:F3}");
                 return defaultDpr;
             }
             if (IsPc())
             {
-                Debug.Log(
+                JLogger.Log(
                     $"[DPR] platform={_platform}, skipped=pc, default={defaultDpr:F3}");
                 return defaultDpr;
             }
@@ -67,7 +68,7 @@ namespace July.Platform
             if (targetDpr < defaultDpr)
                 WXBase.SetDevicePixelRatio(targetDpr);
 
-            Debug.Log(
+            JLogger.Log(
                 $"[DPR] platform={_platform}, benchmarkLevel={benchmarkLevel}, tier={tier}, " +
                 $"window={windowInfo.windowWidth}x{windowInfo.windowHeight}, default={defaultDpr:F3}, " +
                 $"pixelBudgetEnabled={_dprConfig.EnablePixelBudget}, " +
@@ -96,13 +97,13 @@ namespace July.Platform
 
         public void SetClipboardData(string data)
         {
-            Debug.Log($"[July.Platform.WeChat.Clipboard] Request length={data?.Length ?? 0}");
+            JLogger.Log($"[July.Platform.WeChat.Clipboard] Request length={data?.Length ?? 0}");
 
             var option = new SetClipboardDataOption
             {
                 data = data,
-                success = _ => Debug.Log("[July.Platform.WeChat.Clipboard] Success"),
-                fail = result => Debug.LogError(
+                success = _ => JLogger.Log("[July.Platform.WeChat.Clipboard] Success"),
+                fail = result => JLogger.LogWarning(
                     $"[July.Platform.WeChat.Clipboard] Failed: {result.errMsg}"),
             };
             WX.SetClipboardData(option);
@@ -133,7 +134,7 @@ namespace July.Platform
             var info = WX.GetWindowInfo();
             var sa = info.safeArea;
 
-            Debug.Log($"[SafeArea] Screen=({Screen.width}x{Screen.height}), " +
+            JLogger.Log($"[SafeArea] Screen=({Screen.width}x{Screen.height}), " +
                       $"screen=({info.screenWidth}x{info.screenHeight}), " +
                       $"window=({info.windowWidth}x{info.windowHeight}), " +
                       $"pixelRatio={info.pixelRatio}, " +

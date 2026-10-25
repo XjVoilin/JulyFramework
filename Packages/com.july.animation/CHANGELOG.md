@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.7 - 2026-10-25
+
+- Route runtime sprite animation diagnostics through JLogger; keep editor authoring diagnostics independent of JULYGF_DEBUG.
+
 ## 0.2.6 - 2026-09-07
 
 - Added UIAlphaPulse for reusable Graphic alpha breathing with configurable range, timing, initial delay and easing. Stop and disable restore the original alpha.

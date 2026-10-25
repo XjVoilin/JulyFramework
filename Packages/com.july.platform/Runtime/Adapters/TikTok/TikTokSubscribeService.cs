@@ -1,3 +1,4 @@
+using July.Logging;
 using July.Arch;
 #if JULYGF_DY_MINIGAME
 using TTSDK;
@@ -39,13 +40,13 @@ namespace July.Platform
                     var isSuccess = res.ContainsKey("success")
                                    && res["success"].IsBoolean
                                    && (bool)res["success"];
-                    Debug.Log($"[TikTokSubscribe] 推荐流订阅: success={isSuccess}");
+                    JLogger.Log($"[TikTokSubscribe] 推荐流订阅: success={isSuccess}");
                     this.Publish(new FeedSubscribeResultEvent(isSuccess));
                 },
                 (errNo, errMsg) =>
                 {
                     _isFeedSubscribing = false;
-                    Debug.LogWarning($"[TikTokSubscribe] 推荐流订阅失败: errNo={errNo}, errMsg={errMsg}");
+                    JLogger.LogWarning($"[TikTokSubscribe] 推荐流订阅失败: errNo={errNo}, errMsg={errMsg}");
                     this.Publish(new FeedSubscribeResultEvent(false));
                 },
                 null
@@ -56,7 +57,7 @@ namespace July.Platform
         {
             if (!CanIUse.CheckFeedSubscribeStatus)
             {
-                Debug.Log("[TikTokSubscribe] 当前环境不支持推荐流订阅状态查询，跳过查询");
+                JLogger.Log("[TikTokSubscribe] 当前环境不支持推荐流订阅状态查询，跳过查询");
                 return;
             }
 
@@ -72,12 +73,12 @@ namespace July.Platform
                     var subscribed = res.ContainsKey("success")
                                     && res["success"].IsBoolean
                                     && (bool)res["success"];
-                    Debug.Log($"[TikTokSubscribe] 获得推荐流订阅状态: subscribed={subscribed}");
+                    JLogger.Log($"[TikTokSubscribe] 获得推荐流订阅状态: subscribed={subscribed}");
                     this.Publish(new FeedSubscribeResultEvent(subscribed));
                 },
                 (errNo, errMsg) =>
                 {
-                    Debug.LogWarning($"[TikTokSubscribe] 获得推荐流订阅状态失败: errNo={errNo}, errMsg={errMsg}");
+                    JLogger.LogWarning($"[TikTokSubscribe] 获得推荐流订阅状态失败: errNo={errNo}, errMsg={errMsg}");
                 },
                 null
             );

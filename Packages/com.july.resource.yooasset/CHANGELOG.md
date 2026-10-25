@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.3 - 2026-10-25
+
+- Use JLogger for adapter diagnostics and mini-game synchronous-load errors; declare the consuming assembly references.
+
 ## 0.3.2 - 2026-10-19
 
 - Write predownload logs directly through JLogger and its JULYGF_DEBUG switch;

@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.4.1 - 2026-10-25
+
+- Use JLogger for runtime component diagnostics, toggle-selection exceptions and editor generation errors; retain unconditional editor information and warnings.
 
 ## 0.4.0 - 2026-10-19
 

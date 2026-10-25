@@ -1,3 +1,4 @@
+using July.Logging;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -87,7 +88,7 @@ namespace July.Resource.YooAsset
                 await UpdateManifestAsync();
 
             _preDownloads = new YooAssetPreDownloadController(CreateDownloader,
-                error => Debug.LogWarning($"[YooAssetResourceSystem] {error}"));
+                error => JLogger.LogWarning($"[YooAssetResourceSystem] {error}"));
         }
 
         private InitializeParameters CreateDefaultInitializeParameters()

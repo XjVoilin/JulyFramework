@@ -1,3 +1,4 @@
+using July.Logging;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
@@ -85,7 +86,7 @@ namespace July.UI
             }
             catch (UnityWebRequestException)
             {
-                Debug.LogWarning($"[WebImage] Load failed ({url}): result={request.result}, responseCode={request.responseCode}, error={request.error}");
+                JLogger.LogWarning($"[WebImage] Load failed ({url}): result={request.result}, responseCode={request.responseCode}, error={request.error}");
                 return;
             }
 

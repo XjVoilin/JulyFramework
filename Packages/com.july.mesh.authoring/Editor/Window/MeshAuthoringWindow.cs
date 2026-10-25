@@ -1,3 +1,4 @@
+using July.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -143,7 +144,7 @@ namespace July.Mesh.Authoring
                         }
                         row.Error = null; completed++;
                     }
-                    catch (Exception error) { row.Error = error.Message; Debug.LogError($"July Mesh：{row.Source.name} 操作失败：{error.Message}", row.Source); failed++; }
+                    catch (Exception error) { row.Error = error.Message; JLogger.LogError($"July Mesh：{row.Source.name} 操作失败：{error.Message}", row.Source); failed++; }
                 }
             }
             finally { EditorUtility.ClearProgressBar(); }

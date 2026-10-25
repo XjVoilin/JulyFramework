@@ -1,3 +1,4 @@
+using July.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -104,7 +105,7 @@ namespace July.UI.Authoring.Editor
 
             if (!Directory.Exists(sourceFolderPath))
             {
-                Debug.LogError($"ArtImporter: 源文件夹不存在 → {sourceFolderPath}");
+                JLogger.LogError($"ArtImporter: 源文件夹不存在 → {sourceFolderPath}");
                 return result;
             }
 
@@ -112,14 +113,14 @@ namespace July.UI.Authoring.Editor
             var jsonPath = FindJsonFile(sourceFolderPath);
             if (string.IsNullOrEmpty(jsonPath))
             {
-                Debug.LogError($"ArtImporter: 未找到支持的 JSON 文件（*_ui_data.json / *_ps_data.json / *_figma_data.json）");
+                JLogger.LogError($"ArtImporter: 未找到支持的 JSON 文件（*_ui_data.json / *_ps_data.json / *_figma_data.json）");
                 return result;
             }
 
             var panelName = ExtractPanelName(jsonPath);
             if (string.IsNullOrEmpty(panelName))
             {
-                Debug.LogError($"ArtImporter: 无法从 JSON 文件名提取面板名 → {jsonPath}");
+                JLogger.LogError($"ArtImporter: 无法从 JSON 文件名提取面板名 → {jsonPath}");
                 return result;
             }
 

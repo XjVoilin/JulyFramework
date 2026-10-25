@@ -1,3 +1,4 @@
+using July.Logging;
 using July.Arch;
 #if JULYGF_WX_MINIGAME
 using Cysharp.Threading.Tasks;
@@ -23,10 +24,10 @@ namespace July.Platform
 
         public void Share(int shareId, string title, string imageUrl, string templateId, string query)
         {
-            Debug.Log($"[WeChatShare] Share shareId={shareId}, title={title}, imageUrl={imageUrl}, templateId={templateId}, query={query}");
+            JLogger.Log($"[WeChatShare] Share shareId={shareId}, title={title}, imageUrl={imageUrl}, templateId={templateId}, query={query}");
 
             if (_pendingShareId != 0)
-                Debug.LogWarning($"[WeChatShare] 覆盖未结算的分享 pending shareId={_pendingShareId}，前一次将被丢弃。");
+                JLogger.LogWarning($"[WeChatShare] 覆盖未结算的分享 pending shareId={_pendingShareId}，前一次将被丢弃。");
 
             var opt = new ShareAppMessageOption
             {
@@ -65,7 +66,7 @@ namespace July.Platform
             _pendingShareId = 0;
             _shareStartTime = 0f;
 
-            Debug.Log($"[WeChatShare] OnAppShow shareId={shareId}, elapsed={elapsed:F2}s, isSuccess={isSuccess}");
+            JLogger.Log($"[WeChatShare] OnAppShow shareId={shareId}, elapsed={elapsed:F2}s, isSuccess={isSuccess}");
             this.Publish(new ShareResultEvent(
                 shareId,
                 isSuccess,

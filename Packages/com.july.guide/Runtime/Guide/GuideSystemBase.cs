@@ -1,3 +1,4 @@
+using July.Logging;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -99,7 +100,7 @@ namespace July.Guide
             var finished = new UniTaskCompletionSource<GuideExitReason?>();
             _finished = finished;
             // 执行可能同步结束并清空字段，返回值仍使用本轮的完成任务。
-            ExecuteRunAsync(selected, _runCancellation, finished).Forget(Debug.LogException);
+            ExecuteRunAsync(selected, _runCancellation, finished).Forget(JLogger.LogException);
             return finished.Task;
         }
 

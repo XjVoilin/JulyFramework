@@ -1,3 +1,4 @@
+using July.Logging;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -149,7 +150,7 @@ namespace July.Animation
             var clip = FindClip(clipName);
             if (clip == null || !clip.IsValid)
             {
-                Debug.LogWarning($"[SpriteFrameAnimator] Clip '{clipName}' not found or empty on {name}");
+                JLogger.LogWarning($"[SpriteFrameAnimator] Clip '{clipName}' not found or empty on {name}");
                 return;
             }
 
@@ -217,7 +218,7 @@ namespace July.Animation
                 return;
             }
 
-            Debug.LogWarning($"[SpriteFrameAnimator] No SpriteRenderer or Image on {name}");
+            JLogger.LogWarning($"[SpriteFrameAnimator] No SpriteRenderer or Image on {name}");
         }
 
         private Clip FindClip(string clipName)

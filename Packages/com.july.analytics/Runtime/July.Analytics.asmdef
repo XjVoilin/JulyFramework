@@ -2,6 +2,7 @@
     "name":  "July.Analytics",
     "rootNamespace":  "July.Analytics",
     "references":  [
+                       "July.Logging",
                        "July.Arch",
                        "UniTask"
                    ],

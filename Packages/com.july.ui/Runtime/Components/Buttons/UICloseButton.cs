@@ -1,3 +1,4 @@
+using July.Logging;
 using July.Arch;
 using UnityEngine;
 
@@ -18,7 +19,7 @@ namespace July.UI
             _button = GetComponent<UISmartButton>();
             _window = GetComponentInParent<UIView>();
             if (_window == null)
-                Debug.LogWarning($"[UICloseButton] 未找到父级 UIView: {gameObject.name}");
+                JLogger.LogWarning($"[UICloseButton] 未找到父级 UIView: {gameObject.name}");
             _button.onClick.AddListener(OnClick);
         }
 

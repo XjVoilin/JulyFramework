@@ -1,3 +1,4 @@
+using July.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -321,7 +322,7 @@ namespace July.AssetCheck
             {
                 // 用户、文件和 Unity 操作的边界：明确展示错误，并保留原有数据。
                 _error.text = exception.Message;
-                Debug.LogException(exception);
+                JLogger.LogException(exception);
             }
             Refresh();
         }

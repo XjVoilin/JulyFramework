@@ -2,6 +2,7 @@
   "name": "July.Resource.YooAsset.Editor",
   "rootNamespace": "July.Resource.YooAsset",
   "references": [
+    "July.Logging",
     "July.Resource.YooAsset",
     "YooAsset.Editor"
   ],

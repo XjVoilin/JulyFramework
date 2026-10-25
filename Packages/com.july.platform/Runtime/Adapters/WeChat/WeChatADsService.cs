@@ -1,3 +1,4 @@
+using July.Logging;
 using July.Arch;
 #if JULYGF_WX_MINIGAME
 using WeChatWASM;
@@ -25,7 +26,7 @@ namespace July.Platform
             _videoAd.OnLoad(OnAdLoaded);
             _videoAd.OnError(OnAdError);
             _videoAd.OnClose(OnAdClose);
-            Debug.Log("[WeChatADsService] 广告实例延迟创建完成");
+            JLogger.Log("[WeChatADsService] 广告实例延迟创建完成");
         }
 
         public bool HasRewardedAd() => _isLoaded && !_isPlaying;
@@ -59,7 +60,7 @@ namespace July.Platform
         {
             if (!_isPlaying) return;
             _isPlaying = false;
-            Debug.Log($"WeChatADsService Show Failed: {res?.errMsg}");
+            JLogger.Log($"WeChatADsService Show Failed: {res?.errMsg}");
             _videoAd.Load(null, null);
             this.Publish(new RewardedAdResultEvent(false, false));
         }
@@ -80,7 +81,7 @@ namespace July.Platform
 
         private void OnAdError(WXADErrorResponse v)
         {
-            Debug.Log($"WeChatADsService Ad Error: {v?.errCode} {v?.errMsg}");
+            JLogger.Log($"WeChatADsService Ad Error: {v?.errCode} {v?.errMsg}");
             _isLoaded = false;
             _videoAd.Load(null, null);
             if (!_isPlaying) return;

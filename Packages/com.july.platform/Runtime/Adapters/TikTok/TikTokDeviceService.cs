@@ -1,3 +1,4 @@
+using July.Logging;
 using System;
 using July.Arch;
 using July.Platform;
@@ -38,7 +39,7 @@ namespace July.Platform
                 sysInfo.pixelRatio,
                 sysInfo.screenWidth,
                 sysInfo.screenHeight);
-            Debug.Log($"[Device] deviceScore: cpu={sysInfo.deviceScore.cpu}, gpu={sysInfo.deviceScore.gpu}, " +
+            JLogger.Log($"[Device] deviceScore: cpu={sysInfo.deviceScore.cpu}, gpu={sysInfo.deviceScore.gpu}, " +
                       $"memory={sysInfo.deviceScore.memory}, overall={score}");
         }
 
@@ -50,7 +51,7 @@ namespace July.Platform
         {
             if (IsPc())
             {
-                Debug.Log(
+                JLogger.Log(
                     $"[DPR] platform={_platform}, skipped=pc, default={defaultDpr:F3}");
                 return defaultDpr;
             }
@@ -65,7 +66,7 @@ namespace July.Platform
                 TT.SetPreferredDevicePixelRatio((float)targetDpr);
             }
 
-            Debug.Log(
+            JLogger.Log(
                 $"[DPR] platform={_platform}, overall={overall}, tier={tier}, " +
                 $"window={logicalWidth}x{logicalHeight}, default={defaultDpr:F3}, " +
                 $"pixelBudgetEnabled={_dprConfig.EnablePixelBudget}, " +

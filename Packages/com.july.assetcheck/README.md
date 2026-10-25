@@ -1,6 +1,6 @@
 # July 资源检查
 
-Unity 2022.3 编辑器资源检查工具。入口：**JulyGF → 资源管理 → 资源检查**。UI Toolkit，无运行时代码，无 JulyArch 或第三方 UI 依赖；声明 Unity 内置 Audio、JSON 模块依赖。未使用 URP 的项目也可以安装，URP 模块不会引入包依赖。
+Unity 2022.3 编辑器资源检查工具。入口：**JulyGF → 资源管理 → 资源检查**。UI Toolkit，无运行时代码，无 JulyArch 或第三方 UI 依赖；声明 July Logging 及 Unity 内置 Audio、JSON 模块依赖；通过 Git 安装时需显式添加 `com.july.logging`。未使用 URP 的项目也可以安装，URP 模块不会引入包依赖。
 
 ## 0.7.0
 

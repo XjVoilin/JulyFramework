@@ -1,3 +1,4 @@
+using July.Logging;
 using July.Arch;
 #if JULYGF_DY_MINIGAME
 using TTSDK;
@@ -26,7 +27,7 @@ namespace July.Platform
             _videoAd.OnError += OnAdError;
             _videoAd.OnClose += OnAdClose;
             _videoAd.Load();
-            Debug.Log("[TikTokADsService] 广告实例延迟创建完成");
+            JLogger.Log("[TikTokADsService] 广告实例延迟创建完成");
         }
 
         public bool HasRewardedAd() => _isLoaded;
@@ -61,7 +62,7 @@ namespace July.Platform
 
         private void OnAdError(int errCode, string errMsg)
         {
-            Debug.Log($"[TikTokAd] Error: {errCode} {errMsg}");
+            JLogger.LogWarning($"[TikTokAd] Error: {errCode} {errMsg}");
             _isLoaded = false;
         }
     }

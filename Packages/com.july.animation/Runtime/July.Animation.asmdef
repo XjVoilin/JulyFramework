@@ -2,6 +2,7 @@
     "name":  "July.Animation",
     "rootNamespace":  "July.Animation",
     "references":  [
+                       "July.Logging",
                        "DOTweenAot",
                        "UnityEngine.UI"
                    ],

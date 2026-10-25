@@ -2,6 +2,7 @@
     "name": "YooAsset.MiniGame",
     "rootNamespace": "July.Resource.YooAsset",
     "references": [
+        "July.Logging",
         "YooAsset",
         "Wx",
         "TTWebGL"

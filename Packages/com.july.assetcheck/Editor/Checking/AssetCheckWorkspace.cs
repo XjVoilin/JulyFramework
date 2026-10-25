@@ -1,3 +1,4 @@
+using July.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -223,7 +224,7 @@ namespace July.AssetCheck
                 }
                 if (_fixInProgress)
                     Activity = $"操作失败；已修改 {LastFix.ModifiedFiles} 个文件，跳过 {LastFix.SkippedFiles} 个，请重新检查。";
-                Debug.LogException(exception);
+                JLogger.LogException(exception);
                 FinishTask();
             }
             Changed?.Invoke();
@@ -503,7 +504,7 @@ namespace July.AssetCheck
             var message = KindName(kind) + "结果保存失败：" + exception.Message;
             // 报告文件属于本地缓存；保存失败时保留内存结果，并明确提示读写错误。
             if (!_saveFailures.TryGetValue(kind, out var previous) || previous != message)
-                Debug.LogError(message);
+                JLogger.LogError(message);
             _saveFailures[kind] = message;
         }
 

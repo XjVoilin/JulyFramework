@@ -1,3 +1,4 @@
+using July.Logging;
 using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
@@ -28,7 +29,7 @@ namespace July.Persistence
             }
             catch (Exception exception)
             {
-                Debug.LogException(exception);
+                JLogger.LogException(exception);
                 return UniTask.FromResult(false);
             }
         }
@@ -41,13 +42,25 @@ namespace July.Persistence
                 var storageKey = ResolveStorageKey(key);
                 if (!_store.HasKey(storageKey)) return UniTask.FromResult<byte[]>(null);
                 var encoded = _store.GetString(storageKey);
-                return UniTask.FromResult(string.IsNullOrEmpty(encoded)
-                    ? null
-                    : Convert.FromBase64String(encoded));
+                if (string.IsNullOrEmpty(encoded)) return UniTask.FromResult<byte[]>(null);
+
+                try
+                {
+                    return UniTask.FromResult(Convert.FromBase64String(encoded));
+                }
+                catch (FormatException)
+                {
+                    // Only decoding failures prove that the stored value has an invalid format.
+                    _store.DeleteKey(storageKey);
+                    _store.Save();
+                    JLogger.LogWarning(
+                        $"[SaveSystem] 已清理无效的 Base64 存档：{storageKey}，将使用默认数据。");
+                    return UniTask.FromResult<byte[]>(null);
+                }
             }
             catch (Exception exception)
             {
-                Debug.LogException(exception);
+                JLogger.LogException(exception);
                 return UniTask.FromResult<byte[]>(null);
             }
         }

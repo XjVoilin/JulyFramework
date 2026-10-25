@@ -1,3 +1,4 @@
+using July.Logging;
 using July.Arch;
 #if JULYGF_DY_MINIGAME
 using TTSDK;
@@ -17,7 +18,7 @@ namespace July.Platform
             TT.OnFeedStatusChange(result =>
             {
                 var isEnter = result.Type == FeedStatusEnum.FeedEnter;
-                Debug.Log($"{Tag} FeedStatusChange: isEnter={isEnter}");
+                JLogger.Log($"{Tag} FeedStatusChange: isEnter={isEnter}");
                 this.Publish(new FeedStatusChangedEvent(isEnter));
             });
         }
@@ -31,8 +32,8 @@ namespace July.Platform
             };
             TT.ReportScene(
                 param,
-                _ => Debug.Log($"{Tag} ReportScene {sceneId} 成功"),
-                (code, msg) => Debug.LogError($"{Tag} ReportScene {sceneId} 失败: code={code}, msg={msg}"));
+                _ => JLogger.Log($"{Tag} ReportScene {sceneId} 成功"),
+                (code, msg) => JLogger.LogWarning($"{Tag} ReportScene {sceneId} 失败: code={code}, msg={msg}"));
         }
     }
 }

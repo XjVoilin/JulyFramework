@@ -1,3 +1,4 @@
+using July.Logging;
 using System;
 using July.Arch;
 using UnityEngine;
@@ -55,7 +56,7 @@ namespace July.Platform
         protected abstract void AttachSamples(long operation);
         protected abstract void DetachSamples();
         protected virtual void Emit<T>(T message) => this.Publish(message);
-        protected virtual void ReportStopFailure(string error) => Debug.LogError("[July.Platform] Accelerometer stop failed: " + error);
+        protected virtual void ReportStopFailure(string error) => JLogger.LogError("[July.Platform] Accelerometer stop failed: " + error);
 
         protected void SetForeground(bool foreground)
         {

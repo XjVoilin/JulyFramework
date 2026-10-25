@@ -2,6 +2,7 @@
     "name": "July.Platform.TikTok",
     "rootNamespace": "July.Platform",
     "references": [
+        "July.Logging",
         "July.Platform",
         "July.Arch",
         "UniTask",

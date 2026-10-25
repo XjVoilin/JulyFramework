@@ -1,3 +1,4 @@
+using July.Logging;
 using System;
 using System.IO;
 using System.Linq;
@@ -197,7 +198,7 @@ namespace July.UI.Editor
             catch (System.Exception ex)
             {
                 ShowErrorDialog($"创建失败: {ex.Message}");
-                Debug.LogError($"[CreateUIWindow] 创建失败: {ex}");
+                JLogger.LogError($"[CreateUIWindow] 创建失败: {ex}");
             }
         }
 
@@ -325,7 +326,7 @@ public class {className} : UIView
             }
             catch (System.Exception ex)
             {
-                Debug.LogError($"[CreateUIWindow] 创建Prefab失败: {ex}");
+                JLogger.LogError($"[CreateUIWindow] 创建Prefab失败: {ex}");
             }
         }
 

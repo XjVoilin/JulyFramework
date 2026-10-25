@@ -2,7 +2,7 @@
 
 Unity 2022.3 编辑器专用静态 Mesh 简化工具。入口：**JulyGF → 资源管理 → Mesh 简化**。
 
-当前版本 0.1.3，内置 **meshoptimizer 1.0，Windows x86_64 Editor** 原生库。无 Runtime 程序集，不依赖 URP、JulyArch、YooAsset 或具体游戏。
+当前版本 0.1.4，内置 **meshoptimizer 1.0，Windows x86_64 Editor** 原生库。无 Runtime 程序集，依赖 July Logging 输出操作失败，不依赖 URP、JulyArch、YooAsset 或具体游戏。
 
 ## 使用
 

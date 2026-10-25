@@ -1,3 +1,4 @@
+using July.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -53,14 +54,14 @@ namespace July.Resource.YooAsset
             var setting = AssetDatabase.LoadAssetAtPath<AssetBundleCollectorSetting>(settingPath);
             if (setting == null)
             {
-                Debug.LogError($"[YooAsset] Collector setting was not found: {settingPath}");
+                JLogger.LogError($"[YooAsset] Collector setting was not found: {settingPath}");
                 return false;
             }
 
             var package = setting.Packages.FirstOrDefault(item => item.PackageName == packageName);
             if (package == null)
             {
-                Debug.LogError($"[YooAsset] Collector package was not found: {packageName}");
+                JLogger.LogError($"[YooAsset] Collector package was not found: {packageName}");
                 return false;
             }
 
