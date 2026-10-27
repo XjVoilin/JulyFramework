@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../Packages/com.july.release/Editor/ReleaseExportProcessors.cs" />
+    <Compile Include="../../Packages/com.july.analytics.tencentdn/Runtime/TencentDnConfig.cs" />
+    <Compile Include="../../Packages/com.july.analytics.tencentdn/Editor/TencentDnExportProcessor.cs" />
+    <Compile Include="Program.cs" />
+    <Compile Include="UnityHost.cs" />
+    <Reference Include="LitJson"><HintPath>../../Packages/com.july.json/Runtime/Plugins/LitJson.dll</HintPath></Reference>
+  </ItemGroup>
+</Project>

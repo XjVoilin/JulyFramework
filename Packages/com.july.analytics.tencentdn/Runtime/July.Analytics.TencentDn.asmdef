@@ -1,0 +1,14 @@
+{
+  "name": "July.Analytics.TencentDn",
+  "rootNamespace": "July.Analytics.TencentDn",
+  "references": ["July.Analytics", "July.Logging"],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": true
+}

@@ -1,0 +1,16 @@
+{
+  "name": "com.july.analytics.tencentdn",
+  "version": "0.1.0",
+  "displayName": "July Analytics Tencent DN",
+  "description": "Tencent DataNexus IAA events, explicit static reporting and WeChat export integration.",
+  "unity": "2022.3",
+  "dependencies": {
+    "com.july.analytics": "0.3.0",
+    "com.july.release": "0.6.0",
+    "com.july.json": "0.1.0",
+    "com.july.logging": "0.1.0"
+  },
+  "author": {
+    "name": "July"
+  }
+}

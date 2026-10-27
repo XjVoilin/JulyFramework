@@ -1,0 +1,4 @@
+<linker>
+  <!-- 发送入口及事件可仅由热更程序集引用，随主包保留其 AOT 实现。 -->
+  <assembly fullname="July.Analytics.TencentDn" preserve="all" />
+</linker>

@@ -10,7 +10,7 @@ namespace July.Release.Editor
             var error = BuildUtils.ValidateResourceUrls(context, out _, out _, out _);
             if (error != null) return error;
             _ = ReleaseProject.PlatformBuilder(context.Platform);
-            return null;
+            return ReleaseProject.ExportProcessors.Validate(context, ReleaseProject.LoadBootConfig());
         }
         public override bool Execute(BuildContext context)
         {
@@ -22,6 +22,7 @@ namespace July.Release.Editor
             if (artifacts == null) return false;
             context.Artifacts = artifacts;
             context.DataFilePath = artifacts.DataFilePath;
+            ReleaseProject.ExportProcessors.Process(context, ReleaseProject.LoadBootConfig(), artifacts);
             return true;
         }
         static void CleanBurstCache()

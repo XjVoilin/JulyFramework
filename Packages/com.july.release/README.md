@@ -2,6 +2,14 @@
 
 标准项目的完整构建、热更、发布工具和客户端版本协议。与 `com.july.build` 同在 JulyFramework 仓库，不创建新的仓库。
 
+## 导出后处理扩展
+
+可选适配包在独立 Editor 程序集中实现 `IReleaseExportProcessor`，通过 `ReleaseProject.ExportProcessors.Register` 注册。名称必须唯一，处理器按 Ordinal 名称顺序执行。
+
+`Validate(context, bootConfig)` 用于构建前校验及面板只读接入检查；`Process(context, bootConfig, artifacts)` 在 MiniGameBuildStep 导出成功、取得真实产物路径后执行，早于预下载注入。异常沿用 BuildRunner 的失败处理。Release 不引入厂商字段，也不增加独立可漏选的接入步骤。
+
+扩展覆盖 Release 的完整构建和 MiniGame 单步；开发者绕过 Release 直接调用厂商出包面板时不会执行本扩展。
+
 ## 包边界
 
 - `com.july.build`：通用步骤契约、执行器、Unity 构建宿主、AOT 源码哈希算法。

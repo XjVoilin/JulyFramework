@@ -18,3 +18,11 @@
 .vscode/
 Thumbs.db
 .DS_Store
+
+!Tests/TencentDnEvents/*.csproj
+
+!Tests/TencentDnIntegration/*.csproj
+
+Tests/TencentDnEvents/bin/
+
+Tests/TencentDnIntegration/bin/

@@ -43,6 +43,8 @@ namespace July.Release.Editor
         static BuildConfig _buildConfig;
         static readonly Dictionary<string, Func<IReleasePlatformBuilder>> Platforms = new();
 
+        public static ReleaseExportProcessorRegistry ExportProcessors { get; } = new();
+
         public static ReleaseProjectProfile Profile => LoadBuildConfig().CreateProfile();
         public static IReleaseBootConfig LoadBootConfig() => LoadBuildConfig().GetBootConfig();
 

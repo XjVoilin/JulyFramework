@@ -23,6 +23,7 @@ Paste a complete URL into Unity Package Manager through **Add package from git U
 | --- | --- |
 | `com.july.activity` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.activity#com.july.activity@0.1.0` |
 | `com.july.analytics` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.analytics#com.july.analytics@0.3.1` |
+| `com.july.analytics.tencentdn` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.analytics.tencentdn#com.july.analytics.tencentdn@0.1.0` |
 | `com.july.analytics.thinkingdata` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.analytics.thinkingdata#com.july.analytics.thinkingdata@0.1.0` |
 | `com.july.animation` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.animation#com.july.animation@0.2.7` |
 | `com.july.animation.spine` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.animation.spine#com.july.animation.spine@0.1.1` |
@@ -47,6 +48,7 @@ Paste a complete URL into Unity Package Manager through **Add package from git U
 | `com.july.platform` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.platform#com.july.platform@0.5.2` |
 | `com.july.pooling` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.pooling#com.july.pooling@0.1.1` |
 | `com.july.reddot` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.reddot#com.july.reddot@0.1.1` |
+| `com.july.release` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.release#com.july.release@0.6.0` |
 | `com.july.rendering.urp` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.rendering.urp#com.july.rendering.urp@0.2.1` |
 | `com.july.resource` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.resource#com.july.resource@0.1.0` |
 | `com.july.resource.yooasset` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.resource.yooasset#com.july.resource.yooasset@0.3.3` |

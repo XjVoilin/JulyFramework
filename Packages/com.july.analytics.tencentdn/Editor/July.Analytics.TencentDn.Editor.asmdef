@@ -1,0 +1,14 @@
+{
+  "name": "July.Analytics.TencentDn.Editor",
+  "rootNamespace": "July.Analytics.TencentDn.Editor",
+  "references": ["July.Analytics.TencentDn", "July.Release.Runtime", "July.Release.Editor", "July.Build.Editor"],
+  "includePlatforms": ["Editor"],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

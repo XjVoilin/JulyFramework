@@ -11,7 +11,7 @@ namespace July.Release.Editor
     public static class ReleaseConfigurationCheck
     {
         public static IReadOnlyList<string> Inspect(BuildConfig config, BuildContext context,
-            bool bundles, bool hybridClr, bool player, bool upload)
+            bool bundles, bool hybridClr, bool player, bool upload, bool inspectExportProcessors = true)
         {
             var errors = new List<string>();
             if (config.bootConfig is not IReleaseBootConfig)
@@ -35,6 +35,11 @@ namespace July.Release.Editor
             }
             if (player && !ReleaseProject.HasPlatformBuilder(context.Platform))
                 errors.Add($"平台 {context.Platform} 尚未启用：安装 SDK，并在构建面板应用目标平台与编译宏。");
+            if (player && inspectExportProcessors && config.bootConfig is IReleaseBootConfig bootConfig)
+            {
+                var exportError = ReleaseProject.ExportProcessors.Validate(context, bootConfig);
+                if (exportError != null) errors.Add(exportError);
+            }
             if (bundles || hybridClr)
             {
                 if (config.collectorSettings == null)
@@ -76,7 +81,7 @@ namespace July.Release.Editor
         public override string Validate(BuildContext context)
         {
             var errors = ReleaseConfigurationCheck.Inspect(ReleaseProject.LoadBuildConfig(), context,
-                _bundles, _hybridClr, _player, _upload);
+                _bundles, _hybridClr, _player, _upload, inspectExportProcessors: false);
             return errors.Count == 0 ? null : string.Join("\n", errors);
         }
         public override bool Execute(BuildContext context) => true;
