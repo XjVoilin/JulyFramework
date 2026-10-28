@@ -20,6 +20,12 @@ namespace July.Rendering.URP.Editor
         [MenuItem("JulyGF/渲染/场景出图")]
         public static void Open() => GetWindow<SceneImageCaptureWindow>("场景出图");
 
+        string OutputPathKey => GetType().FullName + "." + Application.dataPath + ".OutputPath";
+
+        void OnEnable() => _outputPath = EditorPrefs.GetString(OutputPathKey, _outputPath ?? "");
+
+        void OnDisable() => EditorPrefs.SetString(OutputPathKey, _outputPath ?? "");
+
         void OnGUI()
         {
             var scene = SceneManager.GetActiveScene();

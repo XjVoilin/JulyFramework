@@ -13,14 +13,21 @@ namespace July.Rendering.URP.Editor
         [SerializeField] GameObject _node;
         [SerializeField] Camera _camera;
         [SerializeField] string _outputPath;
+        [SerializeField] bool _includeShadows = true;
+        [SerializeField] Renderer _ground;
 
         [MenuItem("JulyGF/渲染/节点出图")]
         public static void Open()
         {
             var window = GetWindow<NodeImageCaptureWindow>("节点出图");
             window._node = Selection.activeGameObject;
-            window._outputPath = null;
         }
+
+        string OutputPathKey => GetType().FullName + "." + Application.dataPath + ".OutputPath";
+
+        void OnEnable() => _outputPath = EditorPrefs.GetString(OutputPathKey, _outputPath ?? "");
+
+        void OnDisable() => EditorPrefs.SetString(OutputPathKey, _outputPath ?? "");
 
         void OnGUI()
         {
@@ -36,14 +43,22 @@ namespace July.Rendering.URP.Editor
                 if (GUILayout.Button("当前选择", GUILayout.Width(70)))
                 {
                     _node = Selection.activeGameObject;
-                    _outputPath = null;
                 }
             }
             _camera = (Camera)EditorGUILayout.ObjectField("取景相机", _camera, typeof(Camera), true);
+            _includeShadows = EditorGUILayout.Toggle("保留地板实际阴影", _includeShadows);
+            if (_includeShadows) _ground = (Renderer)EditorGUILayout.ObjectField("接影地板", _ground, typeof(Renderer), true);
             var renderers = _node == null ? new Renderer[0] : _node.GetComponentsInChildren<Renderer>()
                 .Where(renderer => renderer.enabled && renderer.gameObject.activeInHierarchy && !renderer.forceRenderingOff).ToArray();
             bool ready = GraphicsSettings.currentRenderPipeline is UniversalRenderPipelineAsset && _camera != null
                 && _node != null && _node.scene.IsValid() && renderers.Length > 0;
+            if (ready && _includeShadows)
+            {
+                ready = _ground != null && _ground.enabled && _ground.gameObject.activeInHierarchy && !_ground.forceRenderingOff
+                    && _ground.gameObject.scene == _node.scene && !_ground.transform.IsChildOf(_node.transform)
+                    && _ground.bounds.size.y < .001f && _ground.sharedMaterials.All(material => material != null && material.renderQueue <= 2500);
+                if (!ready) EditorGUILayout.HelpBox("请指定节点外的水平、不透明原地板，用它的真实材质提取阴影。", MessageType.Warning);
+            }
             if (ready)
             {
                 var frame = GetFrame(renderers);
@@ -51,12 +66,12 @@ namespace July.Rendering.URP.Editor
                 if (ready)
                 {
                     EditorGUILayout.LabelField("相机像素尺寸", $"{_camera.pixelWidth} × {_camera.pixelHeight}");
-                    EditorGUILayout.LabelField("裁切输出尺寸", $"{frame.Pixels.x} × {frame.Pixels.y}");
-                    EditorGUILayout.LabelField("面片世界宽高", $"{frame.Size.x:F6} × {frame.Size.y:F6}");
+                    EditorGUILayout.LabelField("地面贴图尺寸", $"{frame.Pixels.x} × {frame.Pixels.y}");
+                    EditorGUILayout.LabelField("面片世界宽长", $"{frame.Size.x:F6} × {frame.Size.y:F6}");
                 }
-                else EditorGUILayout.HelpBox("节点包围盒需要在相机前方，并具有有效投影面积。", MessageType.Warning);
+                else EditorGUILayout.HelpBox("相机需朝下观察 XZ 平面；节点需位于相机前方，透视相机需高于整个节点。", MessageType.Warning);
             }
-            EditorGUILayout.HelpBox("保留当前相机的位置、角度和投影，按节点的屏幕包围范围裁切透明 PNG。导出后在节点同级生成透明面片并设好尺寸和变换；重复导出更新对应面片，原节点保留。", MessageType.Info);
+            EditorGUILayout.HelpBox("沿取景相机视线将节点投影到 XZ 平面，旋转和透视烘入透明 PNG。宽长按地面投影计算，同级生成并更新面片，原节点保留。开启阴影时使用原地板高度，并提取其有/无节点投影的实际颜色差异；不手调阴影强度。关闭阴影时高度取节点世界 Y。", MessageType.Info);
             if (_node != null && renderers.Length == 0) EditorGUILayout.HelpBox("该节点下没有可见的 Renderer。", MessageType.Warning);
 
             if (string.IsNullOrEmpty(_outputPath)) _outputPath = "Assets/" + (_node == null ? "Node" : _node.name) + ".png";
@@ -93,10 +108,14 @@ namespace July.Rendering.URP.Editor
             }
         }
 
-        (Rect Viewport, Vector2Int Pixels, Vector3 Center, Vector2 Size, bool Valid) GetFrame(Renderer[] renderers)
+        (Rect Ground, Vector2Int Pixels, Vector3 Center, Vector2 Size, bool Valid) GetFrame(Renderer[] renderers)
         {
             var bounds = renderers[0].bounds;
             for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+            var eye = _camera.transform.position;
+            var direction = _camera.transform.forward;
+            float height = _includeShadows && _ground != null ? _ground.bounds.center.y : _node.transform.position.y;
+            if (direction.y >= -.0001f || (!_camera.orthographic && eye.y <= Mathf.Max(height, bounds.max.y))) return default;
             var min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
             var max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
             for (int x = -1; x <= 1; x += 2)
@@ -104,26 +123,94 @@ namespace July.Rendering.URP.Editor
                     for (int z = -1; z <= 1; z += 2)
                     {
                         var corner = bounds.center + Vector3.Scale(bounds.extents, new Vector3(x, y, z));
-                        var point = _camera.WorldToViewportPoint(corner);
-                        if (point.z <= 0) return default;
-                        min = Vector2.Min(min, point);
-                        max = Vector2.Max(max, point);
+                        if (_camera.WorldToViewportPoint(corner).z <= 0) return default;
+                        var point = _camera.orthographic
+                            ? corner + direction * ((height - corner.y) / direction.y)
+                            : eye + (corner - eye) * ((height - eye.y) / (corner.y - eye.y));
+                        min = Vector2.Min(min, new Vector2(point.x, point.z));
+                        max = Vector2.Max(max, new Vector2(point.x, point.z));
                     }
-            int left = Mathf.FloorToInt(min.x * _camera.pixelWidth);
-            int bottom = Mathf.FloorToInt(min.y * _camera.pixelHeight);
-            int right = Mathf.CeilToInt(max.x * _camera.pixelWidth);
-            int top = Mathf.CeilToInt(max.y * _camera.pixelHeight);
-            var pixels = new Vector2Int(right - left, top - bottom);
-            if (pixels.x <= 0 || pixels.y <= 0) return default;
-            var viewport = Rect.MinMaxRect((float)left / _camera.pixelWidth, (float)bottom / _camera.pixelHeight,
-                (float)right / _camera.pixelWidth, (float)top / _camera.pixelHeight);
-            float depth = _camera.WorldToViewportPoint(bounds.center).z;
-            var a = _camera.ViewportToWorldPoint(new Vector3(viewport.xMin, viewport.yMin, depth));
-            var b = _camera.ViewportToWorldPoint(new Vector3(viewport.xMax, viewport.yMin, depth));
-            var c = _camera.ViewportToWorldPoint(new Vector3(viewport.xMin, viewport.yMax, depth));
-            var center = _camera.ViewportToWorldPoint(new Vector3(viewport.center.x, viewport.center.y, depth));
-            return (viewport, pixels, center, new Vector2(Vector3.Distance(a, b), Vector3.Distance(a, c)), true);
+            var light = GetShadowLight();
+            if (light != null)
+            {
+                var lightDirection = light.transform.forward;
+                foreach (var renderer in renderers.Where(item => item.shadowCastingMode != ShadowCastingMode.Off
+                    && (light.cullingMask & (1 << item.gameObject.layer)) != 0))
+                {
+                    var caster = renderer.bounds;
+                    if (caster.max.y < height) continue;
+                    for (int x = -1; x <= 1; x += 2)
+                        for (int y = -1; y <= 1; y += 2)
+                            for (int z = -1; z <= 1; z += 2)
+                            {
+                                var corner = caster.center + Vector3.Scale(caster.extents, new Vector3(x, y, z));
+                                corner.y = Mathf.Max(corner.y, height);
+                                var shadow = corner + lightDirection * ((height - corner.y) / lightDirection.y);
+                                min = Vector2.Min(min, new Vector2(shadow.x, shadow.z));
+                                max = Vector2.Max(max, new Vector2(shadow.x, shadow.z));
+                            }
+                }
+                // Leave room for soft shadow filtering at the projected bounds.
+                float padding = (max - min).magnitude * .02f;
+                min -= Vector2.one * padding;
+                max += Vector2.one * padding;
+            }
+            var size = max - min;
+            if (size.x <= 0 || size.y <= 0) return default;
+            var center = new Vector3((min.x + max.x) * .5f, height, (min.y + max.y) * .5f);
+            // Keep a uniform texel density in X/Z, based on the source camera's pixel density.
+            float densityX = Vector3.Distance(_camera.WorldToScreenPoint(center - Vector3.right * size.x * .5f),
+                _camera.WorldToScreenPoint(center + Vector3.right * size.x * .5f)) / size.x;
+            float densityZ = Vector3.Distance(_camera.WorldToScreenPoint(center - Vector3.forward * size.y * .5f),
+                _camera.WorldToScreenPoint(center + Vector3.forward * size.y * .5f)) / size.y;
+            float density = Mathf.Max(densityX, densityZ);
+            var pixels = new Vector2Int(Mathf.Max(1, Mathf.CeilToInt(size.x * density)), Mathf.Max(1, Mathf.CeilToInt(size.y * density)));
+            return (Rect.MinMaxRect(min.x, min.y, max.x, max.y), pixels, center, size, true);
         }
+
+        Light GetShadowLight()
+        {
+            if (!_includeShadows || GraphicsSettings.currentRenderPipeline is not UniversalRenderPipelineAsset pipeline
+                || !pipeline.supportsMainLightShadows || pipeline.mainLightRenderingMode != LightRenderingMode.PerPixel) return null;
+            var lights = FindObjectsOfType<Light>().Where(light => light.isActiveAndEnabled && light.type == LightType.Directional
+                && light.intensity > 0 && (_camera.cullingMask & (1 << light.gameObject.layer)) != 0).ToArray();
+            var main = lights.Contains(RenderSettings.sun) ? RenderSettings.sun : lights.OrderByDescending(light => light.intensity).FirstOrDefault();
+            return main != null && main.shadows != LightShadows.None && main.shadowStrength > 0 && main.transform.forward.y < -.0001f ? main : null;
+        }
+
+        Color[] RenderPixels(Camera camera, RenderTexture target, Texture2D image)
+        {
+            RenderPipeline.SubmitRenderRequest(camera, new UniversalRenderPipeline.SingleCameraRequest { destination = target });
+            RenderTexture.active = target;
+            image.ReadPixels(new Rect(0, 0, target.width, target.height), 0, 0);
+            image.Apply();
+            return image.GetPixels();
+        }
+
+        // Find an RGBA overlay that reproduces the real floor's shadowed color.
+        // Work in the same color space as runtime alpha blending.
+        void ApplyGroundShadow(Color[] node, Color[] shadowed, Color[] baseline)
+        {
+            bool linear = QualitySettings.activeColorSpace == ColorSpace.Linear;
+            for (int i = 0; i < node.Length; i++)
+            {
+                var before = linear ? baseline[i].linear : baseline[i];
+                var after = linear ? shadowed[i].linear : shadowed[i];
+                float opacity = Mathf.Max(ChannelOpacity(before.r, after.r),
+                    Mathf.Max(ChannelOpacity(before.g, after.g), ChannelOpacity(before.b, after.b)));
+                var shadow = after - before * (1 - opacity);
+                var foreground = linear ? node[i].linear : node[i];
+                float alpha = foreground.a + opacity * (1 - foreground.a);
+                if (alpha == 0) { node[i] = Color.clear; continue; }
+                var color = (foreground + shadow * (1 - foreground.a)) / alpha;
+                if (linear) color = color.gamma;
+                color.a = alpha;
+                node[i] = color;
+            }
+        }
+
+        static float ChannelOpacity(float before, float after) => after < before
+            ? (before - after) / before : after > before ? (after - before) / (1 - before) : 0;
 
         void Capture(string path, Renderer[] renderers)
         {
@@ -134,6 +221,8 @@ namespace July.Rendering.URP.Editor
             var oldActive = RenderTexture.active;
             bool oldAsyncCompilation = ShaderUtil.allowAsyncCompilation;
             var temporary = new GameObject("Node Image Capture") { hideFlags = HideFlags.HideAndDontSave };
+            var sourceModes = renderers.Select(renderer => renderer.shadowCastingMode).ToArray();
+            var sourceVisibility = renderers.Select(renderer => renderer.forceRenderingOff).ToArray();
             RenderTexture target = null;
             Texture2D image = null;
             Texture2D asset = null;
@@ -157,19 +246,51 @@ namespace July.Rendering.URP.Editor
                 camera.backgroundColor = Color.clear;
                 target = RenderTexture.GetTemporary(size.x, size.y, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
                 camera.targetTexture = target;
-                // Crop the original clip coordinates; do not reframe or change projection type.
-                var crop = Matrix4x4.identity;
-                crop.m00 = 1 / frame.Viewport.width;
-                crop.m11 = 1 / frame.Viewport.height;
-                crop.m03 = (1 - 2 * frame.Viewport.center.x) / frame.Viewport.width;
-                crop.m13 = (1 - 2 * frame.Viewport.center.y) / frame.Viewport.height;
-                camera.projectionMatrix = crop * _camera.projectionMatrix;
-                RenderPipeline.SubmitRenderRequest(camera, new UniversalRenderPipeline.SingleCameraRequest { destination = target });
-
-                RenderTexture.active = target;
+                if (_camera.orthographic)
+                {
+                    var direction = _camera.transform.forward;
+                    var u = new Vector3(1, -direction.x / direction.y, 0) / frame.Size.x;
+                    var v = new Vector3(0, -direction.z / direction.y, 1) / frame.Size.y;
+                    var origin = new Vector3(frame.Ground.xMin, frame.Center.y, frame.Ground.yMin);
+                    var worldToClip = _camera.projectionMatrix * _camera.worldToCameraMatrix;
+                    worldToClip.SetRow(0, new Vector4(2 * u.x, 2 * u.y, 2 * u.z, -1 - 2 * Vector3.Dot(u, origin)));
+                    worldToClip.SetRow(1, new Vector4(2 * v.x, 2 * v.y, 2 * v.z, -1 - 2 * Vector3.Dot(v, origin)));
+                    camera.projectionMatrix = worldToClip * camera.cameraToWorldMatrix;
+                }
+                else
+                {
+                    // Same eye, looking straight down: the floor rectangle is the image plane.
+                    var bounds = renderers[0].bounds;
+                    for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+                    var eye = _camera.transform.position;
+                    float near = (eye.y - Mathf.Max(bounds.max.y, frame.Center.y)) * .5f;
+                    // URP limits shadow distance by farClipPlane; preserve the source fade distance.
+                    float far = Mathf.Max(_camera.farClipPlane, (eye.y - Mathf.Min(bounds.min.y, frame.Center.y)) * 1.5f);
+                    float scale = near / (eye.y - frame.Center.y);
+                    camera.transform.rotation = Quaternion.Euler(90, 0, 0);
+                    camera.nearClipPlane = near;
+                    camera.farClipPlane = far;
+                    camera.projectionMatrix = Matrix4x4.Frustum((frame.Ground.xMin - eye.x) * scale,
+                        (frame.Ground.xMax - eye.x) * scale, (frame.Ground.yMin - eye.z) * scale,
+                        (frame.Ground.yMax - eye.z) * scale, near, far);
+                }
                 image = new Texture2D(size.x, size.y, TextureFormat.RGBA32, false);
-                image.ReadPixels(new Rect(0, 0, size.x, size.y), 0, 0);
-                image.Apply();
+                var foreground = RenderPixels(camera, target, image);
+                if (_includeShadows)
+                {
+                    _ground.forceRenderingOff = false;
+                    for (int i = 0; i < renderers.Length; i++)
+                    {
+                        renderers[i].shadowCastingMode = ShadowCastingMode.ShadowsOnly;
+                        renderers[i].forceRenderingOff = sourceModes[i] == ShadowCastingMode.Off;
+                    }
+                    var shadowed = RenderPixels(camera, target, image);
+                    foreach (var renderer in renderers) renderer.forceRenderingOff = true;
+                    var baseline = RenderPixels(camera, target, image);
+                    ApplyGroundShadow(foreground, shadowed, baseline);
+                    image.SetPixels(foreground);
+                    image.Apply();
+                }
                 Directory.CreateDirectory(Path.GetDirectoryName(path));
                 File.WriteAllBytes(path, image.EncodeToPNG());
                 AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceSynchronousImport);
@@ -177,6 +298,11 @@ namespace July.Rendering.URP.Editor
             }
             finally
             {
+                for (int i = 0; i < renderers.Length; i++)
+                {
+                    renderers[i].shadowCastingMode = sourceModes[i];
+                    renderers[i].forceRenderingOff = sourceVisibility[i];
+                }
                 for (int i = 0; i < others.Length; i++) others[i].forceRenderingOff = previousVisibility[i];
                 RenderTexture.active = oldActive;
                 ShaderUtil.allowAsyncCompilation = oldAsyncCompilation;
@@ -184,8 +310,10 @@ namespace July.Rendering.URP.Editor
                 if (image != null) DestroyImmediate(image);
                 if (target != null) RenderTexture.ReleaseTemporary(target);
             }
-            var quad = CreateOrUpdateQuad(assetPath, asset, frame.Center, frame.Size);
-            Debug.Log($"节点图片已导出：{size.x} × {size.y}，{path}\n面片世界尺寸：{frame.Size.x:F6} × {frame.Size.y:F6}", asset);
+            // Keep the overlay above the original floor to avoid coplanar depth rejection.
+            var center = frame.Center + (_includeShadows ? Vector3.up * .001f : Vector3.zero);
+            var quad = CreateOrUpdateQuad(assetPath, asset, center, frame.Size);
+            Debug.Log($"节点图片已导出：{size.x} × {size.y}，{path}\n面片世界宽长：{frame.Size.x:F6} × {frame.Size.y:F6}", asset);
             Debug.Log($"同级面片已生成：{quad.name}，原节点保留。", quad);
             Selection.activeGameObject = quad;
         }
@@ -246,11 +374,11 @@ namespace July.Rendering.URP.Editor
             var renderer = quad.GetComponent<MeshRenderer>();
             Undo.RecordObjects(new UnityEngine.Object[] { quad, quad.transform, quad.GetComponent<MeshFilter>(), renderer, mesh }, action);
             quad.layer = _node.layer;
-            quad.transform.SetPositionAndRotation(center, _camera.transform.rotation);
+            quad.transform.SetPositionAndRotation(center, Quaternion.identity);
             quad.transform.localScale = Vector3.one;
             quad.transform.SetSiblingIndex(_node.transform.GetSiblingIndex() + 1);
-            var right = _camera.transform.right * (size.x * .5f);
-            var up = _camera.transform.up * (size.y * .5f);
+            var right = Vector3.right * (size.x * .5f);
+            var up = Vector3.forward * (size.y * .5f);
             // Inverse-transform each world corner to compensate rotated/nonuniform parents.
             mesh.Clear();
             mesh.vertices = new[]
