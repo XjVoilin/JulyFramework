@@ -28,6 +28,7 @@ for (var i = 0; i < frame.PointerCount; i++)
 - FrameCount 是 Unity 帧号，Time 是未缩放时间。空帧也提供时间和 ResetVersion，支持长按计时和两次按压之间的等待。
 - PointerCount 是本帧的样本条目数，包含 Ended/Canceled，不等于仍按住的手指数。鼠标在同帧按下又松开时，同一 ID 按顺序提供 Began、Ended 两条样本。
 - 指针 ID 在本次按压期间稳定；跨帧跟踪使用 ID，不使用集合索引。触摸 ID 使用 fingerId，鼠标主键使用 -1。
+- 活动编号再次收到 Began 时，先以 DeviceLost 取消旧按压，再按新起点重新判断 UI 归属并接收新按压；取消不补发点击。同帧按样本顺序交付 Canceled、Began，内置识别继续处理后续新按压。
 - Position、Delta、StartPosition 使用屏幕像素；StartTime 使用未缩放时间。持续时间可由 frame.Time - pointer.StartTime 得到。
 - 指针阶段为 Began、Moved、Stationary、Ended、Canceled。正常松开与取消分开表达；IsActive 仅在前三种阶段为 true。
 - 基础层记录所有被接收的指针。单指选择、双指配对、两指转单指的玩法行为由消费者决定。

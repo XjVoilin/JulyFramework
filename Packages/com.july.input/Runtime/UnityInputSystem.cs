@@ -251,6 +251,12 @@ namespace July.Input
 
         private void BeginPointer(int id, Vector2 position)
         {
+            // 设备可能漏报结束并复用指针编号；先取消旧按压，不能把它合并成新点击。
+            if (activePointers.TryGetValue(id, out var previous))
+            {
+                activePointers.Remove(id);
+                RecordCancellation(previous, PointerCancellationReason.DeviceLost);
+            }
             if (IsOverUI(position)) return;
             var pointer = new PointerSample(id, PointerPhase.Began, position, Vector2.zero, position, source.UnscaledTime);
             activePointers.Add(id, pointer);
@@ -355,7 +361,7 @@ namespace July.Input
                 if (pointer.Phase == PointerPhase.Canceled)
                 {
                     ResetRecognition();
-                    return;
+                    continue;
                 }
                 Recognize(CreateGestureSample(pointer, frame.Time), pointer.Phase == PointerPhase.Ended);
                 if (!recognizing || !CanRecognize(frame)) return;

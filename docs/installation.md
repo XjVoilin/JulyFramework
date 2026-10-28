@@ -38,7 +38,7 @@ Paste a complete URL into Unity Package Manager through **Add package from git U
 | `com.july.experiments` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.experiments#com.july.experiments@0.1.0` |
 | `com.july.fsm` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.fsm#com.july.fsm@0.1.0` |
 | `com.july.guide` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.guide#com.july.guide@0.4.1` |
-| `com.july.input` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.input#com.july.input@0.1.0` |
+| `com.july.input` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.input#com.july.input@0.3.3` |
 | `com.july.launch` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.launch#com.july.launch@0.1.1` |
 | `com.july.localization` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.localization#com.july.localization@0.1.0` |
 | `com.july.logging` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.logging#com.july.logging@0.1.0` |
