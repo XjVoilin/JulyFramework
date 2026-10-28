@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- 新增独立节点出图窗口：保留源相机投影，按节点屏幕像素范围裁切PNG，并在原节点同级生成透明面片，自动设定材质/网格/变换并补偿父级缩放；同路径重复导出更新结果，支持Undo/Redo，原节点保留。
+
+
+
+- 新增Baked Surface Shader，保持烘焙贴图原色，仅接收主光实时阴影；场景出图配套材质改用此Shader，避免Unlit无阴影或Lit重复受光。
+
+- 新增场景出图EditorWindow：从当前场景的正交相机及平面BG的实际UV自动计算完整取景和比例，长边2048；导出PNG及配套Unlit回贴材质，支持可变路径、覆盖和Console资源定位，不修改源场景、不筛选物件。
+
+
+
 - 将对外类型统一命名为 RendererLifecycleSystem / RendererLifecycleConfig，内部 IdleRendererReclaimer 保持；调用方需同步类型名称，回收行为和脚本 GUID 不变。
 
 - 闲置回收配置改为多个 Renderer 条目，Data 使用 ScriptableRendererData；各项独立记录绘制和回收请求，支持 2D/3D 场景双向释放。旧单项配置需迁移到 Renderers 列表。
