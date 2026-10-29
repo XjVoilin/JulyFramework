@@ -72,7 +72,7 @@ cameraHighlight.Target = null;
 ### 烘焙贴图的实时阴影
 
 `July/URP/Baked Surface`直接显示烘焙贴图颜色，只叠加URP主光阴影衰减，不重新计算光照颜色、强度、高光或环境光。出图工具默认使用此Shader；已有材质保留原_BaseMap与UV缩放/偏移即可切换。
-材质的`Received Shadow Strength`默认0.5，0保持原图，1使用完整阴影衰减。支持主光硬阴影、软阴影、级联及屏幕空间阴影关键字，提供DepthOnly Pass，不额外投射地板阴影。
+材质的`Receive Shadows`默认开启，保持现有效果；关闭时通过本地Shader关键字`_RECEIVE_SHADOWS_OFF`编译掉阴影坐标计算、主光阴影采样及衰减叠加。`Received Shadow Strength`默认0.5，0保持原图，1使用完整阴影衰减；仅将强度设为0不会关闭阴影采样。支持主光硬阴影、软阴影、级联及屏幕空间阴影关键字，提供DepthOnly Pass，不额外投射地板阴影。
 纹理中已有的静态阴影会保留；若对应3D投影物件继续存在，应避免重复烘入同一份阴影。阴影接收使用真实BG平面深度，不能恢复图中花盆或其他装饰原本的立体遮挡。
 
 ## Editor 节点出图
@@ -82,11 +82,11 @@ cameraHighlight.Target = null;
 1. 在Hierarchy选中要替换的节点，指定取景相机及Assets内的PNG路径。
 2. 默认开启“保留地板实际阴影”，将原地板Renderer拖入“接影地板”。地板需处于节点外部、当前可见、水平且不透明。无需更换地板材质，无需调阴影强度。
 3. 点击“导出并生成面片”。沿源相机视线将节点与主方向光投影范围映射到地板XZ平面，按世界宽长和原相机像素密度计算图片大小，不固定2048。旋转及透视烘入图片。
-4. 原节点同级创建或更新`节点名_Image`，配置透明URP Unlit材质及持久网格，补偿父级旋转、非均匀/镜像缩放。隐藏原节点后对比。原地板保持原样。
+4. 原节点同级创建或更新`节点名_Image`，配置July/URP/Baked Transparent Surface透明接影材质及持久网格，补偿父级旋转、非均匀/镜像缩放。隐藏原节点后对比。原地板保持原样。
 
 阴影采用三次渲染：透明节点、原地板接收该节点投影、原地板不接收该节点投影。根据后两者实际颜色差异，在运行时混合所用的颜色空间中求解RGBA覆盖层，再合成节点图像。地板材质、纹理、环境光和光源的影响由渲染结果决定；不再使用模拟黑色接影Shader或手动强度。Unlit等本来不接影的地板不会被添加影子。PNG不包含原地板底色，需叠在该原地板上使用。
 
-开启阴影时，捕获平面取原地板高度，生成面片高出0.001世界单位，避免共面深度遮挡。关闭阴影时无需地板，平面高度取原节点世界Y。面片世界旋转为0、几何在XZ平面，尺寸存在网格中，localScale为1。面片无Collider，不额外受光或投影；固定视角图片不能恢复3D深度。地板材质或照明改变后需重新导出。
+开启阴影时，捕获平面取原地板高度，生成面片高出0.001世界单位，避免共面深度遮挡。关闭阴影时无需地板，平面高度取原节点世界Y。面片世界旋转为0、几何在XZ平面，尺寸存在网格中，localScale为1。面片无Collider、不投影；保持PNG原色，只乘主光实时阴影衰减，不重新计算灯光颜色、强度、环境光或高光。Alpha保持不变，透明区域不遮挡背景，ZWrite关闭。接影按面片自身世界坐标采样阴影图，兼容URP屏幕空间阴影功能。材质Receive Shadows默认开启，可单独关闭；Received Shadow Strength范围0～1，默认1保持原接影强度，减小可匹配原模型的补光观感，不改变未遮挡颜色及Alpha。重导出保留已有材质的强度。使用的Universal Renderer须开启Transparent Receive Shadows，工具不改共享Renderer配置。已有面片可同路径重新导出更新，或手动将材质切换至此Shader并开启MeshRenderer接影。固定视角图片不能恢复3D深度，阴影落在面片实际高度；图中原有静态阴影仍保留，原3D投影物体应隐藏。地板材质或照明改变后需重新导出。
 
 PNG旁保存`文件名_Image.mat`与`文件名_Quad.asset`，同一路径重复导出更新同一父级的对应面片，支持Undo/Redo；场景仍需手动保存。PNG与面片日志分别定位对应资源。节点与其他Renderer的可见性及投影模式在成功或异常后恢复，原相机及业务/碰撞组件不修改。
 
@@ -95,3 +95,33 @@ PNG旁保存`文件名_Image.mat`与`文件名_Quad.asset`，同一路径重复�
 选中父节点可包含其全部可见子Renderer；一个根节点只包含自己的子树，并不等同于场景内所有根节点。若目标是回贴现有BG，继续使用场景/BG出图，保留其原有边界、UV和配套材质处理。
 
 场景出图与节点出图分别按项目记住上次保存路径，关闭窗口、重编译或重启Editor后恢复；节点窗口重新打开或切换当前选择不再清空路径。
+
+## Editor 自阴影烘焙
+
+入口：**JulyGF → 渲染 → 自阴影烘焙**。与场景/节点出图独立，输出模型UV贴图，不生成面片。
+
+1. 选中场景节点打开窗口，指定一个单材质、单子网格的静态MeshRenderer作为接收模型。
+2. 指定“自投影节点”。其子树静态网格均参与，包含禁用的网格，适合重新烘焙已停用的投影替身。只选模型自身或其替身，不要包含Item或其他箱子。
+3. 指定覆盖模型的3D URP参考相机，以及开启投影的方向光。默认离线阴影精度4096，不改变正式管线质量。
+4. 填写底色贴图属性名（Game110为`_BaseColor`），选择Assets内PNG路径，点击“烘焙并应用”。保存路径按项目记忆，现有输出直接覆盖。
+
+PNG尺寸沿用输入底图，保留其导入后采样颜色RGB，Alpha写入原始自阴影衰减。默认创建/更新同名`.mat`，沿用原Shader和其它材质参数，仅绑定接收模型；不覆盖原共享材质。输出使用高质量压缩、Alpha不作为透明度处理。临时的克隆方向光、纯Transform/静态网格及独立URP/Renderer在捕获后释放，源相机/灯光/管线/Renderer可见性恢复；不激活原节点或执行其脚本来烘焙。
+
+成功后接收模型保持接影；源ShadowsOnly替身停用，普通源网格关闭实时投影，场景修改支持Undo/Redo并需自行保存。PNG覆盖不属于场景Undo。源节点仍可手动指定再次烘焙，Alpha每次替换，不与上一次阴影相乘。UV阴影不一致的明显重叠会在写资源前失败；不自动展UV。当前要求UV0位于0～1，底图Tiling为1、Offset为0，不处理蒙皮、多材质、多子网格或透明底图。
+
+### Shader接入约定
+
+这是带明确材质约定的通用UV烘焙工具，不会给任意Shader自动改写光照。原Shader须暴露`_BakedSelfShadow`浮点/Toggle属性，并支持本地关键字`_BAKED_SELF_SHADOW`。开启时在原底色采样UV处读取同一贴图Alpha，将实时主光阴影衰减与此值取较小值，再进入原材质受光流程。关闭时保持原分支；RGB不预先乘阴影，避免重复受光。
+
+```hlsl
+// ShaderLab Properties:
+// [Toggle(_BAKED_SELF_SHADOW)] _BakedSelfShadow ("Baked Self Shadow", Float) = 0
+// Forward pass:
+#pragma shader_feature_local_fragment _BAKED_SELF_SHADOW
+#if defined(_BAKED_SELF_SHADOW)
+    mainLight.shadowAttenuation = min(mainLight.shadowAttenuation,
+        SAMPLE_TEXTURE2D(_BaseColor, sampler_BaseColor, uv).a);
+#endif
+```
+
+底图属性名与采样器按自己的Shader替换。Game110/ItemToon已接入该约定；未接入的URP Lit/自定义Shader会提示，工具不会擅自换Shader而改变风格。灯光方向、模型朝向或几何变化后需要重新烘焙。

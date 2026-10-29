@@ -329,25 +329,17 @@ namespace July.Rendering.URP.Editor
             var material = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
             if (material == null)
             {
-                material = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+                material = new Material(Shader.Find("July/URP/Baked Transparent Surface"));
                 AssetDatabase.CreateAsset(material, materialPath);
             }
             Undo.RecordObject(material, action);
-            material.shader = Shader.Find("Universal Render Pipeline/Unlit");
+            material.shader = Shader.Find("July/URP/Baked Transparent Surface");
             material.SetTexture("_BaseMap", image);
             material.SetColor("_BaseColor", Color.white);
             material.SetTextureScale("_BaseMap", Vector2.one);
             material.SetTextureOffset("_BaseMap", Vector2.zero);
-            material.SetFloat("_Surface", 1);
-            material.SetFloat("_Blend", 0);
-            material.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
-            material.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
-            material.SetFloat("_SrcBlendAlpha", (float)BlendMode.One);
-            material.SetFloat("_DstBlendAlpha", (float)BlendMode.OneMinusSrcAlpha);
-            material.SetFloat("_ZWrite", 0);
-            material.SetFloat("_Cull", (float)CullMode.Off);
-            material.SetFloat("_AlphaClip", 0);
-            material.shaderKeywords = new[] { "_SURFACE_TYPE_TRANSPARENT" };
+            material.SetFloat("_ReceiveShadows", 1);
+            material.shaderKeywords = new string[0];
             material.SetOverrideTag("RenderType", "Transparent");
             material.renderQueue = (int)RenderQueue.Transparent;
 
@@ -395,7 +387,7 @@ namespace July.Rendering.URP.Editor
             quad.GetComponent<MeshFilter>().sharedMesh = mesh;
             renderer.sharedMaterial = material;
             renderer.shadowCastingMode = ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
+            renderer.receiveShadows = true;
             EditorUtility.SetDirty(mesh);
             EditorUtility.SetDirty(material);
             AssetDatabase.SaveAssetIfDirty(mesh);

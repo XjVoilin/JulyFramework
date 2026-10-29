@@ -1,6 +1,6 @@
 {
   "name": "com.july.rendering.urp",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "displayName": "July Rendering URP",
   "description": "URP mesh highlighting, idle renderer lifecycle management, and editor scene image capture.",
   "unity": "2022.3",

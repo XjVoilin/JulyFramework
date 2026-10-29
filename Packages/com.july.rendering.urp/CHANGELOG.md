@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- 透明节点图片新增Received Shadow Strength（0～1，默认1），可减弱接影以匹配原模型观感，重复导出保留该值。
+
+- 节点出图使用透明Baked Transparent Surface材质并开启Renderer接影；保持烘焙原色/Alpha，仅叠加实时主光阴影，不重复受光。同路径重导出更新旧面片，保留覆盖与Undo/Redo；需Universal Renderer开启Transparent Receive Shadows。
+
+- 新增独立自阴影烘焙EditorWindow：选择接收网格/自投影节点/方向光/相机，克隆URP捕获UV阴影到原底图Alpha，生成并应用专用材质，保留动态接影；含禁用替身重烘、UV冲突检查、路径记忆、覆盖和场景Undo。Shader通过_BakedSelfShadow/_BAKED_SELF_SHADOW约定接入，无Game110依赖。
+
+- Baked Surface新增默认开启的Receive Shadows材质开关；关闭时通过本地Shader关键字跳过阴影坐标计算、采样与衰减叠加，保留已有材质效果。
+
 - 修复节点出图重新打开或切换选择清空保存路径；两个窗口分别按项目持久记住上次路径。
 
 - 节点出图改为指定原接影地板，通过有/无节点投影的实际颜色差异提取透明阴影；遵循原材质、纹理及环境光效果，移除模拟接影Shader及手动强度滑条。面片叠在原地板上使用，并抬高0.001避免共面遮挡。

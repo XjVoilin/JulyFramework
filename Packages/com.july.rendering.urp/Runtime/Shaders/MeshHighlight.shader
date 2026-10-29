@@ -2,13 +2,14 @@ Shader "July/URP/Mesh Highlight"
 {
     Properties
     {
-        _OverlayColor("Visible surface tint (sRGB)", Vector) = (1,0.92156863,0.01568628,0.5)
-        _OutlineColor("Outline color", Vector) = (0,0,0,1)
+        [MeshHighlightColor] _OverlayColor("Visible surface tint (A = max alpha, sRGB)", Vector) = (1,0.92156863,0.01568628,0.5)
+        _OverlayPulseMinAlpha("Surface pulse minimum alpha", Range(0,1)) = 0.25
+        [MeshHighlightColor] _OutlineColor("Outline color", Vector) = (0,0,0,1)
         _OutlineWidth("Outline width", Float) = 0.2
-        _GlowColor("Outer glow color (sRGB)", Vector) = (1,0.96470594,0.13333334,1)
+        [MeshHighlightColor] _GlowColor("Outer glow color (sRGB)", Vector) = (1,0.96470594,0.13333334,1)
         _GlowWidth("Outer glow width", Float) = 0.25
         _GlowIntensity("Outer glow intensity", Float) = 1.86
-        _SeeThroughColor("Occluded surface tint (sRGB)", Vector) = (1,0.8169587,0,1)
+        [MeshHighlightColor] _SeeThroughColor("Occluded surface tint (sRGB)", Vector) = (1,0.8169587,0,1)
         _SeeThroughIntensity("Occluded surface intensity", Float) = 2.62
         _SeeThroughNoise("Occluded scan contrast", Range(0,0.5)) = 0.47
     }
@@ -21,6 +22,7 @@ Shader "July/URP/Mesh Highlight"
         CBUFFER_START(UnityPerMaterial)
         half4 _OverlayColor, _OutlineColor, _GlowColor, _SeeThroughColor;
         float _OutlineWidth, _GlowWidth, _GlowIntensity, _SeeThroughIntensity, _SeeThroughNoise;
+        float _OverlayPulseMinAlpha;
         CBUFFER_END
         struct Attributes { float3 positionOS : POSITION; };
         struct Varyings { float4 positionCS : SV_POSITION; };
@@ -105,8 +107,10 @@ Shader "July/URP/Mesh Highlight"
                 {
                     if (mask.g > .5h)
                     {
-                        float pulse = .5 + abs(.5 - frac(fmod(_Time.y, 1000.0)));
-                        return half4(HostColor(_OverlayColor.rgb), _OverlayColor.a * pulse);
+                        float pulse = abs(1.0 - 2.0 * frac(fmod(_Time.y, 1000.0)));
+                        float minAlpha = min(_OverlayPulseMinAlpha, _OverlayColor.a);
+                        float alpha = lerp(minAlpha, _OverlayColor.a, pulse);
+                        return half4(HostColor(_OverlayColor.rgb), alpha);
                     }
                     half3 tint = _SeeThroughColor.rgb + _SeeThroughNoise * .1 * frac(frac(_Time.w) * input.positionCS.y);
                     float scan = _SeeThroughIntensity * (1 - 2 * _SeeThroughNoise + 2 * _SeeThroughNoise * frac(input.positionCS.y * .5));
