@@ -8,6 +8,21 @@ namespace July.AssetCheck
     // 不使用反射、替换 YAML 或屏蔽错误日志。
     internal static class TuanjieTextureSettings
     {
+        internal static void WriteSettings(TextureImporter importer, TextureImporterPlatformSettings settings)
+        {
+            var nativeSettings = new TextureImporterPlatformSettings();
+            settings.CopyTo(nativeSettings);
+            // 原生接口负责建立条目和写入其余平台参数；格式通过已有条目的标量写入，
+            // 避免普通 Unity 拒绝团结平台的 ASTC，也不调整序列化数组大小。
+            nativeSettings.format = TextureImporterFormat.RGBA32;
+            importer.SetPlatformTextureSettings(nativeSettings);
+            using (var serialized = new SerializedObject(importer))
+            {
+                RequireEntry(serialized, settings.name).FindPropertyRelative("m_TextureFormat").intValue = (int)settings.format;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+            }
+        }
+
         internal static void WriteMaxSize(TextureImporter importer, string target, int size)
         {
             var settings = importer.GetPlatformTextureSettings(target);

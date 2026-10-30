@@ -49,6 +49,13 @@ namespace July.AssetCheck
 
         public AssetCheckReport GetReport(AssetCheckKind kind) => _reports.TryGetValue(kind, out var report) ? report : null;
 
+        // 共享工具在执行前从配置所有者取得有效设置，沿用检查任务的外部修改保护。
+        internal AssetCheckSettings ReadCurrentSettings()
+        {
+            _file.EnsureUnchanged();
+            return Settings;
+        }
+
         public void ChangeSettings(Action<AssetCheckSettings> change)
         {
             RequireIdle();

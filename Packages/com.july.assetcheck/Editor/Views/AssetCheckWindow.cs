@@ -14,7 +14,11 @@ namespace July.AssetCheck
     {
         private AssetCheckWorkspace _workspace;
         private AssetCheckKind _kind;
-        private Label _scope;
+        private ObjectField _scope;
+        private VisualElement _checkPage;
+        private WebGLTextureSettingsCopyPanel _copyPage;
+        private Button _checkTool, _copyTool;
+        [SerializeField] private bool _showCopy;
         private AssetCheckOverview _overview;
         private Label _status;
         private Label _error;
@@ -39,18 +43,23 @@ namespace July.AssetCheck
         private double _nextRefresh, _nextPoll;
         private string SessionKey => "July.AssetCheck." + Application.dataPath;
 
-        [MenuItem("JulyGF/资源管理/资源检查", priority = 64)]
+        [MenuItem("JulyGF/资源管理/资源工具", priority = 64)]
         public static void Open()
         {
-            var window = GetWindow<AssetCheckWindow>("资源检查");
+            var window = GetWindow<AssetCheckWindow>("资源工具");
             window.minSize = new Vector2(1050, 600);
             window.Show();
         }
 
         // 与工具栏共用检查入口，供编辑器自动化和集成测试调用。
-        public void CheckAll() => RunUi(() => _workspace.StartScan());
+        public void CheckAll() => RunUi(() =>
+        {
+            RequireIdle();
+            _showCopy = false;
+            _workspace.StartScan();
+        });
 
-        internal bool FolderOperationRunning => _workspace != null && _workspace.Running;
+        internal bool FolderOperationRunning => (_workspace != null && _workspace.Running) || (_copyPage != null && _copyPage.Running);
         internal void SetFoldersIgnored(string[] paths, bool ignored) => RunUi(() => _workspace.SetFoldersIgnored(paths, ignored));
 
         private void OnEnable()
@@ -62,6 +71,8 @@ namespace July.AssetCheck
         private void OnDisable()
         {
             EditorApplication.update -= Pump;
+            _copyPage?.Dispose();
+            _copyPage = null;
             if (_workspace != null)
             {
                 _workspace.Changed -= RequestRefresh;
@@ -87,6 +98,8 @@ namespace July.AssetCheck
                 do { _workspace.Step(); }
                 while (_workspace.Running && EditorApplication.timeSinceStartup < deadline);
             }
+            _copyPage?.Pump();
+            RefreshSharedControls();
             if (_refreshRequested && now >= _nextRefresh)
             {
                 _nextRefresh = now + 0.1;
@@ -96,14 +109,20 @@ namespace July.AssetCheck
 
         public void CreateGUI()
         {
-            var root = rootVisualElement;
-            root.Clear();
-            root.AddToClassList("asset-check");
-            root.EnableInClassList("theme-dark", EditorGUIUtility.isProSkin);
-            root.EnableInClassList("theme-light", !EditorGUIUtility.isProSkin);
+            _copyPage?.Dispose();
+            _copyPage = null;
+            var shell = rootVisualElement;
+            shell.Clear();
+            shell.AddToClassList("asset-check");
+            shell.EnableInClassList("theme-dark", EditorGUIUtility.isProSkin);
+            shell.EnableInClassList("theme-light", !EditorGUIUtility.isProSkin);
             var sheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(
                 "Packages/com.july.assetcheck/Editor/Views/AssetCheckWindow.uss");
-            root.styleSheets.Add(sheet);
+            shell.styleSheets.Add(sheet);
+            BuildSharedHeader(shell);
+            _checkPage = new VisualElement { name = "resource-check-page", style = { flexGrow = 1 } };
+            shell.Add(_checkPage);
+            var root = _checkPage;
 
             var toolbar = new VisualElement();
             toolbar.AddToClassList("header");
@@ -113,16 +132,7 @@ namespace July.AssetCheck
             };
             platform.AddToClassList("platform");
             toolbar.Add(platform);
-            toolbar.Add(new Label("范围") { tooltip = "目录范围用于普通资源；URP 和项目设置按项目配置检查。扫描不会自动扩展为依赖全量扫描。" });
-            _scope = new Label();
-            _scope.AddToClassList("scope");
-            toolbar.Add(_scope);
-            _selection = new Button(() => RunUi(UseSelectedFolder)) { text = "使用选中目录", tooltip = "使用 Project 窗口选中的 Assets 文件夹" };
-            _selection.AddToClassList("header-action");
-            toolbar.Add(_selection);
-            _allAssets = new Button(() => Change(settings => settings.scope = "Assets")) { text = "全部 Assets" };
-            _allAssets.AddToClassList("header-action");
-            toolbar.Add(_allAssets);
+            platform.style.flexGrow = 1;
             _scanAll = new Button(CheckAll) { text = "检查全部" };
             _scanAll.AddToClassList("header-action");
             _scanAll.AddToClassList("primary");
@@ -210,7 +220,6 @@ namespace July.AssetCheck
 
             _error = new Label();
             _error.AddToClassList("operation-error");
-            root.Add(_error);
             var footer = new VisualElement();
             footer.AddToClassList("footer");
             _status = new Label();
@@ -223,6 +232,86 @@ namespace July.AssetCheck
             root.Add(_progress);
 
             RunUi(LoadWorkspace);
+            if (_workspace != null)
+            {
+                _copyPage = new WebGLTextureSettingsCopyPanel(() => _workspace, CopyStateChanged);
+                shell.Add(_copyPage);
+            }
+            shell.Add(_error);
+            Refresh();
+        }
+
+        private void BuildSharedHeader(VisualElement shell)
+        {
+            var header = new VisualElement();
+            header.AddToClassList("header");
+            _scope = new ObjectField("目录") { name = "shared-scope", objectType = typeof(DefaultAsset), allowSceneObjects = false };
+            _scope.AddToClassList("scope");
+            _scope.labelElement.style.minWidth = 36;
+            _scope.RegisterValueChangedCallback(change => RunUi(() => SetScope(AssetDatabase.GetAssetPath(change.newValue))));
+            header.Add(_scope);
+            _selection = new Button(() => RunUi(UseSelectedFolder)) { text = "使用选中目录" };
+            _selection.AddToClassList("header-action");
+            header.Add(_selection);
+            _allAssets = new Button(() => RunUi(() => SetScope("Assets"))) { text = "全部 Assets" };
+            _allAssets.AddToClassList("header-action");
+            header.Add(_allAssets);
+            shell.Add(header);
+            var tools = new Toolbar();
+            _checkTool = new Button(() => SelectTool(false)) { name = "tool-check", text = "资源检查" };
+            _copyTool = new Button(() => SelectTool(true)) { name = "tool-copy", text = "平台配置复制" };
+            tools.Add(_checkTool);
+            tools.Add(_copyTool);
+            shell.Add(tools);
+        }
+
+        internal void SelectTool(bool showCopy)
+        {
+            RequireIdle();
+            _showCopy = showCopy;
+            RefreshSharedControls();
+        }
+
+        internal void SetScope(string path)
+        {
+            RequireIdle();
+            AssetCheckSettings.ValidateScope(path);
+            if (!AssetDatabase.IsValidFolder(path))
+                throw new InvalidOperationException("请选择 Assets 下的文件夹。");
+            _workspace.ChangeSettings(settings => settings.scope = path);
+            Refresh();
+        }
+
+        private void RequireIdle()
+        {
+            if (FolderOperationRunning)
+                throw new InvalidOperationException("请等待当前操作完成，或先取消。");
+        }
+
+        private void CopyStateChanged()
+        {
+            RefreshSharedControls();
+            RequestRefresh();
+        }
+
+        private void RefreshSharedControls()
+        {
+            var ready = _workspace != null;
+            var idle = ready && !FolderOperationRunning;
+            _scope.SetEnabled(idle);
+            _selection.SetEnabled(idle);
+            _allAssets.SetEnabled(idle);
+            _checkTool.SetEnabled(idle);
+            _copyTool.SetEnabled(idle && _copyPage != null);
+            _checkTool.style.unityFontStyleAndWeight = _showCopy ? FontStyle.Normal : FontStyle.Bold;
+            _copyTool.style.unityFontStyleAndWeight = _showCopy ? FontStyle.Bold : FontStyle.Normal;
+            _checkPage.style.display = _showCopy && _copyPage != null ? DisplayStyle.None : DisplayStyle.Flex;
+            _checkPage.SetEnabled(_copyPage == null || !_copyPage.Running);
+            if (_copyPage != null)
+            {
+                _copyPage.style.display = _showCopy ? DisplayStyle.Flex : DisplayStyle.None;
+                _copyPage.SetEnabled(ready && !_workspace.Running);
+            }
         }
 
         private void LoadWorkspace()
@@ -268,11 +357,7 @@ namespace July.AssetCheck
 
         private void UseSelectedFolder()
         {
-            var path = AssetDatabase.GetAssetPath(Selection.activeObject);
-            AssetCheckSettings.ValidateScope(path);
-            if (!AssetDatabase.IsValidFolder(path))
-                throw new InvalidOperationException("请先在 Project 窗口选择 Assets 下的文件夹。");
-            _workspace.ChangeSettings(settings => settings.scope = path);
+            SetScope(AssetDatabase.GetAssetPath(Selection.activeObject));
         }
 
         private VisualElement MakeIgnoredRow()
@@ -331,10 +416,12 @@ namespace July.AssetCheck
 
         private void Refresh()
         {
-            _refreshRequested = false;
             _error.style.display = string.IsNullOrEmpty(_error.text) ? DisplayStyle.None : DisplayStyle.Flex;
             var ready = _workspace != null;
-            var idle = ready && !_workspace.Running;
+            var idle = ready && !FolderOperationRunning;
+            _copyPage?.SynchronizeSettings();
+            _refreshRequested = false;
+            RefreshSharedControls();
             _scanAll.SetEnabled(idle);
             _scanCurrent.SetEnabled(idle);
             _selection.SetEnabled(idle);
@@ -358,8 +445,8 @@ namespace July.AssetCheck
                 return;
             }
 
-            _scope.text = _workspace.Settings.scope;
-            _scope.tooltip = _scope.text;
+            _scope.SetValueWithoutNotify(AssetDatabase.LoadAssetAtPath<DefaultAsset>(_workspace.Settings.scope));
+            _scope.tooltip = _workspace.Settings.scope;
             var report = _workspace.GetReport(_kind);
             _overview.Bind(report);
             _results.Bind(report, _workspace.Running);
