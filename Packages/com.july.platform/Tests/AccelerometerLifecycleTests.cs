@@ -98,15 +98,54 @@ namespace July.Platform.Tests
             Assert.Throws<ObjectDisposedException>(() => device.Start());
         }
 
-        [Test] public void StopFailure_IsObservableAndDoesNotAutomaticallyRestart()
+        [Test] public void StopFailure_IsObservableAndWaitsForExplicitStart()
         {
             var device = new Device(); device.Start(); device.Started(true, null);
-            device.Stop(); device.Start(); device.Stopped(false, "SDK error");
+            device.Stop(); device.Stopped(false, "SDK error");
             Assert.That(device.Failures, Is.EqualTo(1));
             Assert.That(device.StartCalls, Is.EqualTo(1));
             Assert.That(((AccelerometerStopResultEvent)device.Events[device.Events.Count - 1]).IsSuccess, Is.False);
             device.Start();
-            Assert.That(((AccelerometerStartResultEvent)device.Events[device.Events.Count - 1]).IsSuccess, Is.False);
+            Assert.That(device.StartCalls, Is.EqualTo(2));
+            device.Started(true, null);
+            Assert.That(((AccelerometerStartResultEvent)device.Events[device.Events.Count - 1]).IsSuccess, Is.True);
+        }
+
+        [Test] public void StopFailure_PreservesBackgroundRequestUntilForeground()
+        {
+            var device = new Device(); device.Start(); device.Started(true, null);
+            device.Visible(false); device.Stopped(false, "SDK error");
+            Assert.That(device.StartCalls, Is.EqualTo(1));
+            Assert.That(device.Failures, Is.EqualTo(1));
+            Assert.That(((AccelerometerStopResultEvent)device.Events[device.Events.Count - 1]).IsSuccess, Is.False);
+            device.Visible(true);
+            Assert.That(device.StartCalls, Is.EqualTo(2));
+            device.Started(true, null);
+            Assert.That(device.AttachCalls, Is.EqualTo(2));
+        }
+
+        [Test] public void ForegroundBeforeStopFailure_RestartsAfterCallback()
+        {
+            var device = new Device(); device.Start(); device.Started(true, null);
+            device.Visible(false); device.Visible(true);
+            Assert.That(device.StartCalls, Is.EqualTo(1));
+            device.Stopped(false, "SDK error");
+            Assert.That(device.StartCalls, Is.EqualTo(2));
+        }
+
+        [Test] public void StopFailure_DoesNotDiscardNewStartRequest()
+        {
+            var device = new Device(); device.Start(); device.Started(true, null);
+            device.Stop(); device.Start(); device.Stopped(false, "SDK error");
+            Assert.That(device.StartCalls, Is.EqualTo(2));
+        }
+
+        [Test] public void StopFailure_AfterBackgroundExitDoesNotRestart()
+        {
+            var device = new Device(); device.Start(); device.Started(true, null);
+            device.Visible(false); device.Stop(); device.Stopped(false, "SDK error");
+            device.Visible(true);
+            Assert.That(device.StartCalls, Is.EqualTo(1));
         }
 
         [Test] public void StartFailure_DoesNotRetryOnForegroundButAllowsExplicitStart()

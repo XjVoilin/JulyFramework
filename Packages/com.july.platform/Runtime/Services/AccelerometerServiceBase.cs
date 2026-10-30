@@ -8,7 +8,7 @@ namespace July.Platform
     /// <summary>期望开关与 SDK 状态分开：停止标记立即生效，未完成的启动收到结果后再收尾。</summary>
     public abstract class AccelerometerServiceBase : IAccelerometerService, ICanEvent
     {
-        private enum DeviceState { Idle, Starting, Running, Stopping, Faulted }
+        private enum DeviceState { Idle, Starting, Running, Stopping }
         private DeviceState _state;
         private bool _requested;
         private long _operation;
@@ -22,10 +22,9 @@ namespace July.Platform
         public void Start()
         {
             if (_shutdown) throw new ObjectDisposedException(nameof(IAccelerometerService));
-            if (!IsSupported || _state == DeviceState.Faulted)
+            if (!IsSupported)
             {
-                Emit(new AccelerometerStartResultEvent(false, IsSupported
-                    ? "Accelerometer is unavailable after an SDK stop failure." : Unsupported));
+                Emit(new AccelerometerStartResultEvent(false, Unsupported));
                 return;
             }
             _requested = true;
@@ -107,12 +106,9 @@ namespace July.Platform
         private void CompleteStop(long operation, bool success, string error)
         {
             if (operation != _operation || _state != DeviceState.Stopping) return;
-            _state = success ? DeviceState.Idle : DeviceState.Faulted;
-            if (!success)
-            {
-                _requested = false;
-                ReportStopFailure(error); // A synchronous game exit cannot await the SDK result.
-            }
+            // The SDK operation has finished; a stop failure must not discard the current start request.
+            _state = DeviceState.Idle;
+            if (!success) ReportStopFailure(error); // A synchronous game exit cannot await the SDK result.
             if (!_shutdown) Emit(new AccelerometerStopResultEvent(success, error));
             Reconcile();
         }
