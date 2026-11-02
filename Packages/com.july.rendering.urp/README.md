@@ -56,6 +56,15 @@ cameraHighlight.Target = null;
 
 配置、有效期和发布要求见[生命周期说明](Documentation~/renderer-lifecycle.md)。正式发布需重建 AOT Player 及 HybridCLR 配置。桌面检查不替代手机内存与切换耗时验收。
 
+## Editor Game 视图截图
+
+入口：**JulyGF → 渲染 → Game 视图截图**。PNG 固定保存到当前项目的 `Library/July/`，按时间戳命名；写入成功后自动打开文件夹并选中新图片。目录属于 Unity Library，清理 Library 前请移出需要长期保留的截图。
+
+- 保存最近选中的 Game 视图已渲染画面，沿用该视图实际渲染分辨率，包含相机合成与 Screen Space Overlay UI；不包含 Editor 工具栏、Stats 和窗口边框，PNG 为不透明 RGB。
+- 截取已有画面，不重新渲染相机、不推进游戏帧、不改变暂停状态。先显示目标 Game 视图、等待画面更新后再操作；多个 Game 视图时先选中目标视图。未打开 Game 视图或尚无渲染纹理时明确报错，不生成替代画面。
+- 实现集中读取 Unity 2022.3 内部 GameView 纹理字段，升级 Unity 时需复验。HDR 输出到普通 PNG 会转换到 8 位，HDR 显示映射不在支持范围内。
+- 功能位于 `July.Rendering.URP.Editor` 程序集，不进入 Player；不导入 AssetDatabase，也不修改场景或相机配置。
+
 ## Editor 场景出图
 
 入口：**JulyGF → 渲染 → 场景出图**。选择当前场景的正交相机和目标BG的MeshRenderer，点击“导出PNG”。

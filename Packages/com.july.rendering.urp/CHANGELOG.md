@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 新增 Game 视图截图菜单：保存当前已渲染画面到项目 Library/July，按时间戳命名，成功后自动打开文件夹并选中 PNG；不推进游戏帧，Editor 纹理和图形状态在失败后释放/恢复。
+
 - 透明节点图片新增Received Shadow Strength（0～1，默认1），可减弱接影以匹配原模型观感，重复导出保留该值。
 
 - 节点出图使用透明Baked Transparent Surface材质并开启Renderer接影；保持烘焙原色/Alpha，仅叠加实时主光阴影，不重复受光。同路径重导出更新旧面片，保留覆盖与Undo/Redo；需Universal Renderer开启Transparent Receive Shadows。
