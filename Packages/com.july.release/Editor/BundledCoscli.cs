@@ -33,7 +33,7 @@ namespace July.Release.Editor
         {
 #if UNITY_EDITOR_OSX
             // Git/UPM on Windows may not preserve the executable bit. Keep the package read-only.
-            var directory = Path.GetFullPath(Path.Combine("Library", "July.Release", "Tools", "coscli", Version));
+            var directory = Path.GetFullPath(Path.Combine("Library", "July", "Release", "Tools", "coscli", Version));
             Directory.CreateDirectory(directory);
             var executable = Path.Combine(directory, "coscli");
             File.Copy(packagedExecutable, executable, true);

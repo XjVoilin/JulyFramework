@@ -1,8 +1,15 @@
 {
   "name": "July.AssetCheck.Editor.Tests",
   "rootNamespace": "July.AssetCheck.Tests",
-  "references": ["July.AssetCheck.Editor"],
-  "includePlatforms": ["Editor"],
-  "optionalUnityReferences": ["TestAssemblies"],
+  "references": [
+    "July.AssetCheck.Editor",
+    "July.Release.Editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
   "autoReferenced": false
 }

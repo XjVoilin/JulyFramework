@@ -8,6 +8,6 @@ The binaries previously used by GooseMarket match the upstream release SHA-256 d
 
 manifest.json records the source URLs and SHA-256 of each binary. Keep version, binary files, manifest and license together when deliberately updating the tool. Builds never download tools.
 
-Tools~ is distributed with the UPM package and excluded from Unity asset importing. Locate it via PackageInfo.resolvedPath, not a fixed Library/PackageCache folder. macOS execution uses a disposable copy in Library/July.Release/Tools; do not chmod or write the package cache.
+Tools~ is distributed with the UPM package and excluded from Unity asset importing. Locate it via PackageInfo.resolvedPath, not a fixed Library/PackageCache folder. macOS execution uses a disposable copy in Library/July/Release/Tools; do not chmod or write the package cache.
 
 Credentials and logs are not part of this directory. The caller supplies Tools/coscli/.cos.yaml in its project workspace.

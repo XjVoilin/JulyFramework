@@ -49,7 +49,7 @@ namespace July.AssetCheck.Tests
             Assert.That(file.ReadExistingOrDefault().CurrentStandards.texture.requireUncompressedAtlasSources, Is.True);
             Assert.That(File.ReadAllText(path), Is.EqualTo(json), "只读入口不迁移磁盘配置");
             settings = file.LoadOrCreate();
-            Assert.That(settings.version, Is.EqualTo(4));
+            Assert.That(settings.version, Is.EqualTo(5));
             Assert.That(settings.CurrentStandards.model.maxTrianglesPerMesh, Is.EqualTo(777));
             settings.CurrentStandards.texture.requireUncompressedAtlasSources = false;
             file.Save(settings);

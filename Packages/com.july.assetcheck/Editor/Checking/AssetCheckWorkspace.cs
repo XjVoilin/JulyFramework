@@ -34,6 +34,8 @@ namespace July.AssetCheck
         public string ReportLoadFailure { get; private set; }
         public string ReportSaveFailure => string.Join("；", _saveFailures.Values);
         public event Action Changed;
+        internal bool ConfigurationChanged => _file.HasExternalChanges;
+        internal string ProjectDirectory => _file.ProjectDirectory;
 
         public AssetCheckWorkspace(AssetCheckSettingsFile file)
         {
@@ -51,6 +53,19 @@ namespace July.AssetCheck
 
         // 共享工具在执行前从配置所有者取得有效设置，沿用检查任务的外部修改保护。
         internal AssetCheckSettings ReadCurrentSettings()
+        {
+            _file.EnsureUnchanged();
+            var next = Settings.Copy();
+            if (next.CaptureIgnoredFolderPaths())
+            {
+                _file.Save(next);
+                Settings = next;
+                Changed?.Invoke();
+            }
+            return Settings;
+        }
+
+        internal AssetCheckSettings ReadInspectionSettings()
         {
             _file.EnsureUnchanged();
             return Settings;
@@ -82,7 +97,8 @@ namespace July.AssetCheck
                 return;
             var next = Settings.Copy();
             next.ignoredAssets.Add(new IgnoredAsset { guid = AssetCheckTarget.IsProjectFile(issue.TargetId) ? null : issue.TargetId,
-                projectPath = AssetCheckTarget.IsProjectFile(issue.TargetId) ? issue.TargetId : null, lastKnownPath = path, kind = issue.Kind });
+                projectPath = AssetCheckTarget.IsProjectFile(issue.TargetId) ? issue.TargetId : null, lastKnownPath = path, kind = issue.Kind,
+                targetType = IgnoredTargetType.File });
             SaveExclusions(next, false);
             Activity = "已忽略文件，已从结果中移除；过期快照请重新检查。";
             Changed?.Invoke();
@@ -123,7 +139,8 @@ namespace July.AssetCheck
                 {
                     if (exclusions.Contains(guid, path) || addedFolders.Any(parent =>
                         path.StartsWith(parent + "/", StringComparison.OrdinalIgnoreCase))) continue;
-                    next.ignoredAssets.Add(new IgnoredAsset { guid = guid, lastKnownPath = path });
+                    next.ignoredAssets.Add(new IgnoredAsset { guid = guid, lastKnownPath = path,
+                        targetType = IgnoredTargetType.Folder, folderPaths = new[] { path } });
                     addedFolders.Add(path);
                     changed = true;
                 }
@@ -294,13 +311,8 @@ namespace July.AssetCheck
                         AssetCheckTarget.RequirePath(guid);
                         report.InputPaths.Add(path);
                         var issues = new List<AssetCheckIssue>();
-                        if (module is IIncrementalAssetCheckModule incremental)
-                        {
-                            foreach (var step in incremental.CheckIncrementally(path, Settings.CurrentStandards, issues))
-                                yield return step;
-                        }
-                        else
-                            issues.AddRange(module.Check(path, Settings.CurrentStandards));
+                        foreach (var step in AssetCheckExecution.Check(module, path, Settings.CurrentStandards, issues))
+                            yield return step;
                         report.Issues.AddRange(issues);
                         report.CheckedTargets.Add(guid);
                         if (!AssetCheckTarget.IsProjectFile(path))
@@ -394,7 +406,7 @@ namespace July.AssetCheck
 
         public void PollExternalChanges()
         {
-            var configurationChanged = _file.HasExternalChanges;
+            var configurationChanged = ConfigurationChanged;
             if (configurationChanged != _configurationChanged)
             {
                 _configurationChanged = configurationChanged;

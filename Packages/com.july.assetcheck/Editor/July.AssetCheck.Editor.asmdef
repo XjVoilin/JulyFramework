@@ -1,7 +1,12 @@
 {
   "name": "July.AssetCheck.Editor",
   "rootNamespace": "July.AssetCheck",
-  "references": ["July.Logging"],
-  "includePlatforms": ["Editor"],
+  "references": [
+    "July.Logging",
+    "July.Release.Editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
   "autoReferenced": true
 }

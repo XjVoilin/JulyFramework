@@ -67,8 +67,8 @@ namespace July.Release.Tests
             Assert.AreSame(config.aot.AdditionalAotMetadataAssemblies, config.AdditionalAotMetadataAssemblies);
             Assert.IsFalse(config.sharedBundles.enabled);
             Assert.IsNull(config.launchFont);
-            Assert.IsInstanceOf<TaskGetBuildMap_SBP>(AssetBundleBuildStep.CreateBuildMapTask(false));
-            Assert.IsInstanceOf<CustomTaskGetBuildMap_SBP>(AssetBundleBuildStep.CreateBuildMapTask(true));
+            Assert.IsInstanceOf<TaskGetBuildMap_SBP>(ReleaseAssetBundleBuilder.CreateBuildMapTask(false));
+            Assert.IsInstanceOf<CustomTaskGetBuildMap_SBP>(ReleaseAssetBundleBuilder.CreateBuildMapTask(true));
         }
 
         [Test] public void SharedRuntimeSettingsHaveSingleOwnership()

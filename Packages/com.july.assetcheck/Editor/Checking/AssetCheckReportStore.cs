@@ -11,7 +11,7 @@ namespace July.AssetCheck
     // 本地快照恢复为只读报告；只有重新扫描后的有效结果才允许修改资源。
     internal sealed class AssetCheckReportStore
     {
-        internal const string RelativeDirectory = "Library/JulyAssetCheck/Reports";
+        internal const string RelativeDirectory = "Library/July/AssetCheck/Reports";
         internal string DirectoryPath { get; }
 
         internal AssetCheckReportStore(string projectDirectory) =>
@@ -50,18 +50,10 @@ namespace July.AssetCheck
             };
             foreach (var row in data.issues)
             {
-                if (row == null || string.IsNullOrEmpty(row.ruleId) || row.resourceName == null || row.actual == null ||
-                    row.expected == null || row.problem == null || row.targets == null ||
-                    (!row.hasProblem && !row.unverified) || string.IsNullOrEmpty(row.targetId) ||
-                    !(AssetCheckTarget.ProjectFiles.Contains(row.targetId) || Regex.IsMatch(row.targetId, "^[a-fA-F0-9]{32}$")) ||
-                    string.IsNullOrEmpty(row.assetPath) || row.assetPath.IndexOfAny(Path.GetInvalidPathChars()) >= 0 ||
-                    !(row.assetPath.StartsWith("Assets/", StringComparison.Ordinal) || AssetCheckTarget.ProjectFiles.Contains(row.assetPath)) ||
-                    !long.TryParse(row.localId, NumberStyles.Integer, CultureInfo.InvariantCulture, out var localId) ||
-                    (row.unverifiedTargets != null && row.unverifiedTargets.Except(row.targets).Any()))
-                    throw new InvalidDataException("报告问题行无效：" + path);
-                report.Issues.Add(new AssetCheckIssue(row.assetPath, row.targetId, kind, row.ruleId, row.problem, row.actual,
-                    row.expected, row.canFix, row.unverified, row.resourceName, localId, row.targets, row.location ?? "",
-                    row.hasProblem, row.propertyPath, row.unverifiedTargets));
+                if (row == null || row.assetPath == null ||
+                    !(row.assetPath.StartsWith("Assets/", StringComparison.Ordinal) || AssetCheckTarget.ProjectFiles.Contains(row.assetPath)))
+                    throw new InvalidDataException("报告问题行路径无效：" + path);
+                report.Issues.Add(row.Restore(kind));
             }
             if (report.PassedAssets != data.passedFiles || report.PassedAssets < 0 || report.ProblemAssets != data.problemFiles ||
                 report.UnverifiedAssets != data.unverifiedFiles || report.Issues.Count(row => row.HasProblem) != data.problemItems ||
@@ -86,14 +78,7 @@ namespace July.AssetCheck
                 problemItems = report.Issues.Count(issue => issue.HasProblem),
                 unverifiedFiles = report.UnverifiedAssets, unverifiedItems = report.Issues.Count(issue => issue.Unverified),
                 ignoredFiles = report.IgnoredFiles,
-                issues = report.Issues.Select(issue => new AssetCheckIssueSnapshot
-                {
-                    assetPath = issue.AssetPath, targetId = issue.TargetId, ruleId = issue.RuleId,
-                    resourceName = issue.ResourceName, problem = issue.Problem, actual = issue.Actual, expected = issue.Expected,
-                    canFix = issue.CanFix, hasProblem = issue.HasProblem, unverified = issue.Unverified,
-                    localId = issue.LocalId.ToString(CultureInfo.InvariantCulture), targets = issue.Targets.ToArray(),
-                    location = issue.Location, propertyPath = issue.PropertyPath, unverifiedTargets = issue.UnverifiedTargets.ToArray()
-                }).ToArray()
+                issues = report.Issues.Select(AssetCheckIssueSnapshot.Capture).ToArray()
             };
             Directory.CreateDirectory(DirectoryPath);
             var path = PathFor(report.Kind);
@@ -120,5 +105,28 @@ namespace July.AssetCheck
         public string assetPath, targetId, ruleId, resourceName, problem, actual, expected, localId, location, propertyPath;
         public bool canFix, hasProblem, unverified;
         public string[] targets, unverifiedTargets;
+
+        internal static AssetCheckIssueSnapshot Capture(AssetCheckIssue issue) => new AssetCheckIssueSnapshot
+        {
+            assetPath = issue.AssetPath, targetId = issue.TargetId, ruleId = issue.RuleId,
+            resourceName = issue.ResourceName, problem = issue.Problem, actual = issue.Actual, expected = issue.Expected,
+            canFix = issue.CanFix, hasProblem = issue.HasProblem, unverified = issue.Unverified,
+            localId = issue.LocalId.ToString(CultureInfo.InvariantCulture), targets = issue.Targets.ToArray(),
+            location = issue.Location, propertyPath = issue.PropertyPath, unverifiedTargets = issue.UnverifiedTargets.ToArray()
+        };
+
+        internal AssetCheckIssue Restore(AssetCheckKind kind)
+        {
+            if (string.IsNullOrEmpty(ruleId) || resourceName == null || actual == null || expected == null || problem == null || targets == null ||
+                (!hasProblem && !unverified) || string.IsNullOrEmpty(targetId) ||
+                !(AssetCheckTarget.ProjectFiles.Contains(targetId) || Regex.IsMatch(targetId, "^[a-fA-F0-9]{32}$")) ||
+                string.IsNullOrEmpty(assetPath) || assetPath.IndexOfAny(Path.GetInvalidPathChars()) >= 0 ||
+                !(assetPath.StartsWith("Assets/", StringComparison.Ordinal) || assetPath.StartsWith("Packages/", StringComparison.Ordinal) || AssetCheckTarget.ProjectFiles.Contains(assetPath)) ||
+                !long.TryParse(localId, NumberStyles.Integer, CultureInfo.InvariantCulture, out var objectId) ||
+                (unverifiedTargets != null && unverifiedTargets.Except(targets).Any()))
+                throw new InvalidDataException("报告问题行无效。");
+            return new AssetCheckIssue(assetPath, targetId, kind, ruleId, problem, actual, expected, canFix, unverified,
+                resourceName, objectId, targets, location ?? "", hasProblem, propertyPath, unverifiedTargets);
+        }
     }
 }

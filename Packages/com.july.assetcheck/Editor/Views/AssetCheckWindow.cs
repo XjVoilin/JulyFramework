@@ -12,13 +12,16 @@ namespace July.AssetCheck
 {
     public sealed class AssetCheckWindow : EditorWindow
     {
+        internal enum ToolPage { ResourceCheck, PlatformCopy, BundleAnalysis }
         private AssetCheckWorkspace _workspace;
         private AssetCheckKind _kind;
         private ObjectField _scope;
         private VisualElement _checkPage;
+        private VisualElement _scopeHeader;
         private WebGLTextureSettingsCopyPanel _copyPage;
-        private Button _checkTool, _copyTool;
-        [SerializeField] private bool _showCopy;
+        private BundleAnalysisPanel _analysisPage;
+        private Button _checkTool, _copyTool, _analysisTool;
+        [SerializeField] private ToolPage _tool;
         private AssetCheckOverview _overview;
         private Label _status;
         private Label _error;
@@ -29,8 +32,7 @@ namespace July.AssetCheck
         private AssetCheckResultsView _results;
         private ListView _ignored;
         private AssetCheckExclusions _ignoredExclusions;
-        private readonly Dictionary<AssetCheckKind, Button> _tabs = new Dictionary<AssetCheckKind, Button>();
-        private readonly Dictionary<AssetCheckKind, Label> _tabCounts = new Dictionary<AssetCheckKind, Label>();
+        private AssetCheckTypeTabs _typeTabs;
         private Button _fixSelected;
         private Button _scanAll;
         private Button _scanCurrent;
@@ -55,11 +57,11 @@ namespace July.AssetCheck
         public void CheckAll() => RunUi(() =>
         {
             RequireIdle();
-            _showCopy = false;
+            _tool = ToolPage.ResourceCheck;
             _workspace.StartScan();
         });
 
-        internal bool FolderOperationRunning => (_workspace != null && _workspace.Running) || (_copyPage != null && _copyPage.Running);
+        internal bool FolderOperationRunning => (_workspace != null && _workspace.Running) || (_copyPage != null && _copyPage.Running) || (_analysisPage != null && _analysisPage.Running);
         internal void SetFoldersIgnored(string[] paths, bool ignored) => RunUi(() => _workspace.SetFoldersIgnored(paths, ignored));
 
         private void OnEnable()
@@ -71,6 +73,8 @@ namespace July.AssetCheck
         private void OnDisable()
         {
             EditorApplication.update -= Pump;
+            _analysisPage?.Dispose();
+            _analysisPage = null;
             _copyPage?.Dispose();
             _copyPage = null;
             if (_workspace != null)
@@ -99,6 +103,7 @@ namespace July.AssetCheck
                 while (_workspace.Running && EditorApplication.timeSinceStartup < deadline);
             }
             _copyPage?.Pump();
+            _analysisPage?.Pump();
             RefreshSharedControls();
             if (_refreshRequested && now >= _nextRefresh)
             {
@@ -109,6 +114,8 @@ namespace July.AssetCheck
 
         public void CreateGUI()
         {
+            _analysisPage?.Dispose();
+            _analysisPage = null;
             _copyPage?.Dispose();
             _copyPage = null;
             var shell = rootVisualElement;
@@ -137,40 +144,9 @@ namespace July.AssetCheck
             _scanAll.AddToClassList("header-action");
             _scanAll.AddToClassList("primary");
             toolbar.Add(_scanAll);
-            _settingsMenu = new ToolbarMenu { text = "设置", tooltip = "配置文件、本地报告与重新加载" };
-            _settingsMenu.AddToClassList("settings-action");
-            _settingsMenu.menu.AppendAction("重新加载配置", _ => RunUi(LoadWorkspace));
-            var projectRoot = Directory.GetParent(Application.dataPath).FullName;
-            var configPath = Path.Combine(projectRoot, AssetCheckSettingsFile.FileName);
-            var reportsPath = Path.Combine(projectRoot, AssetCheckReportStore.RelativeDirectory);
-            _settingsMenu.menu.AppendAction("定位项目配置", _ => EditorUtility.RevealInFinder(configPath),
-                _ => File.Exists(configPath) ? DropdownMenuAction.Status.Normal : DropdownMenuAction.Status.Disabled);
-            _settingsMenu.menu.AppendAction("打开本地报告目录", _ => EditorUtility.RevealInFinder(reportsPath),
-                _ => Directory.Exists(reportsPath) ? DropdownMenuAction.Status.Normal : DropdownMenuAction.Status.Disabled);
-            _settingsMenu.tooltip += "\n项目配置：" + configPath + "\n本地报告：" + reportsPath;
-            toolbar.Add(_settingsMenu);
             root.Add(toolbar);
 
-            var tabs = new VisualElement();
-            tabs.AddToClassList("type-tabs");
-            _tabs.Clear();
-            _tabCounts.Clear();
-            foreach (var registration in AssetCheckCatalog.Entries)
-            {
-                var kind = registration.Kind;
-                var tab = new Button(() => SelectTab(kind)) { name = "tab-" + kind };
-                tab.AddToClassList("type-tab");
-                var title = new Label(registration.Name);
-                title.AddToClassList("tab-title");
-                tab.Add(title);
-                var count = new Label("—");
-                count.AddToClassList("tab-count");
-                tab.Add(count);
-                _tabCounts.Add(kind, count);
-                _tabs.Add(kind, tab);
-                tabs.Add(tab);
-            }
-            root.Add(tabs);
+            _typeTabs = new AssetCheckTypeTabs(SelectTab); root.Add(_typeTabs);
 
             _overview = new AssetCheckOverview();
             root.Add(_overview);
@@ -236,6 +212,8 @@ namespace July.AssetCheck
             {
                 _copyPage = new WebGLTextureSettingsCopyPanel(() => _workspace, CopyStateChanged);
                 shell.Add(_copyPage);
+                _analysisPage = new BundleAnalysisPanel(() => _workspace, RequestRefresh);
+                shell.Add(_analysisPage);
             }
             shell.Add(_error);
             Refresh();
@@ -244,6 +222,7 @@ namespace July.AssetCheck
         private void BuildSharedHeader(VisualElement shell)
         {
             var header = new VisualElement();
+            _scopeHeader = header;
             header.AddToClassList("header");
             _scope = new ObjectField("目录") { name = "shared-scope", objectType = typeof(DefaultAsset), allowSceneObjects = false };
             _scope.AddToClassList("scope");
@@ -258,17 +237,32 @@ namespace July.AssetCheck
             header.Add(_allAssets);
             shell.Add(header);
             var tools = new Toolbar();
-            _checkTool = new Button(() => SelectTool(false)) { name = "tool-check", text = "资源检查" };
-            _copyTool = new Button(() => SelectTool(true)) { name = "tool-copy", text = "平台配置复制" };
+            _checkTool = new Button(() => SelectTool(ToolPage.ResourceCheck)) { name = "tool-check", text = "资源检查" };
+            _copyTool = new Button(() => SelectTool(ToolPage.PlatformCopy)) { name = "tool-copy", text = "平台配置复制" };
             tools.Add(_checkTool);
             tools.Add(_copyTool);
+            _analysisTool = new Button(() => SelectTool(ToolPage.BundleAnalysis)) { name = "tool-analysis", text = "打包分析" };
+            tools.Add(_analysisTool);
+            tools.Add(new VisualElement { style = { flexGrow = 1 } });
+            _settingsMenu = new ToolbarMenu { name = "shared-settings", text = "设置", tooltip = "配置文件、本地报告与重新加载" };
+            _settingsMenu.AddToClassList("settings-action");
+            _settingsMenu.menu.AppendAction("重新加载配置", _ => RunUi(LoadWorkspace));
+            var projectRoot = Directory.GetParent(Application.dataPath).FullName;
+            var configPath = Path.Combine(projectRoot, AssetCheckSettingsFile.FileName);
+            var reportsPath = Path.Combine(projectRoot, AssetCheckReportStore.RelativeDirectory);
+            _settingsMenu.menu.AppendAction("定位项目配置", _ => EditorUtility.RevealInFinder(configPath),
+                _ => File.Exists(configPath) ? DropdownMenuAction.Status.Normal : DropdownMenuAction.Status.Disabled);
+            _settingsMenu.menu.AppendAction("打开本地报告目录", _ => EditorUtility.RevealInFinder(reportsPath),
+                _ => Directory.Exists(reportsPath) ? DropdownMenuAction.Status.Normal : DropdownMenuAction.Status.Disabled);
+            _settingsMenu.tooltip += "\n项目配置：" + configPath + "\n本地报告：" + reportsPath;
+            tools.Add(_settingsMenu);
             shell.Add(tools);
         }
 
-        internal void SelectTool(bool showCopy)
+        internal void SelectTool(ToolPage tool)
         {
             RequireIdle();
-            _showCopy = showCopy;
+            _tool = tool;
             RefreshSharedControls();
         }
 
@@ -298,19 +292,27 @@ namespace July.AssetCheck
         {
             var ready = _workspace != null;
             var idle = ready && !FolderOperationRunning;
+            _scopeHeader.style.display = _tool == ToolPage.BundleAnalysis ? DisplayStyle.None : DisplayStyle.Flex;
             _scope.SetEnabled(idle);
             _selection.SetEnabled(idle);
             _allAssets.SetEnabled(idle);
             _checkTool.SetEnabled(idle);
             _copyTool.SetEnabled(idle && _copyPage != null);
-            _checkTool.style.unityFontStyleAndWeight = _showCopy ? FontStyle.Normal : FontStyle.Bold;
-            _copyTool.style.unityFontStyleAndWeight = _showCopy ? FontStyle.Bold : FontStyle.Normal;
-            _checkPage.style.display = _showCopy && _copyPage != null ? DisplayStyle.None : DisplayStyle.Flex;
-            _checkPage.SetEnabled(_copyPage == null || !_copyPage.Running);
+            _analysisTool.SetEnabled(idle && _analysisPage != null);
+            _checkTool.style.unityFontStyleAndWeight = _tool == ToolPage.ResourceCheck ? FontStyle.Bold : FontStyle.Normal;
+            _copyTool.style.unityFontStyleAndWeight = _tool == ToolPage.PlatformCopy ? FontStyle.Bold : FontStyle.Normal;
+            _analysisTool.style.unityFontStyleAndWeight = _tool == ToolPage.BundleAnalysis ? FontStyle.Bold : FontStyle.Normal;
+            _checkPage.style.display = _tool == ToolPage.ResourceCheck || _copyPage == null ? DisplayStyle.Flex : DisplayStyle.None;
+            _checkPage.SetEnabled(idle);
             if (_copyPage != null)
             {
-                _copyPage.style.display = _showCopy ? DisplayStyle.Flex : DisplayStyle.None;
-                _copyPage.SetEnabled(ready && !_workspace.Running);
+                _copyPage.style.display = _tool == ToolPage.PlatformCopy ? DisplayStyle.Flex : DisplayStyle.None;
+                _copyPage.SetEnabled(ready && !_workspace.Running && (_analysisPage == null || !_analysisPage.Running));
+            }
+            if (_analysisPage != null)
+            {
+                _analysisPage.style.display = _tool == ToolPage.BundleAnalysis ? DisplayStyle.Flex : DisplayStyle.None;
+                _analysisPage.SetEnabled(ready && !_workspace.Running && (_copyPage == null || !_copyPage.Running));
             }
         }
 
@@ -420,6 +422,7 @@ namespace July.AssetCheck
             var ready = _workspace != null;
             var idle = ready && !FolderOperationRunning;
             _copyPage?.SynchronizeSettings();
+            _analysisPage?.SynchronizeSettings();
             _refreshRequested = false;
             RefreshSharedControls();
             _scanAll.SetEnabled(idle);
@@ -431,10 +434,7 @@ namespace July.AssetCheck
             _cancel.SetEnabled(ready && _workspace.Running);
             _cancel.style.display = ready && _workspace.Running ? DisplayStyle.Flex : DisplayStyle.None;
             _scanCurrent.text = "检查" + AssetCheckWorkspace.KindName(_kind);
-            foreach (var pair in _tabs)
-            {
-                pair.Value.EnableInClassList("active", pair.Key == _kind);
-            }
+            _typeTabs.Select(_kind);
             _notice.tooltip = AssetCheckCatalog.Entries.Single(value => value.Kind == _kind).Notice +
                 "\n勾选按整个文件操作。修改选中遵循问题筛选；修改全部处理当前类型的全部已确认问题。";
             if (!ready)
@@ -450,8 +450,7 @@ namespace July.AssetCheck
             var report = _workspace.GetReport(_kind);
             _overview.Bind(report);
             _results.Bind(report, _workspace.Running);
-            foreach (var pair in _tabs)
-                RefreshTab(pair.Key);
+            foreach (var registration in AssetCheckCatalog.Entries) RefreshTab(registration.Kind);
             RefreshSelection();
 
             // 忽略按整个文件跨类型生效，因此每个页签都提供恢复入口。
@@ -495,11 +494,11 @@ namespace July.AssetCheck
         private void RefreshTab(AssetCheckKind kind)
         {
             var report = _workspace.GetReport(kind);
-            _tabCounts[kind].text = report?.ProblemAssets.ToString() ?? "—";
-            _tabCounts[kind].EnableInClassList("zero", report != null && report.Complete && report.ProblemAssets == 0);
-            _tabs[kind].tooltip = report == null ? "尚未检查" :
+            _typeTabs.Bind(kind, report?.ProblemAssets.ToString() ?? "—",
+                report == null ? "尚未检查" :
                 $"{report.ProblemAssets} 个问题文件，{report.UnverifiedOnlyFiles} 个仅未验证文件；Tab 数字仅表示问题文件数。" +
-                (report.Stale ? "\n上次检查结果，请重新检查后修改。" : "");
+                (report.Stale ? "\n上次检查结果，请重新检查后修改。" : ""),
+                report != null && report.Complete && report.ProblemAssets == 0);
         }
     }
 }

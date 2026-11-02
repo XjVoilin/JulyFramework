@@ -2,11 +2,28 @@
 
 ## Unreleased
 
-- Apply the shared file and recursive-folder ignore list to both copy scanning and execution; invalidate copy results when ignores change, show ignored counts, and reject externally changed configuration before further writes.
-- Consolidate checking and platform-copy tools in one Resource Tools window with a shared persisted folder, independent results and actions, task exclusivity, and host-owned panel cleanup.
-- Add explicit folder selection and read-only scanning before copying; show per-file WebGL and target configurations, difference filtering, checkboxes, and asset navigation. Require fresh complete results, stop on relevant asset changes, and rescan after copying.
-- Add an independent WebGL platform-settings copy window for imported textures and SpriteAtlas assets, targeting MiniGame and WeixinMiniGame without applying checking standards.
-- Copy effective defaults when WebGL overrides are disabled; preserve Automatic and all platform parameters. Batch imports, skip unchanged assets, and allow cancellation between batches.
+- Add a Needs Attention filter as the exact complement of Passed, collecting problems, unverified/incomplete checks and optimization candidates without duplicating files or relabeling their statuses.
+
+- Filter bundle resource results by a recorded Assets/Packages directory (including descendants), with Project selection and clear actions. Scope category counts consistently, combine with existing filters, and retain each report's directory in view state without rescanning or applying ordinary exclusions.
+
+- Keep ordinary reports under Library/July/AssetCheck/Reports and per-report history under Library/July/AssetCheck/BundleReports.
+
+- Archive each report by content identity with its latest complete inspection, original report bytes, size data and separate browsing state. Add history selection/recheck and baseline-to-target package/resource comparisons, including dependency closures, physical-copy sizes and per-target issue evidence. Preserve complete results on cancellation/failure and report unavailable measurements or differing comparison contexts explicitly. Reuse the ordinary issue snapshot format.
+
+- Let analysis detail links size naturally under the shared resource-window stylesheet, preventing expanded resource/generated sections from overlapping. Cover shared styles, both themes, scrolling, repeated expansion and package changes.
+- Select an installed Unity build target for analysis. Persist one editor-session request across platform compilation/reload, automatically build and import its report once ready, and retain the selected platform. Support cancelling pending work and report switch/compilation failures without invoking release preparation.
+- Reuse Release's isolated AB build entry and report-bound size snapshot; add an explicit build-and-analyze action without invoking release preparation, builtin/CDN copy or player export.
+- Extend the shared result table with numeric resource-size sorting, per-bundle sizes and aggregate physical-copy sizes. Keep partial/unknown measurements explicit, preserve grouping and report snapshots, and retain ordinary repair/exclusion behavior.
+- Extend the existing resource results view/model and catalog type tabs for bundle inspections. Show inline rule evidence, previews and sorting with an additional owning-bundles column; keep AB-specific association/duplicate details separate.
+- Record per-module applicability, issues and completion; preserve unsupported and missing entries, compound-resource categories, partial cancellation and GUID-safe snapshot identity. Do not install repair/ignore actions in bundle results; preserve ordinary scan behavior.
+
+- Replace report browsing modes with package results and resource inspection results. Start once to analyze the full report, then inspect its current project resources and duplicate source content with progress/cancellation.
+- Add configurable package size marks (32 KiB minimum / 3 MiB maximum), unique bundle dependency totals, cycle paths and report-proven resource association evidence. Preserve report facts and inspection snapshots after subsequent project edits.
+- Reuse catalog modules, discovered rules and shared standards through a common per-resource execution entry. Ignore ordinary scope/exclusions for report inputs without changing ordinary reports, scope, exclusions or repair permissions. Keep all applicable subasset/module checks.
+- Add read-only Sprite/atlas mipmap standards (disabled by default) and per-Mesh submesh limit (4), configurable in existing standards. Migrate v4 configuration to v5 while preserving previous standards and ignore metadata.
+- Keep cross-bundle duplicate findings distinct from identical content in different source files; no estimated savings or automatic fixes. Replace old scope-filtered report UI tests with complete-snapshot coverage while retaining historical exclusion regressions.
+- Read report dependencies as flat identity records, matching YooAsset and avoiding recursive Unity serialization warnings.
+- Validate 240 EditMode tests, including cancellation between rule and content phases and inherited variant-atlas mipmaps, explicit path matching, and toolbar visibility; compare the real 442-bundle report without changing its bytes.
 
 ## 0.7.1 - 2026-10-25
 

@@ -24,7 +24,8 @@ namespace July.AssetCheck
         private readonly Action<AssetCheckIssue[]> _fix;
         private readonly Action<AssetCheckIssue> _ignore;
         private readonly Action<AssetCheckIssue, bool> _locate;
-        private bool _running;
+        private readonly Action<AssetCheckFileRow, AssetCheckIssue> _readOnlyLocate;
+        private bool _running, _hasReadOnlyData;
         private AssetCheckReport _report;
         internal event Action SelectionChanged;
         private bool CanModify => !_running && Model.CanModify;
@@ -32,9 +33,24 @@ namespace July.AssetCheck
         internal AssetCheckIssue[] SelectedFixes => Model.Fixable(true);
 
         internal AssetCheckResultsView(Action<AssetCheckIssue[]> fix, Action<AssetCheckIssue> ignore,
-            Action<AssetCheckIssue, bool> locate)
+            Action<AssetCheckIssue, bool> locate) : this()
         {
             _fix = fix; _ignore = ignore; _locate = locate;
+            _list.columns.Add(new Column { name = "actions", title = "操作", width = 150, minWidth = 140,
+                makeCell = MakeActions, bindCell = (cell, index) => BindActions(cell, Model.Rows[index]) });
+        }
+
+        internal AssetCheckResultsView(Action<AssetCheckFileRow, AssetCheckIssue> locate) : this()
+        {
+            _readOnlyLocate = locate;
+            _list.columns["resource"].width = 250;
+            _list.columns["problem"].width = 140;
+            _list.columns["actual"].width = 100;
+            _list.columns["expected"].width = 100;
+        }
+
+        private AssetCheckResultsView()
+        {
             style.flexGrow = 1;
             style.minHeight = 120;
             _controls = new VisualElement();
@@ -66,11 +82,6 @@ namespace July.AssetCheck
             TextColumn("problem", "问题", 180, AssetCheckSort.Problem, Problem);
             TextColumn("actual", "当前值", 145, AssetCheckSort.Actual, row => Value(row, false));
             TextColumn("expected", "允许／要求", 140, AssetCheckSort.Expected, row => Value(row, true));
-            _list.columns.Add(new Column
-            {
-                name = "actions", title = "操作", width = 150, minWidth = 140,
-                makeCell = MakeActions, bindCell = (cell, index) => BindActions(cell, Model.Rows[index])
-            });
             Add(_list);
             _empty = new Label();
             _empty.AddToClassList("empty-results");
@@ -82,10 +93,52 @@ namespace July.AssetCheck
             _running = running;
             _report = report;
             var changed = Model.Bind(report);
+            RefreshChoices(changed);
+            _controls.SetEnabled(!running);
+            Render();
+        }
+
+        internal void BindFiles(object source, object category, int revision, AssetCheckFileData[] files, bool running)
+        {
+            _report = null; _hasReadOnlyData = source != null; _running = running;
+            RefreshChoices(Model.BindFiles(source, category, revision, files));
+            _controls.SetEnabled(true); Render();
+        }
+
+        internal void Query(string search, string status) { Model.Query(search, status); Render(); }
+
+        internal void RestoreView(AssetCheckSort sort, bool descending, string rule, string[] expanded, bool showUnknown)
+        {
+            Model.Sort = sort; Model.Descending = descending; Model.Filter(rule);
+            Model.Expanded.UnionWith(expanded); Model.ShowUnknown = showUnknown;
+            RefreshChoices(true); Model.Rebuild(); Render();
+        }
+
+        // 已知扩展：由结果宿主提供关联信息，表格不认识AB或包图。
+        internal Column AddSizeColumn(Func<AssetCheckFileRow, string> caption)
+        {
+            var column = new Column { name = "size", title = "合计入包大小", width = 125, minWidth = 110 };
+            column.makeHeader = () => { var header = MakeHeader("size", column.title, AssetCheckSort.Size); header.tooltip = "按完整统计的字节数排序；部分统计及未统计放在最后，问题随文件展开。"; return header; };
+            column.makeCell = () => { var label = new Label(); label.AddToClassList("cell"); return label; };
+            column.bindCell = (cell, index) => { var row = Model.Rows[index]; ((Label)cell).text = row.IsFile ? caption(row.File) : ""; cell.tooltip = row.IsFile ? row.File.Data.SizeNote : ""; };
+            _list.columns.Add(column);
+            return column;
+        }
+
+        internal void AddRelatedColumn(string title, Func<AssetCheckFileRow, string> caption, Action<AssetCheckFileRow> open)
+        {
+            _list.columns.Add(new Column { name = "related", title = title, width = 90, minWidth = 75,
+                makeCell = () => { var button = new Button { name = "related-resource" }; button.clicked += () => open((AssetCheckFileRow)button.userData); return button; },
+                bindCell = (cell, index) => { var row = Model.Rows[index]; cell.style.display = row.UnknownHeader ? DisplayStyle.None : DisplayStyle.Flex;
+                    if (row.UnknownHeader) return; cell.userData = row.File; ((Button)cell).text = caption(row.File); } });
+        }
+
+        private void RefreshChoices(bool changed)
+        {
             if (changed)
             {
                 var choices = new List<RuleChoice> { new RuleChoice { Name = "全部问题类型" } };
-                choices.AddRange((report?.Issues ?? new List<AssetCheckIssue>()).GroupBy(issue => issue.RuleId)
+                choices.AddRange(Model.AllIssues.GroupBy(issue => issue.RuleId)
                     .Select(group => new RuleChoice { Id = group.Key, Name = group.First().Problem }));
                 var retainedRule = Model.Rule;
                 _filter.choices = choices;
@@ -93,8 +146,6 @@ namespace July.AssetCheck
                 if (selected.Id != Model.Rule) Model.Filter(selected.Id);
                 _filter.SetValueWithoutNotify(selected);
             }
-            _controls.SetEnabled(!running);
-            Render();
         }
 
         private void Render()
@@ -102,17 +153,18 @@ namespace July.AssetCheck
             if (!ReferenceEquals(_list.itemsSource, Model.Rows)) _list.itemsSource = Model.Rows;
             _list.RefreshItems();
             _counts.text = $"{Model.Files.Count:N0} / {Model.TotalAttentionFiles:N0} 个文件";
-            _counts.tooltip = Model.FilterDescription + "\n勾选按文件操作；修改选中遵循筛选，修改全部覆盖当前类型。折叠不改变修改范围。";
+            _counts.tooltip = Model.FilterDescription + (_fix == null ? "" : "\n勾选按文件操作；修改选中遵循筛选，修改全部覆盖当前类型。折叠不改变修改范围。");
             foreach (var pair in _headers)
             {
-                pair.Value.text = (string)pair.Value.userData + (pair.Key == Model.Sort ? Model.Descending ? "  ▼" : "  ▲" : "");
+                var title = pair.Key == AssetCheckSort.Size ? _list.columns["size"].title : (string)pair.Value.userData;
+                pair.Value.text = title + (pair.Key == Model.Sort ? Model.Descending ? "  ▼" : "  ▲" : "");
                 pair.Value.SetEnabled(!_running);
                 pair.Value.EnableInClassList("sorted", pair.Key == Model.Sort);
             }
             var empty = Model.Rows.Count == 0;
             _list.style.display = empty ? DisplayStyle.None : DisplayStyle.Flex;
             _empty.style.display = empty ? DisplayStyle.Flex : DisplayStyle.None;
-            _empty.text = _report == null ? "开始检查，查看当前类型的资源问题。" : Model.TotalAttentionFiles > 0 ?
+            _empty.text = _readOnlyLocate != null ? (_hasReadOnlyData ? "当前分类或筛选下没有资源。" : "读取报告后查看入包资源。") : _report == null ? "开始检查，查看当前类型的资源问题。" : Model.TotalAttentionFiles > 0 ?
                 "当前问题类型下没有结果。" : _report.Complete ? "检查完成，没有发现问题。" : "暂无结果，请完成检查。";
             SelectionChanged?.Invoke();
         }
@@ -120,14 +172,17 @@ namespace July.AssetCheck
         private VisualElement MakeResource()
         {
             var cell = new VisualElement(); cell.AddToClassList("resource-cell");
-            var selected = new Toggle { name = "select" };
-            selected.RegisterValueChangedCallback(change =>
+            if (_fix != null)
             {
-                var row = (AssetCheckDisplayRow)cell.userData;
-                if (change.newValue) Model.Selected.Add(row.File.Id); else Model.Selected.Remove(row.File.Id);
-                SelectionChanged?.Invoke();
-            });
-            cell.Add(selected);
+                var selected = new Toggle { name = "select" };
+                selected.RegisterValueChangedCallback(change =>
+                {
+                    var row = (AssetCheckDisplayRow)cell.userData;
+                    if (change.newValue) Model.Selected.Add(row.File.Id); else Model.Selected.Remove(row.File.Id);
+                    SelectionChanged?.Invoke();
+                });
+                cell.Add(selected);
+            }
             cell.Add(new Button(() =>
             {
                 var row = (AssetCheckDisplayRow)cell.userData;
@@ -139,7 +194,10 @@ namespace July.AssetCheck
             {
                 var row = (AssetCheckDisplayRow)cell.userData;
                 if (evt.button == 0 && !row.UnknownHeader)
-                    _locate(row.Issue ?? row.File.AllIssues[0], row.Issue != null);
+                {
+                    if (_readOnlyLocate != null) _readOnlyLocate(row.File, row.Issue);
+                    else _locate(row.Issue ?? row.File.AllIssues[0], row.Issue != null);
+                }
             };
             var thumbnail = new AssetCheckThumbnail();
             thumbnail.RegisterCallback(locate);
@@ -159,21 +217,24 @@ namespace July.AssetCheck
             cell.userData = row;
             cell.EnableInClassList("child", row.Issue != null);
             cell.EnableInClassList("unknown-group", row.UnknownHeader);
-            var supportsPreview = !row.UnknownHeader && AssetCheckThumbnail.Supports(row.File.AllIssues[0].Kind);
+            var supportsPreview = !row.UnknownHeader && row.File.Data.Kind.HasValue && AssetCheckThumbnail.Supports(row.File.Data.Kind.Value);
             cell.EnableInClassList("preview-row", supportsPreview);
-            cell.Q<AssetCheckThumbnail>().Bind(row.IsFile && supportsPreview ? row.File.Id : null);
-            var selected = cell.Q<Toggle>("select");
-            selected.style.display = row.IsFile ? DisplayStyle.Flex : DisplayStyle.None;
-            selected.SetValueWithoutNotify(row.IsFile && Model.Selected.Contains(row.File.Id));
-            selected.SetEnabled(CanModify && row.IsFile && row.File.VisibleIssues.Any(issue => issue.ConfirmedFix() != null));
+            cell.Q<AssetCheckThumbnail>().BindPath(row.IsFile && supportsPreview ? row.File.Data.ResolvePath() : "");
+            if (_fix != null)
+            {
+                var selected = cell.Q<Toggle>("select");
+                selected.style.display = row.IsFile ? DisplayStyle.Flex : DisplayStyle.None;
+                selected.SetValueWithoutNotify(row.IsFile && Model.Selected.Contains(row.File.Id));
+                selected.SetEnabled(CanModify && row.IsFile && row.File.VisibleIssues.Any(issue => issue.ConfirmedFix() != null));
+            }
             var expand = cell.Q<Button>("expand");
             var expandable = row.UnknownHeader || row.IsFile && row.File.VisibleIssues.Length > 1;
             expand.style.visibility = expandable ? Visibility.Visible : Visibility.Hidden;
             expand.text = (row.UnknownHeader ? Model.ShowUnknown : row.IsFile && Model.Expanded.Contains(row.File.Id)) ? "▼" : "▶";
-            cell.Q<Label>("name").text = row.UnknownHeader ? $"仅未验证（{Model.UnknownFiles} 个文件）" :
+            cell.Q<Label>("name").text = row.UnknownHeader ? (_fix == null ? "未能检查" : "仅未验证") + $"（{Model.UnknownFiles} 个文件）" :
                 row.IsFile ? row.File.Name : AssetCheckResultsModel.Subject(row.Issue);
-            cell.Q<Label>("path").text = row.UnknownHeader ? "未验证不等于问题；展开后可明确设为标准。" : row.IsFile
-                ? (row.File.VisibleIssues.Length == 1 && AssetCheckResultsModel.Subject(row.File.VisibleIssues[0]) != "资源设置"
+            cell.Q<Label>("path").text = row.UnknownHeader ? (_fix == null ? "未能检查不等于通过；展开查看原因。" : "未验证不等于问题；展开后可明确设为标准。") : row.IsFile
+                ? (row.File.Data.Status == null ? "" : row.File.Data.Status + " · ") + (row.File.VisibleIssues.Length == 1 && AssetCheckResultsModel.Subject(row.File.VisibleIssues[0]) != "资源设置"
                     ? AssetCheckResultsModel.Subject(row.File.VisibleIssues[0]) + " · " + row.File.DirectoryLabel : row.File.DirectoryLabel) : "";
             cell.Q<Label>("path").tooltip = row.UnknownHeader ? "未验证不等于问题。" : row.File.Path;
             cell.tooltip = row.UnknownHeader ? "当前编辑器尚未确认这些资源是否符合标准。" :
@@ -209,6 +270,7 @@ namespace July.AssetCheck
         private static string Problem(AssetCheckDisplayRow row)
         {
             if (row.UnknownHeader) return "";
+            if (row.IsFile && row.File.VisibleIssues.Length == 0) return row.File.Data.Status;
             if (row.IsFile && row.File.VisibleIssues.Length > 1)
                 return (row.File.VisibleIssues.Length == row.File.AllIssues.Length ? $"{row.File.AllIssues.Length} 项：" :
                     $"{row.File.VisibleIssues.Length}/{row.File.AllIssues.Length} 项：") +
@@ -221,7 +283,9 @@ namespace July.AssetCheck
 
         private static string Value(AssetCheckDisplayRow row, bool expected)
         {
-            if (row.UnknownHeader || row.IsFile && row.File.VisibleIssues.Length != 1) return "";
+            if (row.UnknownHeader) return "";
+            if (row.IsFile && row.File.VisibleIssues.Length == 0) return expected ? "" : row.File.Data.Note;
+            if (row.IsFile && row.File.VisibleIssues.Length != 1) return "";
             var issue = row.Issue ?? row.File.VisibleIssues[0];
             return expected ? issue.Expected : issue.Actual;
         }

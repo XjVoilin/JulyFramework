@@ -22,6 +22,8 @@ namespace July.AssetCheck
             atlasSources.RegisterValueChangedCallback(e => edit(s => s.texture.requireUncompressedAtlasSources = e.newValue));
             Add(line, atlasSources);
             AddSize(line, "贴图长边上限", standards.texture.maxTextureSize, v => edit(s => s.texture.maxTextureSize = v));
+            AddPermission(line, "Sprite MipMap", standards.texture.allowSpriteMipMaps, v => edit(s => s.texture.allowSpriteMipMaps = v));
+            AddPermission(line, "图集 MipMap", standards.texture.allowAtlasMipMaps, v => edit(s => s.texture.allowAtlasMipMaps = v));
             AddPermission(line, "贴图 Read/Write", standards.texture.allowReadWrite, v => edit(s => s.texture.allowReadWrite = v));
             TextureFormatStandardsView.Build(line, "图集", standards.texture.allowedAtlasFormats, standards.texture.atlasCompressionFormat,
                 v => edit(s => s.texture.allowedAtlasFormats = v), v => edit(s => s.texture.atlasCompressionFormat = v));

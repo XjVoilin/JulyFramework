@@ -36,6 +36,7 @@ namespace July.AssetCheck.Tests
         [Test]
         public void ScanAllWritesOneLatestFilePerModuleIncludingEmptyResults()
         {
+            Assert.AreEqual(Path.Combine(_directory, "Library", "July", "AssetCheck", "Reports"), Path.GetFullPath(_store.DirectoryPath));
             using (var workspace = Workspace())
             {
                 workspace.StartScan();

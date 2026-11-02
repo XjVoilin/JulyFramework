@@ -16,6 +16,7 @@ namespace July.AssetCheck
             AddPermission(line, "相机导入", standards.model.allowCameras, v => edit(s => s.model.allowCameras = v));
             AddPermission(line, "Read/Write", standards.model.allowReadWrite, v => edit(s => s.model.allowReadWrite = v));
             AddPermission(line, "自动碰撞体", standards.model.allowGeneratedColliders, v => edit(s => s.model.allowGeneratedColliders = v));
+            AddInt(line, "单 Mesh 子网格上限", standards.model.maxSubMeshes, v => edit(s => s.model.maxSubMeshes = v));
             AddInt(line, "单 Mesh 面数上限", standards.model.maxTrianglesPerMesh, v => edit(s => s.model.maxTrianglesPerMesh = v));
         }
     }

@@ -42,6 +42,8 @@ namespace July.AssetCheck
         public TextureImporterFormat atlasCompressionFormat = TextureImporterFormat.ASTC_6x6;
         public int maxAtlasSize = 2048;
         public bool allowAtlasReadWrite;
+        public bool allowSpriteMipMaps;
+        public bool allowAtlasMipMaps;
     }
 
     [Serializable]
@@ -94,6 +96,7 @@ namespace July.AssetCheck
         public bool allowReadWrite;
         public bool allowGeneratedColliders;
         public int maxTrianglesPerMesh = 2000;
+        public int maxSubMeshes = 4;
     }
 
     [Serializable]
@@ -107,6 +110,8 @@ namespace July.AssetCheck
         public ProjectStandards project = new ProjectStandards();
     }
 
+    public enum IgnoredTargetType { Unknown, File, Folder }
+
     [Serializable]
     public sealed class IgnoredAsset
     {
@@ -114,6 +119,8 @@ namespace July.AssetCheck
         public string projectPath;
         public string lastKnownPath;
         public AssetCheckKind kind;
+        public IgnoredTargetType targetType;
+        public string[] folderPaths;
         public string Id => string.IsNullOrEmpty(projectPath) ? guid : projectPath;
     }
 
@@ -125,10 +132,12 @@ namespace July.AssetCheck
         public string scope;
         public List<PlatformStandards> standards;
         public List<IgnoredAsset> ignoredAssets;
+        public int minBundleBytes = 32768;
+        public int maxBundleBytes = 3145728;
 
         public static AssetCheckSettings CreateDefault() => new AssetCheckSettings
         {
-            version = 4,
+            version = 5,
             platform = AssetCheckPlatform.MiniGame,
             scope = "Assets",
             standards = new List<PlatformStandards> { new() },
@@ -138,6 +147,43 @@ namespace July.AssetCheck
         public PlatformStandards CurrentStandards => standards.Find(value => value.platform == platform);
 
         public AssetCheckSettings Copy() => JsonUtility.FromJson<AssetCheckSettings>(JsonUtility.ToJson(this));
+
+        // 只记录可由现存 GUID 确认的目录身份；旧记录已丢失目标时保持 Unknown。
+        internal bool CaptureIgnoredFolderPaths()
+        {
+            var changed = false;
+            foreach (var ignored in ignoredAssets)
+            {
+                if (!string.IsNullOrEmpty(ignored.projectPath))
+                {
+                    if (ignored.targetType == IgnoredTargetType.Unknown) { ignored.targetType = IgnoredTargetType.File; changed = true; }
+                    continue;
+                }
+                var path = AssetDatabase.GUIDToAssetPath(ignored.guid);
+                if (string.IsNullOrEmpty(path) || !string.Equals(AssetDatabase.AssetPathToGUID(path,
+                    AssetPathToGUIDOptions.OnlyExistingAssets), ignored.guid, StringComparison.OrdinalIgnoreCase)) continue;
+                var folder = AssetDatabase.IsValidFolder(path);
+                if (folder && path == "Assets")
+                    throw new InvalidDataException("忽略目录必须是 Assets 下的具体文件夹。");
+                var actualType = folder ? IgnoredTargetType.Folder : IgnoredTargetType.File;
+                if (ignored.targetType != IgnoredTargetType.Unknown && ignored.targetType != actualType)
+                    throw new InvalidDataException("忽略记录的目标类型与当前 GUID 对应资源不一致：" + path);
+                if (ignored.targetType == IgnoredTargetType.Unknown)
+                {
+                    ignored.targetType = actualType;
+                    ignored.folderPaths = folder && IsValidScope(ignored.lastKnownPath) && ignored.lastKnownPath != "Assets"
+                        ? new[] { ignored.lastKnownPath } : Array.Empty<string>();
+                    changed = true;
+                }
+                if (!folder) continue;
+                var paths = ignored.folderPaths ?? Array.Empty<string>();
+                if (paths.Contains(path, StringComparer.OrdinalIgnoreCase)) continue;
+                ValidateScope(path);
+                ignored.folderPaths = paths.Concat(new[] { path }).ToArray();
+                changed = true;
+            }
+            return changed;
+        }
 
         internal AssetCheckSettings UpgradeVersionOne()
         {
@@ -150,6 +196,7 @@ namespace July.AssetCheck
             next.scope = scope;
             next.ignoredAssets = ignoredAssets;
             next.CurrentStandards.model = standards[0].model;
+            next.CurrentStandards.model.maxSubMeshes = 4;
             next.CurrentStandards.texture.compressionFormat = standards[0].texture.compressionFormat;
             next.CurrentStandards.texture.allowedFormats =
                 LegacyFormats(next.CurrentStandards.texture.compressionFormat);
@@ -176,9 +223,21 @@ namespace July.AssetCheck
                 throw new InvalidDataException("旧版配置缺少贴图标准。");
             foreach (var entry in standards)
                 entry.texture.requireUncompressedAtlasSources = true;
-            version = 4;
-            Validate();
-            return this;
+            return UpgradeVersionFour();
+        }
+
+        internal AssetCheckSettings UpgradeVersionFour()
+        {
+            if (standards == null || standards.Any(entry => entry == null || entry.model == null || entry.texture == null))
+                throw new InvalidDataException("旧版配置缺少贴图或模型标准。");
+            foreach (var entry in standards)
+            {
+                entry.model.maxSubMeshes = 4;
+                entry.texture.allowSpriteMipMaps = false;
+                entry.texture.allowAtlasMipMaps = false;
+            }
+            minBundleBytes = 32768; maxBundleBytes = 3145728;
+            version = 5; Validate(); return this;
         }
 
         private static TextureImporterFormat[] LegacyFormats(TextureImporterFormat target) =>
@@ -189,7 +248,7 @@ namespace July.AssetCheck
         // 仅在配置读写边界调用；内部调用方依赖已经建立的校验契约。
         public void Validate()
         {
-            if (version != 4)
+            if (version != 5)
                 throw new InvalidDataException("不支持的资源检查配置版本，请检查 version 字段。");
             if (!Enum.IsDefined(typeof(AssetCheckPlatform), platform))
                 throw new InvalidDataException("资源检查配置包含不支持的平台。");
@@ -201,6 +260,10 @@ namespace July.AssetCheck
                 throw new InvalidDataException("资源检查配置缺少小游戏的类型标准。");
             ValidateFormats(standards[0].texture.allowedFormats, standards[0].texture.compressionFormat);
             ValidateFormats(standards[0].texture.allowedAtlasFormats, standards[0].texture.atlasCompressionFormat);
+            if (minBundleBytes < 0 || maxBundleBytes <= 0 || minBundleBytes > maxBundleBytes)
+                throw new InvalidDataException("AB 大小范围无效：最小值不能大于最大值。");
+            if (standards[0].model.maxSubMeshes <= 0)
+                throw new InvalidDataException("Mesh 子网格数上限必须大于零。");
             if (standards[0].model.maxTrianglesPerMesh <= 0)
                 throw new InvalidDataException("Mesh 三角面数上限必须大于零。");
             var current = standards[0];
@@ -236,6 +299,13 @@ namespace July.AssetCheck
                           !AssetCheckTarget.ProjectFiles.Contains(ignored.projectPath)) ||
                     !guids.Add(ignored.Id))
                     throw new InvalidDataException("忽略名单包含无效或重复的资源记录。");
+                if (!Enum.IsDefined(typeof(IgnoredTargetType), ignored.targetType))
+                    throw new InvalidDataException("忽略名单包含无效的目标类型。");
+                var paths = ignored.folderPaths ?? Array.Empty<string>();
+                if (ignored.targetType == IgnoredTargetType.Folder ? paths.Length == 0 || !string.IsNullOrEmpty(ignored.projectPath) : paths.Length != 0)
+                    throw new InvalidDataException("忽略目录历史与目标类型不一致。");
+                if (paths.Distinct(StringComparer.OrdinalIgnoreCase).Count() != paths.Length || paths.Any(path => path == "Assets" || !IsValidScope(path)))
+                    throw new InvalidDataException("忽略目录历史包含无效或重复的 Assets 路径。");
             }
         }
 
@@ -254,12 +324,13 @@ namespace July.AssetCheck
 
         public static void ValidateScope(string path)
         {
-            if (string.IsNullOrWhiteSpace(path) || path.Contains("\\") ||
-                path != "Assets" && !path.StartsWith("Assets/", StringComparison.Ordinal) ||
-                path.Split('/').Length != Array.FindAll(path.Split('/'), part =>
-                    part.Length > 0 && part != "." && part != "..").Length)
+            if (!IsValidScope(path))
                 throw new InvalidDataException("扫描范围必须是 Assets 下的项目文件夹。");
         }
+
+        private static bool IsValidScope(string path) => !string.IsNullOrWhiteSpace(path) && !path.Contains("\\") &&
+            (path == "Assets" || path.StartsWith("Assets/", StringComparison.Ordinal)) &&
+            path.Split('/').All(part => part.Length > 0 && part != "." && part != "..");
     }
 
     internal static class MiniGameProfile

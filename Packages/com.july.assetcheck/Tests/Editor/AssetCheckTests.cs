@@ -319,7 +319,7 @@ namespace July.AssetCheck.Tests
             {
                 window.CreateGUI();
                 Assert.That(window.rootVisualElement.Q<MultiColumnListView>(), Is.Not.Null);
-                Assert.That(window.rootVisualElement.Query<Foldout>().ToList().Count, Is.EqualTo(2));
+                Assert.That(window.rootVisualElement.Q<VisualElement>("resource-check-page").Query<Foldout>().ToList().Count, Is.EqualTo(2));
             }
             finally
             {

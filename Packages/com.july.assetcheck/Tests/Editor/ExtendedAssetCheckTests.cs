@@ -52,13 +52,13 @@ namespace July.AssetCheck.Tests
             legacy.ignoredAssets.Add(new IgnoredAsset { guid = new string('b', 32), kind = AssetCheckKind.Model });
             File.WriteAllText(Path.Combine(_config, AssetCheckSettingsFile.FileName), JsonUtility.ToJson(legacy));
             var result = new AssetCheckSettingsFile(_config).LoadOrCreate();
-            Assert.That(result.version, Is.EqualTo(4));
+            Assert.That(result.version, Is.EqualTo(5));
             Assert.That(result.CurrentStandards.texture.compressionFormat, Is.EqualTo(TextureImporterFormat.ASTC_8x8));
             Assert.That(result.CurrentStandards.texture.maxTextureSize, Is.EqualTo(1024));
             Assert.That(result.CurrentStandards.model.maxTrianglesPerMesh, Is.EqualTo(777));
             Assert.That(result.CurrentStandards.model.allowLights, Is.True);
             Assert.That(result.ignoredAssets.Single().guid, Is.EqualTo(new string('b', 32)));
-            Assert.That(new AssetCheckSettingsFile(_config).LoadOrCreate().version, Is.EqualTo(4));
+            Assert.That(new AssetCheckSettingsFile(_config).LoadOrCreate().version, Is.EqualTo(5));
         }
 
         [Test]
@@ -130,10 +130,10 @@ namespace July.AssetCheck.Tests
             var module = new TextureCheckModule();
             var standards = new PlatformStandards();
             var issues = module.Check(path, standards);
-            Assert.That(issues.Select(i => i.RuleId), Is.EquivalentTo(new[] { "atlas.compression-format", "atlas.page-size", "atlas.read-write" }));
+            Assert.That(issues.Select(i => i.RuleId), Is.EquivalentTo(new[] { "atlas.compression-format", "atlas.page-size", "atlas.read-write", "atlas.mipmaps" }));
             Assert.That(issues.Single(i => i.RuleId == "atlas.compression-format").Unverified, Is.True);
-            module.Fix(path, issues, standards);
-            Assert.That(module.Check(path, standards), Is.Empty);
+            module.Fix(path, issues.Where(i => i.CanFix).ToArray(), standards);
+            Assert.That(module.Check(path, standards).Select(i => i.RuleId), Is.EqualTo(new[] { "atlas.mipmaps" }));
             atlas = AssetDatabase.LoadAssetAtPath<SpriteAtlas>(path);
             Assert.That(atlas.GetTextureSettings().generateMipMaps, Is.True);
             Assert.That(atlas.GetPlatformSettings("DefaultTexturePlatform").maxTextureSize, Is.EqualTo(4096));
@@ -448,7 +448,8 @@ namespace July.AssetCheck.Tests
             try
             {
                 window.CreateGUI();
-                Assert.That(window.rootVisualElement.Query<UnityEngine.UIElements.Button>(className: "type-tab").ToList().Count, Is.EqualTo(7));
+                Assert.That(window.rootVisualElement.Q("resource-check-page").Query<UnityEngine.UIElements.Button>(className: "type-tab").ToList().Count, Is.EqualTo(7));
+                Assert.That(window.rootVisualElement.Q("bundle-resource-types").Query<UnityEngine.UIElements.Button>(className: "type-tab").ToList().Count, Is.EqualTo(8));
                 foreach (var entry in AssetCheckCatalog.Entries)
                     Assert.That(AssetCheckStandardsView.Build(entry.Kind, AssetCheckSettings.CreateDefault(), _ => { }), Is.Not.Null);
             }

@@ -65,8 +65,14 @@ namespace July.AssetCheck
                 settings = settings.UpgradeVersionThree();
                 needsSave = true;
             }
+            else if (settings.version == 4)
+            {
+                settings = settings.UpgradeVersionFour();
+                needsSave = true;
+            }
             else
                 settings.Validate();
+            needsSave |= settings.CaptureIgnoredFolderPaths();
             return settings;
         }
 
@@ -74,6 +80,7 @@ namespace July.AssetCheck
         {
             settings.Validate();
             EnsureUnchanged();
+            settings.CaptureIgnoredFolderPaths();
 
             var text = JsonUtility.ToJson(settings, true) + Environment.NewLine;
             var temporaryPath = _path + ".tmp";

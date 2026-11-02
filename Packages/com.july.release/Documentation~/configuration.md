@@ -65,7 +65,7 @@ CDN 上传必须传 -uploadCdn；未传时只执行本地构建。有凭证文�
 
 com.july.release 内置现有 COSCLI v1.0.8（Windows x64、macOS ARM64），SHA-256 与腾讯云官方同版本发布一致。项目不再下载/复制 coscli，可执行路径由 PackageInfo.FindForAssembly 的 resolvedPath 定位，适用于本地 file:、Git 和缓存安装。工具不从项目目录或 PATH 兜底，也不在构建时下载。
 
-凭证仍由本机或 Jenkins 提供到 Tools/coscli/.cos.yaml，Jenkins 注入流程无需更改。macOS 在 Library/July.Release/Tools 中创建可执行工作副本；包目录和 PackageCache 保持只读。其他编辑器主机平台/架构暂未提供，上传时明确报错，本地不上传的构建无需此工具。
+凭证仍由本机或 Jenkins 提供到 Tools/coscli/.cos.yaml，Jenkins 注入流程无需更改。macOS 在 Library/July/Release/Tools 中创建可执行工作副本；包目录和 PackageCache 保持只读。其他编辑器主机平台/架构暂未提供，上传时明确报错，本地不上传的构建无需此工具。
 
 工具版本、来源、许可证见 Tools~/coscli/README.md 与 THIRD-PARTY-NOTICES.md。GooseMarket 原二进制已移入包；原凭证和日志未迁移或修改。遗留 Tools/upload_cdn.sh 不属于当前构建流程。
 

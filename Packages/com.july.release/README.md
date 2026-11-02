@@ -17,6 +17,20 @@
 - `com.july.release`：标准发布策略与编排；依赖以上能力及 YooAsset、July.Config、持久化和日志能力。
 - 项目：提供运行配置与唯一 BuildConfig，引用既有收集配置（DLL 组统一 HotFix / AOTMeta）。框架管理目录约定；项目策略明确启用。
 
+## 分析专用 AB 构建
+
+`ReleaseAssetBundleBuilder.BuildAnalysis(EditorUserBuildSettings.activeBuildTarget)` 使用同一份收集、共享包合并、压缩和临时 TMP 字体策略，只构建 AB。输入使用工程现有 DLL 和资源；缺少 DLL 输入时明确失败，不自动执行 HybridCLR/AOT、玩家导出或发布准备。
+
+正式步骤继续输出 `Bundles/<Target>/<Package>/<Version>` 并执行原有旧包清理、内置文件/CDN 后续；分析输出到同级 `BundlesAnalysis/<Target>/<Package>/<RunVersion>`，不清正式目录、不复制 StreamingAssets/CDN、不上传。构建在同一 Editor 内互斥，兼容缓存继续复用；独立输出目录不等于独立 Unity 工程，Unity 原有保存、导入、编译和图集打包行为仍会发生。
+
+分析成功后返回本次 report 路径，并在它旁边写入 `<report>.sizes.json`。快照通过 report 内容指纹绑定该次构建；正式构建默认不采集，读取旧报告也不强制构建。`AssetBundleSizeSnapshot.ReadIfPresent(reportPath)` 读取只读统计；没有快照返回空，损坏、来源不匹配或合计错误明确失败。
+
+大小为**实际写入包的数据大小（未压缩）**：读取 SBP WriteCommand 的源→对象映射，使用当前 Editor 自带的 `UnityFileSystemApi` 读取真实对象、流数据及图集引用。所有物理区间统一去重，包含音频、纹理等独立流数据和同源子对象；独立依赖不重复计入引用者。图集生成纹理唯一归属时计入图集，多资源共享/无法唯一归属的数据单列。场景按真实写出操作及文件归属。同资源实际进入多个包时保留每个物理副本；结构和未归属数据单列。
+
+该指标用于比较资源入包占用，不是运行时内存，也不是逐资源压缩下载量；压缩后的下载成本仍按整包大小统计。部分统计有原因，缺少统计显示未知。采集不修改 `slimWriteResults` 或 SBP 包源码，不启动外部 Python/解析进程，不需要安装额外解析工具。当前真实构建回归环境为 Windows Unity 2022.3.62f2 / WebGL；缺少 Editor 原生读取库、未知布局或大端文件会明确暴露支持范围。
+
+新增类型的数据布局读取和归属规则集中在 `Editor/AssetBundles`，不在构建面板、AssetCheck 规则或 UI 中各自实现。
+
 ```text
 com.july.release/
   Runtime/                 启动配置契约、共享资源配置、后台版本协议、资源 URL

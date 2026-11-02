@@ -22,12 +22,11 @@ namespace July.AssetCheck
             ResetPreview();
         }
 
-        internal void Bind(string id)
+        internal void Bind(string id) => BindPath(id == null ? "" : AssetCheckTarget.Resolve(id));
+
+        internal void BindPath(string path)
         {
             ResetPreview();
-            if (id == null) return;
-            // 快照中的资源可能已被移动或删除，始终通过 GUID 解析当前位置。
-            var path = AssetCheckTarget.Resolve(id);
             if (string.IsNullOrEmpty(path)) return;
             _asset = AssetDatabase.LoadMainAssetAtPath(path);
             if (_asset == null) return;

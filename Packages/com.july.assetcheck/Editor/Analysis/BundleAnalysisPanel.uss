@@ -1,0 +1,17 @@
+.bundle-analysis { padding-left: 8px; padding-right: 8px; font-size: 12px; }
+.bundle-analysis.analysis-dark { color: rgb(220,220,220); background-color: rgb(43,43,43); }
+.bundle-analysis.analysis-light { color: rgb(38,38,38); background-color: rgb(222,222,222); }
+.bundle-analysis .analysis-toolbar { flex-direction: row; align-items: center; margin-top: 5px; margin-bottom: 5px; }
+.bundle-analysis .analysis-toolbar > Button { margin-left: 4px; }
+.bundle-analysis Button.active { -unity-font-style: bold; }
+.bundle-analysis .analysis-cell { border-width: 0; background-color: transparent; padding-left: 5px; -unity-text-align: middle-left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bundle-analysis .analysis-section-title { -unity-font-style: bold; font-size: 13px; margin-top: 10px; margin-bottom: 5px; }
+.bundle-analysis #analysis-inspector { padding-left: 10px; padding-right: 5px; border-left-width: 1px; border-left-color: rgb(100,100,100); }
+.bundle-analysis .analysis-detail-item { height: auto; white-space: normal; -unity-text-align: middle-left; margin-top: 4px; min-height: 26px; }
+.bundle-analysis #report-source, .bundle-analysis #analysis-counts { margin-top: 4px; margin-bottom: 4px; }
+.bundle-analysis #report-summary { margin-top: 5px; margin-bottom: 5px; -unity-font-style: bold; }
+.bundle-analysis #analysis-status { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bundle-analysis.analysis-dark .analysis-warning { color: rgb(240,190,115); }
+.bundle-analysis.analysis-light .analysis-warning { color: rgb(135,80,0); }
+.bundle-analysis.analysis-dark .analysis-risk { color: rgb(245,145,135); }
+.bundle-analysis.analysis-light .analysis-risk { color: rgb(165,40,40); }

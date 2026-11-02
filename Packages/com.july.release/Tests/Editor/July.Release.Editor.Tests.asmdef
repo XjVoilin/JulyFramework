@@ -7,7 +7,9 @@
     "HybridCLR.Editor",
     "YooAsset.Editor",
     "July.Build.HybridCLR.Editor",
-    "Unity.TextMeshPro"
+    "Unity.TextMeshPro",
+    "Unity.ScriptableBuildPipeline",
+    "Unity.ScriptableBuildPipeline.Editor"
   ],
   "includePlatforms": [
     "Editor"

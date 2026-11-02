@@ -7,21 +7,35 @@ using UnityEditor;
 
 namespace July.AssetCheck
 {
-    internal enum AssetCheckSort { FileName, Problem, Actual, Expected }
+    internal enum AssetCheckSort { FileName, Problem, Actual, Expected, Size }
+
+    // 展示输入不拥有扫描生命周期；身份不再从第一条问题推导。
+    internal sealed class AssetCheckFileData
+    {
+        internal string Id, Path, Status, Note;
+        internal AssetCheckKind? Kind;
+        internal AssetCheckIssue[] Issues = Array.Empty<AssetCheckIssue>();
+        internal bool Complete, Unverified, Candidate;
+        internal Func<string> ResolvePath;
+        internal long? SizeBytes;
+        internal bool SizePartial;
+        internal string SizeNote;
+    }
 
     internal sealed class AssetCheckFileRow
     {
-        internal string Id => AllIssues[0].TargetId;
-        internal string Path => AllIssues[0].AssetPath;
+        internal readonly AssetCheckFileData Data;
+        internal string Id => Data.Id;
+        internal string Path => Data.Path;
         internal string Name => System.IO.Path.GetFileName(Path);
         internal readonly AssetCheckIssue[] AllIssues, VisibleIssues;
         internal bool HasProblem => AllIssues.Any(issue => issue.HasProblem);
-        internal bool HasUnverified => AllIssues.Any(issue => issue.Unverified);
-        internal string DirectoryLabel => System.IO.Path.GetDirectoryName(Path).Replace('\\', '/');
-        internal AssetCheckFileRow(AssetCheckIssue[] issues, string rule)
+        internal bool HasUnverified => Data.Unverified || AllIssues.Any(issue => issue.Unverified);
+        internal string DirectoryLabel => (System.IO.Path.GetDirectoryName(Path) ?? "").Replace('\\', '/');
+        internal AssetCheckFileRow(AssetCheckFileData data, string rule)
         {
-            AllIssues = issues;
-            VisibleIssues = issues.Where(issue => rule == null || issue.RuleId == rule).ToArray();
+            Data = data; AllIssues = data.Issues;
+            VisibleIssues = AllIssues.Where(issue => rule == null || issue.RuleId == rule).ToArray();
         }
     }
 
@@ -39,6 +53,9 @@ namespace July.AssetCheck
     {
         private AssetCheckReport _report;
         private int _revision = -1;
+        private object _source, _category;
+        private string _search = "", _status = "全部";
+        private AssetCheckFileData[] _entries = Array.Empty<AssetCheckFileData>();
         internal string Rule { get; private set; }
         internal AssetCheckSort Sort = AssetCheckSort.FileName;
         internal bool Descending, ShowUnknown;
@@ -46,24 +63,49 @@ namespace July.AssetCheck
         internal readonly HashSet<string> Expanded = new HashSet<string>();
         internal List<AssetCheckFileRow> Files { get; private set; } = new List<AssetCheckFileRow>();
         internal List<AssetCheckDisplayRow> Rows { get; private set; } = new List<AssetCheckDisplayRow>();
-        internal int UnknownFiles => Files.Count(file => !file.HasProblem);
-        internal int TotalAttentionFiles => _report?.AttentionFiles ?? 0;
+        internal IEnumerable<AssetCheckIssue> AllIssues => _entries.SelectMany(entry => entry.Issues);
+        internal int UnknownFiles => Files.Count(file => !file.HasProblem && file.HasUnverified);
+        internal int TotalAttentionFiles => _entries.Length;
         internal bool CanModify => _report != null && !_report.IsSnapshot && _report.Complete && !_report.Stale &&
             !_report.Cancelled && _report.Failure == null;
-        internal string FilterDescription => $"当前筛选 {Files.Count} / 全部 {TotalAttentionFiles} 个需处理文件（含折叠项）";
+        internal string FilterDescription => $"当前筛选 {Files.Count} / 全部 {TotalAttentionFiles} 个文件（含折叠项）";
 
         internal bool Bind(AssetCheckReport report)
         {
-            var changed = !ReferenceEquals(_report, report) || _revision != (report?.Revision ?? -1);
-            if (_report != null && report != null && _report.Kind != report.Kind) Rule = null;
             _report = report;
-            if (changed)
-            {
-                _revision = report?.Revision ?? -1;
-                Selected.Clear();
-                Rebuild();
-            }
-            return changed;
+            return BindCore(report, report?.Kind, report?.Revision ?? -1, () =>
+                (report?.Issues ?? new List<AssetCheckIssue>()).GroupBy(issue => issue.TargetId).Select(group =>
+                {
+                    var first = group.First();
+                    return new AssetCheckFileData { Id = first.TargetId, Path = first.AssetPath, Kind = first.Kind,
+                        Issues = group.ToArray(), Complete = report.Complete,
+                        ResolvePath = () => AssetCheckTarget.Resolve(first.TargetId) };
+                }).ToArray());
+        }
+
+        internal bool BindFiles(object source, object category, int revision, AssetCheckFileData[] files)
+        {
+            _report = null;
+            if (!ReferenceEquals(_source, source) || !Equals(_category, category))
+            { Rule = null; Expanded.Clear(); ShowUnknown = false; }
+            return BindCore(source, category, revision, () => files);
+        }
+
+        private bool BindCore(object source, object category, int revision, Func<AssetCheckFileData[]> read)
+        {
+            var contextChanged = !ReferenceEquals(_source, source) || !Equals(_category, category);
+            var changed = contextChanged || _revision != revision;
+            if (!changed) return false;
+            if (!Equals(_category, category)) Rule = null;
+            _source = source; _category = category; _revision = revision;
+            _entries = read(); Selected.Clear(); Rebuild(); return true;
+        }
+
+        internal void Query(string search, string status)
+        {
+            search = search ?? "";
+            if (_search == search && _status == status) return;
+            _search = search; _status = status; Selected.Clear(); Rebuild();
         }
 
         internal void Filter(string rule)
@@ -75,15 +117,26 @@ namespace July.AssetCheck
 
         internal void Rebuild()
         {
-            Files = (_report?.Issues ?? new List<AssetCheckIssue>()).GroupBy(issue => issue.TargetId)
-                .Select(group => new AssetCheckFileRow(group.ToArray(), Rule)).Where(file => file.VisibleIssues.Length > 0).ToList();
+            Files = _entries.Select(data => new AssetCheckFileRow(data, Rule))
+                .Where(file => (Rule == null || file.VisibleIssues.Length > 0) && Matches(file)).ToList();
             Files.Sort(Compare);
             RebuildRows();
         }
 
+        private bool Matches(AssetCheckFileRow file)
+        {
+            var data = file.Data;
+            var passed = data.Complete && !file.HasProblem && !file.HasUnverified && !data.Candidate;
+            var text = data.Path + " " + data.Status + " " + data.Note + " " + string.Join(" ", file.AllIssues.Select(issue => issue.Problem));
+            return text.IndexOf(_search, StringComparison.OrdinalIgnoreCase) >= 0 &&
+                (_status == "全部" || _status == "需要关注" && !passed || _status == "违规" && file.HasProblem || _status == "优化候选" && data.Candidate ||
+                 _status == "未能检查" && file.HasUnverified || _status == "未完成" && !data.Complete ||
+                 _status == "通过" && passed);
+        }
+
         internal void SortBy(AssetCheckSort column)
         {
-            Descending = Sort == column && !Descending;
+            Descending = Sort == column ? !Descending : column == AssetCheckSort.Size;
             Sort = column;
             Rebuild();
         }
@@ -91,12 +144,18 @@ namespace July.AssetCheck
         internal void RebuildRows()
         {
             Rows = new List<AssetCheckDisplayRow>();
+            if (Sort == AssetCheckSort.Size)
+            {
+                foreach (var file in Files) AddFile(file);
+                return;
+            }
             foreach (var file in Files.Where(file => file.HasProblem)) AddFile(file);
             if (UnknownFiles > 0)
             {
                 Rows.Add(new AssetCheckDisplayRow { UnknownHeader = true });
-                if (ShowUnknown) foreach (var file in Files.Where(file => !file.HasProblem)) AddFile(file);
+                if (ShowUnknown) foreach (var file in Files.Where(file => !file.HasProblem && file.HasUnverified)) AddFile(file);
             }
+            foreach (var file in Files.Where(file => !file.HasProblem && !file.HasUnverified)) AddFile(file);
         }
 
         private void AddFile(AssetCheckFileRow file)
@@ -139,6 +198,15 @@ namespace July.AssetCheck
 
         private int Compare(AssetCheckFileRow left, AssetCheckFileRow right)
         {
+            if (Sort == AssetCheckSort.Size)
+            {
+                var leftRank = !left.Data.SizeBytes.HasValue ? 2 : left.Data.SizePartial ? 1 : 0;
+                var rightRank = !right.Data.SizeBytes.HasValue ? 2 : right.Data.SizePartial ? 1 : 0;
+                if (leftRank != rightRank) return leftRank.CompareTo(rightRank);
+                var sizeOrder = Nullable.Compare(left.Data.SizeBytes, right.Data.SizeBytes);
+                if (sizeOrder != 0) return Descending ? -sizeOrder : sizeOrder;
+                return StringComparer.Ordinal.Compare(left.Path, right.Path);
+            }
             var order = Sort == AssetCheckSort.FileName ? EditorUtility.NaturalCompare(left.Name, right.Name) :
                 CompareValue(GroupValue(left), GroupValue(right));
             if (order == 0) order = StringComparer.OrdinalIgnoreCase.Compare(left.Path, right.Path);
@@ -146,7 +214,7 @@ namespace July.AssetCheck
         }
 
         // 保持同一文件的问题分组；多问题文件使用当前排序列的最小值比较。
-        private string GroupValue(AssetCheckFileRow file) => file.VisibleIssues.Select(SortValue)
+        private string GroupValue(AssetCheckFileRow file) => file.VisibleIssues.Select(SortValue).DefaultIfEmpty(file.Data.Status ?? "")
             .OrderBy(value => value, Comparer<string>.Create(CompareValue)).First();
 
         private string SortValue(AssetCheckIssue issue) => Sort == AssetCheckSort.Problem ? issue.Problem :

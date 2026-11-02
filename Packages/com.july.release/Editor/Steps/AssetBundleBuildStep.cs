@@ -24,6 +24,7 @@ namespace July.Release.Editor
 
         public override bool Execute(BuildContext ctx)
         {
+            ReleaseAssetBundleBuilder.EnsureAvailable();
             ctx.PackageVersion = BuildUtils.NewPackageVersion();
 
             var copyOption = AssetBundleBuilderSetting.GetPackageBuildinFileCopyOption(
@@ -32,9 +33,7 @@ namespace July.Release.Editor
                 BuildUtils.PackageName, BuildUtils.YooAssetPipelineType);
 
             // ── 构建 AB（临时替换 TMP 字体，避免 Font_Main 通过 TMP Settings 污染依赖图）──
-            BuildResult buildResult;
-            using (TMPFontSwapper.UseLaunchFont())
-                buildResult = RunBuild(ctx, copyOption, copyParams);
+            var buildResult = RunBuild(ctx, copyOption, copyParams);
 
             if (!buildResult.Success)
             {
@@ -55,9 +54,6 @@ namespace July.Release.Editor
             return true;
         }
 
-        internal static IBuildTask CreateBuildMapTask(bool mergeSharedBundles) =>
-            mergeSharedBundles ? (IBuildTask)new CustomTaskGetBuildMap_SBP() : new TaskGetBuildMap_SBP();
-
         private static BuildResult RunBuild(BuildContext ctx,
             EBuildinFileCopyOption copyOption, string copyParams)
         {
@@ -73,45 +69,7 @@ namespace July.Release.Editor
                 }
             }
 
-            var buildParams = new ScriptableBuildParameters
-            {
-                BuildOutputRoot = outputRoot,
-                BuildinFileRoot = AssetBundleBuilderHelper.GetStreamingAssetsRoot(),
-                BuildPipeline = BuildUtils.YooAssetPipelineType,
-                BuildBundleType = (int)EBuildBundleType.AssetBundle,
-                BuildTarget = ctx.Target,
-                PackageName = BuildUtils.PackageName,
-                PackageVersion = ctx.PackageVersion,
-                EnableSharePackRule = true,
-                SingleReferencedPackAlone = false,
-                VerifyBuildingResult = true,
-                FileNameStyle = AssetBundleBuilderSetting.GetPackageFileNameStyle(
-                    BuildUtils.PackageName, BuildUtils.YooAssetPipelineType),
-                BuildinFileCopyOption = copyOption,
-                BuildinFileCopyParams = copyParams,
-                CompressOption = ECompressOption.LZ4,
-                ClearBuildCacheFiles = false,
-                UseAssetDependencyDB = true,
-                BuiltinShadersBundleName = "shared_unity_shaders",
-            };
-
-            var pipeline = new List<IBuildTask>
-            {
-                new TaskPrepare_SBP(),
-                CreateBuildMapTask(ReleaseProject.Profile.MergeSharedBundles),
-                new TaskBuilding_SBP(),
-                new TaskVerifyBuildResult_SBP(),
-                new TaskEncryption_SBP(),
-                new TaskUpdateBundleInfo_SBP(),
-                new TaskCreateManifest_SBP(),
-                new TaskCreateReport_SBP(),
-                new TaskCreatePackage_SBP(),
-                new TaskCopyBuildinFiles_SBP(),
-                new TaskCreateCatalog_SBP(),
-            };
-
-            var builder = new AssetBundleBuilder();
-            return builder.Run(buildParams, pipeline, true);
+            return ReleaseAssetBundleBuilder.BuildRelease(ctx, copyOption, copyParams);
         }
 
         private static void PostBuildSanityCheck(string abOutputDir)
