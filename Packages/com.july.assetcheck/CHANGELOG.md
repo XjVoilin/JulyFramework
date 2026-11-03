@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Separate bundle-content actions: resource names select and Ping the current GUID-matched asset without navigating; a dedicated inspection button reveals its resource-check row with the owning-bundle size context and clears obstructing display filters.
+
 - Add a Needs Attention filter as the exact complement of Passed, collecting problems, unverified/incomplete checks and optimization candidates without duplicating files or relabeling their statuses.
 
 - Filter bundle resource results by a recorded Assets/Packages directory (including descendants), with Project selection and clear actions. Scope category counts consistently, combine with existing filters, and retain each report's directory in view state without rescanning or applying ordinary exclusions.

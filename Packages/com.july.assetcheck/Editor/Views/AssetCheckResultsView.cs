@@ -114,6 +114,13 @@ namespace July.AssetCheck
             RefreshChoices(true); Model.Rebuild(); Render();
         }
 
+        internal void RevealFile(string id)
+        {
+            Model.Filter(null); Model.ShowUnknown = true; Model.Expanded.Add(id);
+            RefreshChoices(true); Model.RebuildRows(); Render();
+            _list.schedule.Execute(() => _list.ScrollToItem(Model.Rows.FindIndex(row => row.IsFile && row.File.Id == id)));
+        }
+
         // 已知扩展：由结果宿主提供关联信息，表格不认识AB或包图。
         internal Column AddSizeColumn(Func<AssetCheckFileRow, string> caption)
         {

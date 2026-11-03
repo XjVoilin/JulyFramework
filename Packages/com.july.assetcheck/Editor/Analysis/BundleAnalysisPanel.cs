@@ -461,8 +461,12 @@ namespace July.AssetCheck
                 .ThenByDescending(r => r.Size.Bytes).ThenBy(r => r.Result.Asset.Path, StringComparer.Ordinal);
             foreach (var entry in items)
             {
-                var item = entry.Result; var button = Link(Path.GetFileName(item.Asset.Path) + " / " + ResourceSizeCaption(entry.Size), () => { ShowResources(true); _owner = name; SelectResourceType(item.Checks.Count == 0 ? (AssetCheckKind?)null : item.Checks[0].Kind); InspectResource(item); });
-                button.tooltip = item.Asset.Path + "\n" + entry.Size.Reason; contents.Add(button);
+                var item = entry.Result; var row = new VisualElement(); row.AddToClassList("analysis-resource-row");
+                var button = Link(Path.GetFileName(item.Asset.Path) + " / " + ResourceSizeCaption(entry.Size), () => Locate(item.Asset));
+                button.name = "analysis-resource-locate"; button.tooltip = "选中并 Ping 资源：" + item.Asset.Path + "\n" + entry.Size.Reason; row.Add(button);
+                var checks = Link("查看检查结果", () => ShowResourceChecks(name, item));
+                checks.name = "analysis-resource-checks"; checks.tooltip = "转到此资源的检查结果，清除目录、搜索、状态和问题类型筛选。"; row.Add(checks);
+                contents.Add(row);
             }
             _inspector.Add(contents);
             if (packages.Report.Sizes != null)
@@ -475,6 +479,12 @@ namespace July.AssetCheck
             }
             else Line("此报告未包含逐资源大小；可通过“构建 AB 并分析”生成对应统计。");
             _inspector.Add(Link("查看此包的资源检查结果", () => { ShowResources(true); _owner = name; Rebuild(); }));
+        }
+        private void ShowResourceChecks(string owner, BundleResourceResult result)
+        {
+            _directory.SetValueWithoutNotify(""); ShowResources(true); _owner = owner;
+            SelectResourceType(result.Checks.Count == 0 ? (AssetCheckKind?)null : result.Checks[0].Kind);
+            _resources.RevealFile(BundlePackageAnalysis.Identity(result.Asset)); InspectResource(result);
         }
         internal void InspectResource(BundleResourceResult result)
         {

@@ -77,10 +77,32 @@ namespace July.AssetCheck.Tests
             Assert.AreEqual(a, table.Model.Rows.First().File.Path);
             panel.ShowResources(false); panel.InspectPackage("A");
             var contents = panel.Q<ScrollView>("analysis-inspector").Query<Foldout>().ToList().Single(f => f.text.StartsWith("包内资源"));
-            var links = contents.Query<Button>().ToList(); Assert.That(links[0].text, Does.Contain("b.bytes").And.Contain("200 B")); Assert.That(links[1].text, Does.Contain("a.bytes").And.Contain("100 B"));
-            using (var evt = NavigationSubmitEvent.GetPooled()) { evt.target = links[0]; links[0].SendEvent(evt); }
+            var links = contents.Query<Button>("analysis-resource-locate").ToList(); Assert.That(links[0].text, Does.Contain("b.bytes").And.Contain("200 B")); Assert.That(links[1].text, Does.Contain("a.bytes").And.Contain("100 B"));
+            var checks = contents.Query<Button>("analysis-resource-checks").ToList();
+            using (var evt = NavigationSubmitEvent.GetPooled()) { evt.target = checks[0]; checks[0].SendEvent(evt); }
             Assert.AreEqual("本包大小", column.title); Assert.AreEqual(100, table.Model.Files.Single(f => f.Path == a).Data.SizeBytes);
             Assert.IsFalse(table.Query<Button>().ToList().Any(button => button.name == "fix" || button.name == "ignore"));
+        }
+        [UnityTest] public IEnumerator ResourceCheckActionScrollsToLastUnclassifiedResource()
+        {
+            var paths = Enumerable.Range(0, 30).Select(i => root + "/resource" + i.ToString("D2") + ".bytes").ToArray();
+            foreach (var path in paths) File.WriteAllText(path, "fixture" + path); AssetDatabase.Refresh();
+            Write(report, new[] { Bundle("A", 100, Array.Empty<string>(), paths.Select(Asset).ToArray()) });
+            Open(); host.minSize = new Vector2(1050, 600); host.position = new Rect(0, 0, 1050, 600);
+            host.rootVisualElement.AddToClassList("asset-check");
+            host.rootVisualElement.styleSheets.Add(AssetDatabase.LoadAssetAtPath<StyleSheet>("Packages/com.july.assetcheck/Editor/Views/AssetCheckWindow.uss"));
+            panel.ShowResources(false); panel.InspectPackage("A");
+            var contents = panel.Q<ScrollView>("analysis-inspector").Query<Foldout>().ToList().Single(f => f.text.StartsWith("包内资源"));
+            contents.value = true; yield return null; yield return null;
+            var action = contents.Query<Button>("analysis-resource-checks").ToList().Last();
+            using (var evt = NavigationSubmitEvent.GetPooled()) { evt.target = action; action.SendEvent(evt); }
+            yield return null; yield return null; yield return null;
+            var table = panel.Q<AssetCheckResultsView>("resource-results");
+            Assert.AreEqual(30, table.Model.Files.Count); Assert.IsTrue(table.Model.ShowUnknown);
+            var target = table.Query<Label>("name").ToList().Single(label => label.text == "resource29.bytes");
+            var viewport = table.Q<MultiColumnListView>().Q<ScrollView>().contentViewport.worldBound;
+            Assert.GreaterOrEqual(target.worldBound.yMin + 1, viewport.yMin);
+            Assert.LessOrEqual(target.worldBound.yMax, viewport.yMax + 1);
         }
         [Test] public void IgnoresAndCurrentResourceChangesDoNotChangeReportSizeSnapshot()
         {
@@ -129,7 +151,7 @@ namespace July.AssetCheck.Tests
                 panel.InspectPackage("B");
                 foreach (var foldout in inspector.Query<Foldout>().ToList()) foldout.value = true;
                 yield return null; yield return null;
-                Assert.AreEqual(1, inspector.Query<Foldout>().ToList().Single(f => f.text.StartsWith("包内资源")).Query<Button>().ToList().Count);
+                Assert.AreEqual(1, inspector.Query<Foldout>().ToList().Single(f => f.text.StartsWith("包内资源")).Query<Button>("analysis-resource-locate").ToList().Count);
                 AssertInspectorLayout(inspector);
             }
         }
@@ -140,6 +162,14 @@ namespace July.AssetCheck.Tests
             {
                 Assert.GreaterOrEqual(child.worldBound.yMin + 1, previousBottom, "相邻详情分组不能重叠。");
                 previousBottom = child.worldBound.yMax;
+            }
+            foreach (var row in inspector.Query<VisualElement>(className: "analysis-resource-row").ToList())
+            {
+                var locate = row.Q<Button>("analysis-resource-locate"); var checks = row.Q<Button>("analysis-resource-checks");
+                Assert.Greater(locate.worldBound.width, 25); Assert.Greater(checks.worldBound.width, 25);
+                Assert.LessOrEqual(locate.worldBound.xMax, checks.worldBound.xMin + 1, "定位与检查操作不能重叠。");
+                Assert.LessOrEqual(checks.worldBound.xMax, inspector.contentViewport.worldBound.xMax + 1, "检查按钮不能超出详情区。");
+                Assert.GreaterOrEqual(row.worldBound.yMax + 1, Math.Max(locate.worldBound.yMax, checks.worldBound.yMax));
             }
             foreach (var foldout in inspector.Query<Foldout>().ToList().Where(f => f.value))
                 foreach (var child in foldout.contentContainer.Children())

@@ -69,6 +69,69 @@ namespace July.AssetCheck.Tests
             Assert.That(_panel.Query<Button>().ToList().Any(b => b.text.Contains("修改全部") || b.text.Contains("修改选中")), Is.False);
             Assert.That(File.ReadAllBytes(_asset + ".meta"), Is.EqualTo(before));
         }
+        static void Click(Button button)
+        {
+            Assert.That(button, Is.Not.Null);
+            using (var evt = NavigationSubmitEvent.GetPooled()) { evt.target = button; button.SendEvent(evt); }
+        }
+        [Test] public void PackageResourceNameLocatesMovedAssetWithoutLeavingPackageView()
+        {
+            var previousSelection = Selection.activeObject;
+            try
+            {
+                Open(); _panel.ImportReport(_path); Finish(_panel.Session); _panel.SynchronizeSettings();
+                var session = _panel.Session; var moved = _root + "/moved.png";
+                Assert.That(AssetDatabase.MoveAsset(_asset, moved), Is.Empty);
+                var before = File.ReadAllBytes(moved + ".meta"); _panel.InspectPackage("A");
+                Click(_panel.Q<Button>("analysis-resource-locate"));
+                Assert.That(Selection.activeObject, Is.SameAs(AssetDatabase.LoadMainAssetAtPath(moved)));
+                Assert.That(_panel.Q<MultiColumnListView>("analysis-results").style.display.value, Is.EqualTo(DisplayStyle.Flex));
+                Assert.That(_panel.Q<MultiColumnListView>("analysis-results").selectedItem, Is.EqualTo("A"));
+                Assert.That(_panel.Q<AssetCheckResultsView>("resource-results").style.display.value, Is.EqualTo(DisplayStyle.None));
+                Assert.That(_panel.Q<Label>("analysis-status").text, Is.EqualTo("已定位：" + moved));
+                Assert.That(_panel.Session, Is.SameAs(session)); Assert.That(File.ReadAllBytes(moved + ".meta"), Is.EqualTo(before));
+            }
+            finally { Selection.activeObject = previousSelection; }
+        }
+        [Test] public void PackageResourceNameDoesNotLocateReplacementWithDifferentGuid()
+        {
+            var previousSelection = Selection.activeObject;
+            try
+            {
+                Open(); _panel.ImportReport(_path); Finish(_panel.Session); _panel.SynchronizeSettings();
+                AssetDatabase.DeleteAsset(_asset); var replacement = _root + "/replacement.png";
+                var texture = new Texture2D(8, 8); File.WriteAllBytes(replacement, texture.EncodeToPNG()); Object.DestroyImmediate(texture);
+                AssetDatabase.ImportAsset(replacement, ImportAssetOptions.ForceSynchronousImport);
+                Assert.That(AssetDatabase.MoveAsset(replacement, _asset), Is.Empty);
+                var sentinel = AssetDatabase.LoadMainAssetAtPath(_root); Selection.activeObject = sentinel;
+                _panel.InspectPackage("A"); Click(_panel.Q<Button>("analysis-resource-locate"));
+                Assert.That(Selection.activeObject, Is.SameAs(sentinel));
+                Assert.That(_panel.Q<Label>("analysis-status").text, Does.StartWith("当前工程未匹配，无法定位："));
+                Assert.That(_panel.Q<MultiColumnListView>("analysis-results").selectedItem, Is.EqualTo("A"));
+                Click(_panel.Q<Button>("analysis-resource-checks"));
+                Assert.That(_panel.Q<AssetCheckResultsView>("resource-results").Model.Files.Single().Path, Is.EqualTo(_asset));
+            }
+            finally { Selection.activeObject = previousSelection; }
+        }
+        [Test] public void ExplicitResourceChecksActionRevealsSnapshotDespitePreviousFilters()
+        {
+            Open(); _panel.ImportReport(_path); Finish(_panel.Session); _panel.SynchronizeSettings();
+            var session = _panel.Session; var result = session.Resources.Single(); var table = _panel.Q<AssetCheckResultsView>("resource-results");
+            _panel.ShowResources(true); _panel.SetResourceDirectory("Assets/SomeOtherDirectory");
+            _panel.Q<TextField>("analysis-search").value = "not-this-resource"; _panel.Q<PopupField<string>>("analysis-filter").value = "通过";
+            _panel.ShowResources(false); _panel.InspectPackage("A");
+            table.Model.Filter("not-this-rule"); Click(_panel.Q<Button>("analysis-resource-checks"));
+            Assert.That(table.style.display.value, Is.EqualTo(DisplayStyle.Flex));
+            Assert.That(table.Model.Files.Single().Path, Is.EqualTo(_asset)); Assert.That(table.Model.Rule, Is.Null);
+            Assert.That(table.Model.Expanded, Does.Contain(BundlePackageAnalysis.Identity(result.Asset)));
+            Assert.That(table.Model.ShowUnknown, Is.True);
+            Assert.That(_panel.Q<TextField>("resource-directory").value, Is.Empty);
+            Assert.That(_panel.Q<TextField>("analysis-search").value, Is.Empty);
+            Assert.That(_panel.Q<PopupField<string>>("analysis-filter").value, Is.EqualTo("全部"));
+            Assert.That(_panel.Q<Label>("analysis-counts").text, Does.Contain("所属包：A"));
+            Assert.That(_panel.Q<ScrollView>("analysis-inspector").Query<Label>().ToList().Any(label => label.text == _asset), Is.True);
+            Assert.That(_panel.Session, Is.SameAs(session)); Assert.That(_workspace.GetReport(AssetCheckKind.Texture), Is.Null);
+        }
         [Test] public void CompletedSnapshotSurvivesScopeIgnoreResourceChangesAndExternalConfiguration()
         {
             Open(); _panel.ImportReport(_path); Finish(_panel.Session); var session = _panel.Session; var issues = session.Resources.Single().Issues.Count;

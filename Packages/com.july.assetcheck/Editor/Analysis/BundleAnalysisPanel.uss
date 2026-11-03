@@ -8,6 +8,9 @@
 .bundle-analysis .analysis-section-title { -unity-font-style: bold; font-size: 13px; margin-top: 10px; margin-bottom: 5px; }
 .bundle-analysis #analysis-inspector { padding-left: 10px; padding-right: 5px; border-left-width: 1px; border-left-color: rgb(100,100,100); }
 .bundle-analysis .analysis-detail-item { height: auto; white-space: normal; -unity-text-align: middle-left; margin-top: 4px; min-height: 26px; }
+.bundle-analysis .analysis-resource-row { flex-direction: row; align-items: flex-start; min-width: 0; }
+.bundle-analysis .analysis-resource-row > #analysis-resource-locate { flex-grow: 1; flex-shrink: 1; flex-basis: 0; min-width: 0; }
+.bundle-analysis .analysis-resource-row > #analysis-resource-checks { flex-shrink: 0; }
 .bundle-analysis #report-source, .bundle-analysis #analysis-counts { margin-top: 4px; margin-bottom: 4px; }
 .bundle-analysis #report-summary { margin-top: 5px; margin-bottom: 5px; -unity-font-style: bold; }
 .bundle-analysis #analysis-status { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
