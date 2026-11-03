@@ -1,0 +1,7 @@
+{
+    "name": "July.Launch.Editor",
+    "rootNamespace": "July.Launch.Editor",
+    "references": [],
+    "includePlatforms": ["Editor"],
+    "autoReferenced": true
+}
