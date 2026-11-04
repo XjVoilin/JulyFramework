@@ -20,18 +20,10 @@ jobs:
     timeout-minutes: 15
     env:
       SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}.git
-      GITEE_REPOSITORY_URL: ${{ vars.GITEE_REPOSITORY_URL }}
+      GITEE_REPOSITORY_URL: https://gitee.com/xiao_someone/july-framework.git
       GIT_TERMINAL_PROMPT: '0'
 
     steps:
-      - name: Validate target repository
-        shell: bash
-        run: |
-          if [[ ! "$GITEE_REPOSITORY_URL" =~ ^https://gitee\.com/[^/[:space:]@:]+/[^/[:space:]@?#]+\.git$ ]]; then
-            echo 'Set GITEE_REPOSITORY_URL to https://gitee.com/OWNER/REPOSITORY.git' >&2
-            exit 1
-          fi
-
       - name: Fetch source branches and tags
         shell: bash
         run: |
@@ -43,14 +35,12 @@ jobs:
       - name: Push branches and tags to Gitee
         shell: bash
         env:
-          GITEE_USERNAME: ${{ vars.GITEE_USERNAME }}
+          GITEE_USERNAME: xiao_someone
           GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
         run: |
-          : "${GITEE_USERNAME:?Set the GITEE_USERNAME repository variable}"
           : "${GITEE_TOKEN:?Set the GITEE_TOKEN repository secret}"
           git -C source.git config credential.helper \
             '!f() { printf "%s\n" "username=$GITEE_USERNAME" "password=$GITEE_TOKEN"; }; f'
           git -C source.git push "$GITEE_REPOSITORY_URL" \
             'refs/heads/*:refs/heads/*' \
             'refs/tags/*:refs/tags/*'
-
