@@ -17,21 +17,12 @@ concurrency:
 jobs:
   mirror:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     env:
       SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}.git
       GITEE_REPOSITORY_URL: https://gitee.com/xiao_someone/july-framework.git
       GIT_TERMINAL_PROMPT: '0'
 
     steps:
-      - name: Check Gitee HTTPS connection
-        shell: bash
-        run: |
-          curl --silent --show-error --connect-timeout 20 --max-time 40 \
-            --output /dev/null \
-            --write-out 'Gitee HTTP %{http_code}; connect=%{time_connect}s; TLS=%{time_appconnect}s; total=%{time_total}s\n' \
-            "${GITEE_REPOSITORY_URL}/info/refs?service=git-receive-pack"
-
       - name: Fetch source branches and tags
         shell: bash
         run: |
@@ -49,6 +40,6 @@ jobs:
           : "${GITEE_TOKEN:?Set the GITEE_TOKEN repository secret}"
           git -C source.git config credential.helper \
             '!f() { printf "%s\n" "username=$GITEE_USERNAME" "password=$GITEE_TOKEN"; }; f'
-          timeout 600s git -C source.git -c http.version=HTTP/1.1 push --progress "$GITEE_REPOSITORY_URL" \
+          git -C source.git push --progress "$GITEE_REPOSITORY_URL" \
             'refs/heads/*:refs/heads/*' \
             'refs/tags/*:refs/tags/*'
