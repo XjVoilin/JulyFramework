@@ -49,6 +49,6 @@ jobs:
           : "${GITEE_TOKEN:?Set the GITEE_TOKEN repository secret}"
           git -C source.git config credential.helper \
             '!f() { printf "%s\n" "username=$GITEE_USERNAME" "password=$GITEE_TOKEN"; }; f'
-          timeout 180s git -C source.git -c http.version=HTTP/1.1 push --progress "$GITEE_REPOSITORY_URL" \
+          timeout 600s git -C source.git -c http.version=HTTP/1.1 push --progress "$GITEE_REPOSITORY_URL" \
             'refs/heads/*:refs/heads/*' \
             'refs/tags/*:refs/tags/*'
