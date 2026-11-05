@@ -42,6 +42,7 @@ namespace July.Platform
             registry.Register<IDeviceService>(
                 new WeChatDeviceService(_config.Dpr));
             registry.Register<ILifecycleService>(new WeChatLifecycleService());
+            registry.Register<IWeChatDirectPlayService>(new WeChatDirectPlayService());
             registry.Register<ISocialService>(new WeChatSocialService());
             registry.Register<ISubscribeService>(new WeChatSubscribeService());
             registry.Register<IBookmarkService>(new DefaultBookmarkService());
