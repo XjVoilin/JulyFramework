@@ -41,14 +41,10 @@ namespace July.PointAllocation.Editor
         [SerializeField] private List<PointAllocationNodeEditorData> _nodes =
             new List<PointAllocationNodeEditorData>();
         [SerializeField] private int _nextNodeId = 1;
-        [SerializeField] private Vector3 _viewPosition;
-        [SerializeField] private Vector3 _viewScale = Vector3.one;
 
         internal TextAsset GraphJson => _graphJson;
         internal IReadOnlyList<PointAllocationNodeEditorData> Nodes => _nodes;
         internal int NextNodeId => _nextNodeId;
-        internal Vector3 ViewPosition => _viewPosition;
-        internal Vector3 ViewScale => _viewScale;
 
         internal void SetGraphJson(TextAsset value) => _graphJson = value;
 
@@ -90,12 +86,6 @@ namespace July.PointAllocation.Editor
             }
         }
 
-        internal void SetViewTransform(Vector3 position, Vector3 scale)
-        {
-            _viewPosition = position;
-            _viewScale = scale;
-        }
-
         internal void Normalize()
         {
             _nodes ??= new List<PointAllocationNodeEditorData>();
@@ -104,8 +94,6 @@ namespace July.PointAllocation.Editor
             for (var index = 0; index < _nodes.Count; index++)
                 maxNodeId = Mathf.Max(maxNodeId, _nodes[index].NodeId);
             _nextNodeId = Mathf.Max(_nextNodeId, maxNodeId + 1, 1);
-            if (_viewScale == Vector3.zero)
-                _viewScale = Vector3.one;
         }
 
         private void OnValidate() => Normalize();

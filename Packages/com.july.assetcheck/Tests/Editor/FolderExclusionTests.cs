@@ -20,6 +20,7 @@ namespace July.AssetCheck.Tests
             AssetDatabase.CreateFolder("Assets", Path.GetFileName(_root));
             _config = Path.Combine(Directory.GetCurrentDirectory(), "Temp", "AssetCheckFolders_" + id);
             Directory.CreateDirectory(_config);
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(_config, AssetCheckSettingsFile.FileName)));
         }
 
         [TearDown]
@@ -150,14 +151,14 @@ namespace July.AssetCheck.Tests
         }
 
         [Test]
-        public void ReadingMenuStateDoesNotCreateOrUpgradeProjectConfiguration()
+        public void ReadingMenuStateDoesNotCreateOrRewriteProjectConfiguration()
         {
             var file = new AssetCheckSettingsFile(_config);
             var path = Path.Combine(_config, AssetCheckSettingsFile.FileName);
             Assert.That(file.ReadExistingOrDefault().ignoredAssets, Is.Empty);
             Assert.That(File.Exists(path), Is.False);
             var legacy = AssetCheckSettings.CreateDefault();
-            legacy.version = 2;
+            legacy.version = 5;
             var text = JsonUtility.ToJson(legacy);
             File.WriteAllText(path, text);
             Assert.That(new AssetCheckSettingsFile(_config).ReadExistingOrDefault().version, Is.EqualTo(5));

@@ -7,14 +7,17 @@ namespace July.AssetCheck
 {
     public sealed class AssetCheckSettingsFile
     {
-        public const string FileName = "AssetCheckSettings.json";
+        public const string FileName = "ProjectSettings/July/AssetCheck/settings.json";
+        internal const string StateFileName = "Library/July/AssetCheck/state.json";
+        [Serializable] sealed class ViewState { public string scope = "Assets"; }
         private readonly string _path;
         private string _loadedText;
-        internal string ProjectDirectory => Path.GetDirectoryName(_path);
+        internal string ProjectDirectory { get; }
 
         public AssetCheckSettingsFile(string projectDirectory)
         {
-            _path = Path.Combine(projectDirectory, FileName);
+            ProjectDirectory = Path.GetFullPath(projectDirectory);
+            _path = Path.Combine(ProjectDirectory, FileName);
         }
 
         public AssetCheckSettings LoadOrCreate()
@@ -34,7 +37,9 @@ namespace July.AssetCheck
             {
                 _loadedText = null;
                 needsSave = true;
-                return AssetCheckSettings.CreateDefault();
+                var defaults = AssetCheckSettings.CreateDefault();
+                defaults.scope = ReadScope();
+                return defaults;
             }
 
             var text = File.ReadAllText(_path);
@@ -45,33 +50,13 @@ namespace July.AssetCheck
             }
             catch (ArgumentException exception)
             {
-                throw new InvalidDataException("AssetCheckSettings.json 无法解析，请修复 JSON 或 Git 冲突后重新加载。", exception);
+                throw new InvalidDataException("资源检查配置无法解析，请修复 JSON 或 Git 冲突后重新加载。", exception);
             }
             if (settings == null)
-                throw new InvalidDataException("AssetCheckSettings.json 不能为空。");
+                throw new InvalidDataException("资源检查配置不能为空。");
             _loadedText = text;
-            if (settings.version == 1)
-            {
-                settings = settings.UpgradeVersionOne();
-                needsSave = true;
-            }
-            else if (settings.version == 2)
-            {
-                settings = settings.UpgradeVersionTwo();
-                needsSave = true;
-            }
-            else if (settings.version == 3)
-            {
-                settings = settings.UpgradeVersionThree();
-                needsSave = true;
-            }
-            else if (settings.version == 4)
-            {
-                settings = settings.UpgradeVersionFour();
-                needsSave = true;
-            }
-            else
-                settings.Validate();
+            settings.scope = ReadScope();
+            settings.Validate();
             needsSave |= settings.CaptureIgnoredFolderPaths();
             return settings;
         }
@@ -83,13 +68,36 @@ namespace July.AssetCheck
             settings.CaptureIgnoredFolderPaths();
 
             var text = JsonUtility.ToJson(settings, true) + Environment.NewLine;
-            var temporaryPath = _path + ".tmp";
-            File.WriteAllText(temporaryPath, text, new UTF8Encoding(false));
-            if (File.Exists(_path))
-                File.Replace(temporaryPath, _path, null);
-            else
-                File.Move(temporaryPath, _path);
-            _loadedText = text;
+            var stored = _loadedText == null ? null : JsonUtility.ToJson(JsonUtility.FromJson<AssetCheckSettings>(_loadedText), true) + Environment.NewLine;
+            if (text != stored)
+            {
+                Write(_path, text);
+                _loadedText = text;
+            }
+            string statePath = Path.Combine(ProjectDirectory, StateFileName);
+            string state = JsonUtility.ToJson(new ViewState { scope = settings.scope });
+            if (!File.Exists(statePath) || File.ReadAllText(statePath) != state) Write(statePath, state);
+        }
+
+        string ReadScope()
+        {
+            string path = Path.Combine(ProjectDirectory, StateFileName);
+            if (!File.Exists(path)) return "Assets";
+            var state = JsonUtility.FromJson<ViewState>(File.ReadAllText(path));
+            if (state == null) throw new InvalidDataException("资源检查面板状态无效：" + path);
+            AssetCheckSettings.ValidateScope(state.scope);
+            return state.scope;
+        }
+        static void Write(string path, string text)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            string temporary = path + ".tmp";
+            try
+            {
+                File.WriteAllText(temporary, text, new UTF8Encoding(false));
+                if (File.Exists(path)) File.Replace(temporary, path, null); else File.Move(temporary, path);
+            }
+            finally { if (File.Exists(temporary)) File.Delete(temporary); }
         }
 
         internal bool HasExternalChanges => (File.Exists(_path) ? File.ReadAllText(_path) : null) != _loadedText;

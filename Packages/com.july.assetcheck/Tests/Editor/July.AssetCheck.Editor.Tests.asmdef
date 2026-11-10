@@ -3,11 +3,14 @@
   "rootNamespace": "July.AssetCheck.Tests",
   "references": [
     "July.AssetCheck.Editor",
-    "July.Release.Editor"
+    "July.Release.Editor",
+    "Unity.TextMeshPro"
   ],
   "includePlatforms": [
     "Editor"
   ],
+  "overrideReferences": true,
+  "precompiledReferences": ["Newtonsoft.Json.dll"],
   "optionalUnityReferences": [
     "TestAssemblies"
   ],

@@ -77,7 +77,7 @@ namespace July.AssetCheck
             var next = Settings.Copy();
             change(next);
             next.Validate();
-            if (JsonUtility.ToJson(next) == JsonUtility.ToJson(Settings))
+            if (next.scope == Settings.scope && JsonUtility.ToJson(next) == JsonUtility.ToJson(Settings))
                 return;
             var previous = Settings;
             _file.Save(next);

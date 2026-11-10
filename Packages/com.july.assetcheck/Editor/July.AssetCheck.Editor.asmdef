@@ -3,10 +3,13 @@
   "rootNamespace": "July.AssetCheck",
   "references": [
     "July.Logging",
-    "July.Release.Editor"
+    "July.Release.Editor",
+    "Unity.TextMeshPro"
   ],
   "includePlatforms": [
     "Editor"
   ],
+  "overrideReferences": true,
+  "precompiledReferences": ["Newtonsoft.Json.dll"],
   "autoReferenced": true
 }

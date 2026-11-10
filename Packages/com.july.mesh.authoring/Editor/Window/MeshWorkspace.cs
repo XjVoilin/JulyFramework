@@ -21,8 +21,7 @@ namespace July.Mesh.Authoring
         internal MeshReduction Recommendation;
         internal int RecommendedFidelity = -1;
         internal float Ratio = 100, AppliedRatio = 100;
-        internal int AppliedFidelity, CandidateFidelity;
-        internal bool Automatic = true, AppliedAutomatic, HasApplied;
+        internal bool Automatic = true, HasApplied;
         internal bool Checked = true, Busy, NeedsSourceCheck;
         internal string Error, ApplyError;
         internal int Revision, VisualVersion;
@@ -31,8 +30,7 @@ namespace July.Mesh.Authoring
         internal int CurrentTriangles, CandidateTriangles;
         internal float ActualRatio => OriginalTriangles == 0 ? 100 : CandidateTriangles * 100f / OriginalTriangles;
         internal float RecommendedRatio => Recommendation == null ? 100 : Recommendation.Triangles * 100f / OriginalTriangles;
-        internal bool HasChanges => Candidate && (CandidateHash != ObservedHash || HasApplied
-            && (Mathf.Abs(Ratio - AppliedRatio) > .001f || Automatic != AppliedAutomatic || Automatic && CandidateFidelity != AppliedFidelity));
+        internal bool HasChanges => Candidate && CandidateTriangles != CurrentTriangles;
         internal bool CanRestore => HasApplied;
 
         internal void Load(bool force = false)
@@ -47,8 +45,7 @@ namespace July.Mesh.Authoring
             Geometry = geometry; BaselineHash = baselineHash;
             var current = MeshGeometry.Read(Source); ObservedHash = current.Fingerprint(); CurrentTriangles = current.Triangles;
             HasApplied = Cache.Applied; AppliedRatio = Cache.Automatic && HasApplied ? CurrentTriangles * 100f / OriginalTriangles : Cache.Ratio;
-            AppliedAutomatic = Cache.Automatic; AppliedFidelity = Cache.Fidelity; CandidateFidelity = AppliedFidelity;
-            Ratio = AppliedRatio; Automatic = HasApplied ? AppliedAutomatic : true;
+            Ratio = AppliedRatio; Automatic = HasApplied ? Cache.Automatic : true;
             if (CurrentPreview) UObject.DestroyImmediate(CurrentPreview);
             if (Candidate) UObject.DestroyImmediate(Candidate);
             CurrentPreview = UObject.Instantiate(Source); Candidate = UObject.Instantiate(Source);
@@ -109,7 +106,7 @@ namespace July.Mesh.Authoring
             if (row.Recommendation != null && row.RecommendedFidelity == Fidelity)
             {
                 row.Automatic = true; row.Ratio = row.RecommendedRatio;
-                row.SetCandidate(row.Recommendation); row.CandidateFidelity = Fidelity; row.Busy = false; Changed?.Invoke();
+                row.SetCandidate(row.Recommendation); row.Busy = false; Changed?.Invoke();
             }
             else Request(row, 100, true);
         }
@@ -145,7 +142,7 @@ namespace July.Mesh.Authoring
                     row.Recommendation = reduction; row.RecommendedFidelity = request.Fidelity;
                     if (request.Show) row.Ratio = row.RecommendedRatio;
                 }
-                if (request.Show) { row.SetCandidate(reduction, !request.Automatic && request.Ratio >= 100); row.CandidateFidelity = request.Fidelity; }
+                if (request.Show) row.SetCandidate(reduction, !request.Automatic && request.Ratio >= 100);
                 row.Busy = false;
             }
             catch (OperationCanceledException) { if (row.Revision == request.Revision) row.Busy = false; }

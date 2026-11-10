@@ -83,7 +83,7 @@ namespace July.AssetCheck
             { name = "analysis-build-target", tooltip = "Unity 构建目标；只列出当前引擎已安装支持的平台。与发布渠道配置分开。", style = { width = 300 } };
             buildTools.Add(_target);
             _activeTarget = Label("analysis-active-target"); _activeTarget.style.flexGrow = 1; _activeTarget.style.flexShrink = 1; _activeTarget.style.flexBasis = 0; _activeTarget.style.minWidth = 0; buildTools.Add(_activeTarget);
-            _build = new Button(() => RunUi(BuildAndAnalyze)) { name = "build-analysis-bundles", text = "构建 AB 并分析", tooltip = "切换平台并完成脚本编译后自动构建；沿用现有 DLL 输入，输出到 BundlesAnalysis。不会执行正式发布准备，完成后保留目标平台。" }; buildTools.Add(_build); _singlePage.Add(buildTools);
+            _build = new Button(() => RunUi(BuildAndAnalyze)) { name = "build-analysis-bundles", text = "构建 AB 并分析", tooltip = "切换平台并完成脚本编译后自动构建；沿用现有 DLL 输入，输出到独立分析目录。不会执行正式发布准备，完成后保留目标平台。" }; buildTools.Add(_build); _singlePage.Add(buildTools);
             _target.RegisterValueChangedCallback(_ => RefreshBuildControls());
             _source = Label("report-source"); _singlePage.Add(_source);
             _configuration = Label("analysis-configuration", "配置已被外部修改或移除，请通过设置重新加载；已完成的分析快照保留。"); _singlePage.Add(_configuration);

@@ -12,7 +12,7 @@ namespace July.AssetCheck
 {
     public sealed class AssetCheckWindow : EditorWindow
     {
-        internal enum ToolPage { ResourceCheck, PlatformCopy, BundleAnalysis }
+        internal enum ToolPage { ResourceCheck, PlatformCopy, BundleAnalysis, FontCheck }
         private AssetCheckWorkspace _workspace;
         private AssetCheckKind _kind;
         private ObjectField _scope;
@@ -20,6 +20,8 @@ namespace July.AssetCheck
         private VisualElement _scopeHeader;
         private WebGLTextureSettingsCopyPanel _copyPage;
         private BundleAnalysisPanel _analysisPage;
+        private FontCheckPanel _fontPage;
+        private Button _fontTool;
         private Button _checkTool, _copyTool, _analysisTool;
         [SerializeField] private ToolPage _tool;
         private AssetCheckOverview _overview;
@@ -61,7 +63,7 @@ namespace July.AssetCheck
             _workspace.StartScan();
         });
 
-        internal bool FolderOperationRunning => (_workspace != null && _workspace.Running) || (_copyPage != null && _copyPage.Running) || (_analysisPage != null && _analysisPage.Running);
+        internal bool FolderOperationRunning => (_workspace != null && _workspace.Running) || (_copyPage != null && _copyPage.Running) || (_analysisPage != null && _analysisPage.Running) || (_fontPage != null && _fontPage.Running);
         internal void SetFoldersIgnored(string[] paths, bool ignored) => RunUi(() => _workspace.SetFoldersIgnored(paths, ignored));
 
         private void OnEnable()
@@ -73,6 +75,8 @@ namespace July.AssetCheck
         private void OnDisable()
         {
             EditorApplication.update -= Pump;
+            _fontPage?.Dispose();
+            _fontPage = null;
             _analysisPage?.Dispose();
             _analysisPage = null;
             _copyPage?.Dispose();
@@ -104,6 +108,7 @@ namespace July.AssetCheck
             }
             _copyPage?.Pump();
             _analysisPage?.Pump();
+            _fontPage?.Pump();
             RefreshSharedControls();
             if (_refreshRequested && now >= _nextRefresh)
             {
@@ -114,6 +119,8 @@ namespace July.AssetCheck
 
         public void CreateGUI()
         {
+            _fontPage?.Dispose();
+            _fontPage = null;
             _analysisPage?.Dispose();
             _analysisPage = null;
             _copyPage?.Dispose();
@@ -214,6 +221,9 @@ namespace July.AssetCheck
                 shell.Add(_copyPage);
                 _analysisPage = new BundleAnalysisPanel(() => _workspace, RequestRefresh);
                 shell.Add(_analysisPage);
+                _fontPage = new FontCheckPanel(() => _workspace, RequestRefresh);
+                shell.Add(_fontPage);
+                if (_tool == ToolPage.FontCheck) _fontPage.Activate();
             }
             shell.Add(_error);
             Refresh();
@@ -243,6 +253,8 @@ namespace July.AssetCheck
             tools.Add(_copyTool);
             _analysisTool = new Button(() => SelectTool(ToolPage.BundleAnalysis)) { name = "tool-analysis", text = "打包分析" };
             tools.Add(_analysisTool);
+            _fontTool = new Button(() => SelectTool(ToolPage.FontCheck)) { name = "tool-font", text = "字体检查" };
+            tools.Add(_fontTool);
             tools.Add(new VisualElement { style = { flexGrow = 1 } });
             _settingsMenu = new ToolbarMenu { name = "shared-settings", text = "设置", tooltip = "配置文件、本地报告与重新加载" };
             _settingsMenu.AddToClassList("settings-action");
@@ -263,6 +275,7 @@ namespace July.AssetCheck
         {
             RequireIdle();
             _tool = tool;
+            if (tool == ToolPage.FontCheck) _fontPage?.Activate();
             RefreshSharedControls();
         }
 
@@ -292,27 +305,34 @@ namespace July.AssetCheck
         {
             var ready = _workspace != null;
             var idle = ready && !FolderOperationRunning;
-            _scopeHeader.style.display = _tool == ToolPage.BundleAnalysis ? DisplayStyle.None : DisplayStyle.Flex;
+            _scopeHeader.style.display = _tool == ToolPage.BundleAnalysis || _tool == ToolPage.FontCheck ? DisplayStyle.None : DisplayStyle.Flex;
             _scope.SetEnabled(idle);
             _selection.SetEnabled(idle);
             _allAssets.SetEnabled(idle);
             _checkTool.SetEnabled(idle);
             _copyTool.SetEnabled(idle && _copyPage != null);
             _analysisTool.SetEnabled(idle && _analysisPage != null);
+            _fontTool.SetEnabled(idle && _fontPage != null);
             _checkTool.style.unityFontStyleAndWeight = _tool == ToolPage.ResourceCheck ? FontStyle.Bold : FontStyle.Normal;
             _copyTool.style.unityFontStyleAndWeight = _tool == ToolPage.PlatformCopy ? FontStyle.Bold : FontStyle.Normal;
             _analysisTool.style.unityFontStyleAndWeight = _tool == ToolPage.BundleAnalysis ? FontStyle.Bold : FontStyle.Normal;
+            _fontTool.style.unityFontStyleAndWeight = _tool == ToolPage.FontCheck ? FontStyle.Bold : FontStyle.Normal;
             _checkPage.style.display = _tool == ToolPage.ResourceCheck || _copyPage == null ? DisplayStyle.Flex : DisplayStyle.None;
             _checkPage.SetEnabled(idle);
             if (_copyPage != null)
             {
                 _copyPage.style.display = _tool == ToolPage.PlatformCopy ? DisplayStyle.Flex : DisplayStyle.None;
-                _copyPage.SetEnabled(ready && !_workspace.Running && (_analysisPage == null || !_analysisPage.Running));
+                _copyPage.SetEnabled(ready && !_workspace.Running && (_analysisPage == null || !_analysisPage.Running) && (_fontPage == null || !_fontPage.Running));
             }
             if (_analysisPage != null)
             {
                 _analysisPage.style.display = _tool == ToolPage.BundleAnalysis ? DisplayStyle.Flex : DisplayStyle.None;
-                _analysisPage.SetEnabled(ready && !_workspace.Running && (_copyPage == null || !_copyPage.Running));
+                _analysisPage.SetEnabled(ready && !_workspace.Running && (_copyPage == null || !_copyPage.Running) && (_fontPage == null || !_fontPage.Running));
+            }
+            if (_fontPage != null)
+            {
+                _fontPage.style.display = _tool == ToolPage.FontCheck ? DisplayStyle.Flex : DisplayStyle.None;
+                _fontPage.SetEnabled(ready && !_workspace.Running && (_copyPage == null || !_copyPage.Running) && (_analysisPage == null || !_analysisPage.Running));
             }
         }
 
@@ -423,6 +443,7 @@ namespace July.AssetCheck
             var idle = ready && !FolderOperationRunning;
             _copyPage?.SynchronizeSettings();
             _analysisPage?.SynchronizeSettings();
+            _fontPage?.SynchronizeSettings();
             _refreshRequested = false;
             RefreshSharedControls();
             _scanAll.SetEnabled(idle);

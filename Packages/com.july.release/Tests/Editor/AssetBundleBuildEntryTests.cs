@@ -25,10 +25,10 @@ namespace July.Release.Tests
             var tasks = ReleaseAssetBundleBuilder.CreateTasks(false, new BundleSizeCollector()).Select(t => t.GetType().Name).ToArray();
             CollectionAssert.AreEqual(new[] { "TaskPrepare_SBP", "TaskGetBuildMap_SBP", "AnalysisBuildingTask", "TaskVerifyBuildResult_SBP", "TaskEncryption_SBP", "TaskUpdateBundleInfo_SBP", "TaskCreateManifest_SBP", "TaskCreateReport_SBP", "TaskCreatePackage_SBP" }, tasks);
         }
-        [Test] public void AnalysisOutputRootIsSiblingOfFormalRoot()
+        [Test] public void AnalysisOutputUsesLocalJulyDirectory()
         {
             var formal = Path.GetFullPath(AssetBundleBuilderHelper.GetDefaultBuildOutputRoot()); var analysis = ReleaseAssetBundleBuilder.AnalysisRoot();
-            Assert.AreEqual(Path.GetDirectoryName(formal), Path.GetDirectoryName(analysis)); Assert.AreEqual("BundlesAnalysis", Path.GetFileName(analysis)); Assert.AreNotEqual(formal, analysis);
+            Assert.AreEqual(Path.GetFullPath("Library/July/Release/Analysis"), analysis); Assert.AreNotEqual(formal, analysis);
         }
         [Test] public void SharedParametersKeepFormalCompressionPackingAndCacheContract()
         {

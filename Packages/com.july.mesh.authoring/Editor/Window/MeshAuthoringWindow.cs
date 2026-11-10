@@ -80,7 +80,7 @@ namespace July.Mesh.Authoring
             var footer = new VisualElement(); footer.AddToClassList("mesh-footer");
             summary = new Label { name = "mesh-selection-summary", style = { flexGrow = 1 } }; footer.Add(summary);
             footer.Add(new Button(RestoreAllRecommendations) { text = "全部恢复推荐比例" });
-            footer.Add(new Button(() => Batch(true)) { text = "还原勾选资源" });
+            footer.Add(new Button(() => Batch(true)) { text = "还原本机基准", tooltip = "将勾选资源还原为本机 Library 中的基准。清理 Library 或换机器后，重新读取将以当时 Mesh 建立新基准。" });
             footer.Add(new Button(() => Batch(false)) { text = "应用勾选" });
             rootVisualElement.Add(footer);
             Refresh();
@@ -117,31 +117,43 @@ namespace July.Mesh.Authoring
             Refresh();
         }
 
-        internal void Batch(bool restore)
+        internal void Batch(bool restore) => Batch(restore, EditorUtility.DisplayCancelableProgressBar);
+
+        internal void Batch(bool restore, Func<string, string, float, bool> progress)
         {
             var rows = workspace.Rows.Where(row => row.Checked).ToList();
             int completed = 0, skipped = 0, failed = 0;
+            MeshColliderUsage colliderUsage = null;
             try
             {
                 for (int i = 0; i < rows.Count; i++)
                 {
                     var row = rows[i];
-                    if (EditorUtility.DisplayCancelableProgressBar(restore ? "还原 Mesh" : "应用 Mesh", row.Source.name, (float)i / rows.Count)) break;
+                    if (progress(restore ? "还原 Mesh 本机基准" : "应用 Mesh", row.Source.name, (float)i / rows.Count)) break;
                     try
                     {
                         if (row.Busy || row.Pending != null) throw new InvalidOperationException("候选正在计算，请等待完成后再操作。");
                         if (restore)
                         {
                             if (!row.CanRestore) { skipped++; continue; }
-                            MeshAssets.Restore(row);
                         }
                         else
                         {
                             if (!row.Candidate || !string.IsNullOrEmpty(row.Error)) throw new InvalidOperationException(row.Error ?? "尚未生成有效候选。");
                             if (!string.IsNullOrEmpty(row.ApplyError)) throw new InvalidOperationException(row.ApplyError);
                             if (!row.HasChanges) { skipped++; continue; }
-                            MeshAssets.Apply(row, workspace.Fidelity);
                         }
+                        if (colliderUsage == null)
+                        {
+                            var targets = rows.Where(candidate => candidate.Source && !candidate.Busy && candidate.Pending == null
+                                && (restore ? candidate.CanRestore : candidate.Candidate && string.IsNullOrEmpty(candidate.Error)
+                                    && string.IsNullOrEmpty(candidate.ApplyError) && candidate.HasChanges));
+                            colliderUsage = MeshColliderUsage.Scan(targets.Select(candidate => candidate.Source),
+                                (path, value) => progress("检查 Mesh 碰撞引用", path, value));
+                            if (colliderUsage.Cancelled) break;
+                        }
+                        if (restore) MeshAssets.Restore(row, colliderUsage);
+                        else MeshAssets.Apply(row, workspace.Fidelity, colliderUsage);
                         row.Error = null; completed++;
                     }
                     catch (Exception error) { row.Error = error.Message; JLogger.LogError($"July Mesh：{row.Source.name} 操作失败：{error.Message}", row.Source); failed++; }
@@ -276,7 +288,7 @@ namespace July.Mesh.Authoring
                 candidateImage.RegisterCallback<ClickEvent>(Locate);
                 var controls = Element("mesh-controls"); line.Add(controls);
                 var ratioLine = Element("mesh-ratio-line"); controls.Add(ratioLine);
-                ratioLine.Add(new Label("保留") { tooltip = "相对本次基准 Mesh 的目标面数比例；手动调整解除误差限制。" });
+                ratioLine.Add(new Label("保留") { tooltip = "相对本机缓存基准 Mesh 的目标面数比例；手动调整解除误差限制。" });
                 ratio = new FloatField { name = "mesh-ratio", isDelayed = false };
                 ratio.RegisterValueChangedCallback(e =>
                 {
@@ -333,7 +345,7 @@ namespace July.Mesh.Authoring
                 name.text = row.Source ? row.Source.name : "来源缺失";
                 string path = AssetDatabase.GetAssetPath(row.Source);
                 source.text = System.IO.Path.GetFileName(path);
-                source.tooltip = path + "\n" + row.ScopeLabel + "\n独立 Mesh 原位修改，Library 缓存基准";
+                source.tooltip = path + "\n" + row.ScopeLabel + "\n独立 Mesh 原位修改，基准仅保存在本机 Library";
                 int delta = row.CurrentTriangles - row.CandidateTriangles;
                 saved.text = row.Candidate ? $"{(delta >= 0 ? "减少" : "增加")} {Math.Abs(delta):N0} 面" : "减少 — 面";
                 originalCount.text = row.Geometry == null ? "等待分析" : row.CurrentTriangles.ToString("N0") + " 面";
@@ -341,9 +353,9 @@ namespace July.Mesh.Authoring
                 if (!focused) ratio.SetValueWithoutNotify(row.Ratio);
                 slider.SetValueWithoutNotify(row.Ratio);
                 actual.text = row.Recommendation == null ? "推荐待计算" : $"推荐 {row.RecommendedRatio:0.##}%";
-                actual.tooltip = $"基准 {row.OriginalTriangles:N0} 面；所有保留比例相对该基准。";
+                actual.tooltip = $"本机基准 {row.OriginalTriangles:N0} 面；所有保留比例相对该基准。";
                 if (row.Candidate && !row.Automatic && Mathf.Abs(row.ActualRatio - row.Ratio) > .1f) actual.text += $" · 实际 {row.ActualRatio:0.##}%";
-                state.text = row.Error ?? row.ApplyError ?? (row.Busy ? "计算中；显示上次完成的候选。" : row.HasChanges ? "有待应用的调整 · 影响该资源全部引用" : row.HasApplied ? $"当前结果已应用 · 保留 {row.AppliedRatio:0.##}%" : "当前资源未修改。");
+                state.text = row.Error ?? row.ApplyError ?? (row.Busy ? "计算中；显示上次完成的候选。" : row.HasChanges ? "有待应用的调整 · 影响该资源全部引用" : row.Candidate ? "面数未变化，无需应用" : "当前资源未修改。");
                 state.tooltip = state.text;
                 if (row.Geometry == null) return;
                 if (window.thumbnails == null) window.thumbnails = new MeshThumbnails();

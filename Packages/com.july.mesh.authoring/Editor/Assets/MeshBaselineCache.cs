@@ -11,7 +11,7 @@ namespace July.Mesh.Authoring
 {
     internal static class MeshBaselineCache
     {
-        internal const string Folder = "Library/July/MeshAuthoring";
+        internal const string Folder = "Library/July/MeshAuthoring/Baselines";
         internal static string PathFor(string identity)
         {
             using (var hash = SHA256.Create())
@@ -25,15 +25,15 @@ namespace July.Mesh.Authoring
             var entry = objects.OfType<MeshCachedBaseline>().SingleOrDefault();
             if (entry && entry.Version == 1 && entry.Original) return entry;
             foreach (var value in objects) if (value) UnityEngine.Object.DestroyImmediate(value);
-            Debug.LogWarning("July Mesh：本机基准缓存失效，将重新建立：" + path);
-            return null;
+            throw new InvalidDataException("Mesh本机基准无效：" + path);
         }
         internal static void Save(string identity, UMesh original, string expectedHash, bool applied, float ratio, bool automatic, int fidelity)
         {
             Directory.CreateDirectory(Folder);
             var entry = ScriptableObject.CreateInstance<MeshCachedBaseline>();
             entry.Original = UnityEngine.Object.Instantiate(original);
-            entry.ExpectedHash = expectedHash; entry.Applied = applied; entry.Ratio = ratio; entry.Automatic = automatic; entry.Fidelity = fidelity;
+            entry.ExpectedHash = expectedHash; entry.Applied = applied; entry.Ratio = ratio;
+            entry.Automatic = automatic; entry.Fidelity = fidelity;
             string path = PathFor(identity), temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
             try
             {

@@ -98,7 +98,7 @@ namespace July.AssetCheck.Tests
             Assert.AreEqual(targets.Length, targets.Distinct().Count());
             Assert.IsTrue(targets.All(target => BuildPipeline.IsBuildTargetSupported(BuildPipeline.GetBuildTargetGroup(target), target)));
         }
-        [Test] public void ViewRecreationPreservesRequestAndCancelUnlocksControlsWithoutBuilding()
+        [UnityTest] public IEnumerator ViewRecreationPreservesRequestAndCancelUnlocksControlsWithoutBuilding()
         {
             var temp = Path.GetFullPath("Temp/JulyBuildLifetime_" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(temp);
             using (var workspace = new AssetCheckWorkspace(new AssetCheckSettingsFile(temp)))
@@ -106,6 +106,7 @@ namespace July.AssetCheck.Tests
                 BundleAnalysisPanel panel = null;
                 try
                 {
+                    while (EditorApplication.isCompiling || EditorApplication.isUpdating) yield return null;
                     BundleAnalysisBuildQueue.Start(EditorUserBuildSettings.activeBuildTarget);
                     Assert.Throws<InvalidOperationException>(() => BundleAnalysisBuildQueue.Start(EditorUserBuildSettings.activeBuildTarget));
                     panel = new BundleAnalysisPanel(() => workspace, () => { });

@@ -3,45 +3,37 @@ using UnityEditor;
 
 namespace July.UI.Authoring.Editor
 {
-    [CreateAssetMenu(fileName = "PS2UGUISettings", menuName = "JulyGF/PS2UGUI Settings")]
-    public class PS2UGUISettings : ScriptableObject
+    [FilePath("ProjectSettings/July/UIAuthoring/settings.asset", FilePathAttribute.Location.ProjectFolder)]
+    public sealed class PS2UGUISettings : ScriptableSingleton<PS2UGUISettings>
     {
-        [Header("Font")]
-        [Tooltip("TMP 字体材质搜索目录")]
         public string FontMaterialPath = "Assets/Game/Art/Fonts/";
-        
-        [Tooltip("默认 TMP FontAsset 路径")]
         public string DefaultFontAssetPath = "Assets/Game/Art/Fonts/Font_Main.asset";
-
-        [Header("Art Importer")]
-        [Tooltip("盒子默认目标路径")]
         public string DefaultBoxTargetPath = "Assets/Game/Art/Textures";
-        
-        [Tooltip("小游戏默认目标路径模板")]
         public string DefaultMiniGameTargetPath = "Assets/Game/MiniGames/Game101/Art/Textures";
 
-        private static PS2UGUISettings _instance;
-        
-        public static PS2UGUISettings Instance
-        {
-            get
-            {
-                if (_instance == null)
-                {
-                    var guids = AssetDatabase.FindAssets("t:PS2UGUISettings");
-                    if (guids.Length > 0)
-                    {
-                        var path = AssetDatabase.GUIDToAssetPath(guids[0]);
-                        _instance = AssetDatabase.LoadAssetAtPath<PS2UGUISettings>(path);
-                    }
-                }
-                return _instance;
-            }
-        }
+        public static PS2UGUISettings Instance => instance;
+        public static string GetFontMaterialPath() => instance.FontMaterialPath;
+        public static string GetDefaultFontAssetPath() => instance.DefaultFontAssetPath;
+        public static string GetDefaultBoxTargetPath() => instance.DefaultBoxTargetPath;
+        public static string GetDefaultMiniGameTargetPath() => instance.DefaultMiniGameTargetPath;
 
-        public static string GetFontMaterialPath() => Instance?.FontMaterialPath ?? "Assets/Game/Art/Fonts/";
-        public static string GetDefaultFontAssetPath() => Instance?.DefaultFontAssetPath ?? "Assets/Game/Art/Fonts/Font_Main.asset";
-        public static string GetDefaultBoxTargetPath() => Instance?.DefaultBoxTargetPath ?? "Assets/Game/Art/Textures";
-        public static string GetDefaultMiniGameTargetPath() => Instance?.DefaultMiniGameTargetPath ?? "Assets/Game/MiniGames/Game101/Art/Textures";
+        [SettingsProvider]
+        static SettingsProvider CreateProvider() => new SettingsProvider("Project/July/UI制作", SettingsScope.Project)
+        {
+            label = "UI制作",
+            guiHandler = _ =>
+            {
+                var data = new SerializedObject(instance);
+                data.Update();
+                using (var change = new EditorGUI.ChangeCheckScope())
+                {
+                    EditorGUILayout.PropertyField(data.FindProperty(nameof(FontMaterialPath)), new GUIContent("字体材质目录"));
+                    EditorGUILayout.PropertyField(data.FindProperty(nameof(DefaultFontAssetPath)), new GUIContent("默认字体"));
+                    EditorGUILayout.PropertyField(data.FindProperty(nameof(DefaultBoxTargetPath)), new GUIContent("默认图片目录"));
+                    EditorGUILayout.PropertyField(data.FindProperty(nameof(DefaultMiniGameTargetPath)), new GUIContent("默认小游戏目录"));
+                    if (change.changed) { data.ApplyModifiedProperties(); instance.Save(true); }
+                }
+            }
+        };
     }
 }

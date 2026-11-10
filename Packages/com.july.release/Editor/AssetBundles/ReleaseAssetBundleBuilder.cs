@@ -46,13 +46,13 @@ namespace July.Release.Editor
             var parameters = CreateParameters(AssetBundleBuilderHelper.GetDefaultBuildOutputRoot(), context.Target, BuildUtils.PackageName, context.PackageVersion, copy, copyParameters);
             return Build(parameters, ReleaseProject.Profile.MergeSharedBundles, null);
         }
-        internal static string AnalysisRoot() => Path.Combine(Path.GetDirectoryName(Path.GetFullPath(AssetBundleBuilderHelper.GetDefaultBuildOutputRoot())), "BundlesAnalysis");
+        internal static string AnalysisRoot() => Path.GetFullPath("Library/July/Release/Analysis");
         internal static void ValidateAnalysisOutput(ScriptableBuildParameters parameters)
         {
             var root = Path.GetFullPath(AnalysisRoot()) + Path.DirectorySeparatorChar;
             var comparison = UnityEngine.Application.platform == UnityEngine.RuntimePlatform.WindowsEditor ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
             foreach (var output in new[] { parameters.GetPipelineOutputDirectory(), parameters.GetPackageOutputDirectory() })
-                if (!Path.GetFullPath(output).StartsWith(root, comparison)) throw new InvalidOperationException("分析输出越过 BundlesAnalysis 目录，请检查资源包名称。");
+                if (!Path.GetFullPath(output).StartsWith(root, comparison)) throw new InvalidOperationException("分析输出越过专用分析目录，请检查资源包名称。");
         }
         internal static ScriptableBuildParameters CreateParameters(string root, BuildTarget target, string package, string version, EBuildinFileCopyOption copy, string copyParameters) => new ScriptableBuildParameters
         {

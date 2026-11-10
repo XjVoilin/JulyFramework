@@ -22,6 +22,7 @@ namespace July.AssetCheck.Tests
             AssetDatabase.CreateFolder("Assets", Path.GetFileName(_root));
             _configDirectory = Path.Combine(Directory.GetCurrentDirectory(), "Temp", "JulyAssetCheckTests_" + id);
             Directory.CreateDirectory(_configDirectory);
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(_configDirectory, AssetCheckSettingsFile.FileName)));
         }
 
         [TearDown]
@@ -47,6 +48,38 @@ namespace July.AssetCheck.Tests
             Assert.That(loaded.CurrentStandards.model.allowLights, Is.True);
             Assert.That(loaded.CurrentStandards.texture.compressionFormat, Is.EqualTo(TextureImporterFormat.ASTC_8x8));
             Assert.That(loaded.ignoredAssets.Single().guid, Is.EqualTo(new string('a', 32)));
+        }
+
+        [Test]
+        public void SelectingScopeOnlyWritesLocalStateAndSurvivesReopening()
+        {
+            string shared = Path.Combine(_configDirectory, AssetCheckSettingsFile.FileName);
+            new AssetCheckSettingsFile(_configDirectory).LoadOrCreate();
+            File.WriteAllText(shared, JsonUtility.ToJson(AssetCheckSettings.CreateDefault()));
+            var file = new AssetCheckSettingsFile(_configDirectory);
+            using (var workspace = new AssetCheckWorkspace(file))
+            {
+                var before = File.ReadAllBytes(shared);
+                workspace.ChangeSettings(settings => settings.scope = _root);
+                CollectionAssert.AreEqual(before, File.ReadAllBytes(shared));
+                Assert.That(new AssetCheckSettingsFile(_configDirectory).LoadOrCreate().scope, Is.EqualTo(_root));
+                File.Delete(Path.Combine(_configDirectory, AssetCheckSettingsFile.StateFileName));
+                Assert.That(new AssetCheckSettingsFile(_configDirectory).LoadOrCreate().scope, Is.EqualTo("Assets"));
+                CollectionAssert.AreEqual(before, File.ReadAllBytes(shared));
+            }
+        }
+
+        [TestCase(1)]
+        [TestCase(2)]
+        [TestCase(3)]
+        [TestCase(4)]
+        public void UnsupportedConfigurationVersionsAreNotUpgradedOrOverwritten(int version)
+        {
+            var settings = AssetCheckSettings.CreateDefault(); settings.version = version;
+            string path = Path.Combine(_configDirectory, AssetCheckSettingsFile.FileName);
+            string text = JsonUtility.ToJson(settings); File.WriteAllText(path, text);
+            Assert.Throws<InvalidDataException>(() => new AssetCheckSettingsFile(_configDirectory).LoadOrCreate());
+            Assert.That(File.ReadAllText(path), Is.EqualTo(text));
         }
 
         [TestCase("{}")]

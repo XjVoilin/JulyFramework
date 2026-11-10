@@ -25,6 +25,15 @@ namespace July.Mesh.Authoring.Tests
         {
             foreach (var value in temporary) if (value && !EditorUtility.IsPersistent(value)) UnityEngine.Object.DestroyImmediate(value);
             temporary.Clear();
+            foreach (string guid in AssetDatabase.FindAssets("t:Mesh", new[] { Folder }))
+            {
+                var mesh = AssetDatabase.LoadAssetAtPath<UMesh>(AssetDatabase.GUIDToAssetPath(guid));
+                if (MeshAssetEdits.Standalone(mesh))
+                {
+                    string baseline = MeshBaselineCache.PathFor(MeshAssetEdits.Identity(mesh));
+                    if (System.IO.File.Exists(baseline)) System.IO.File.Delete(baseline);
+                }
+            }
             AssetDatabase.DeleteAsset(Folder);
         }
 

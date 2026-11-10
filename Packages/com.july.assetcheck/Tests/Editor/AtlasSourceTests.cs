@@ -25,6 +25,7 @@ namespace July.AssetCheck.Tests
             AssetDatabase.CreateFolder(_root, "SpritesOther");
             _config = Path.GetFullPath(Path.Combine("Temp", "AtlasSource_" + id));
             Directory.CreateDirectory(_config);
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(_config, AssetCheckSettingsFile.FileName)));
         }
 
         [TearDown]
@@ -36,21 +37,12 @@ namespace July.AssetCheck.Tests
         }
 
         [Test]
-        public void DefaultAndLegacyConfigurationEnableOptionAndExplicitFalsePersists()
+        public void DefaultOptionAndExplicitFalsePersist()
         {
             var settings = AssetCheckSettings.CreateDefault();
             Assert.That(settings.CurrentStandards.texture.requireUncompressedAtlasSources, Is.True);
-            settings.version = 3;
-            settings.CurrentStandards.model.maxTrianglesPerMesh = 777;
-            var json = JsonUtility.ToJson(settings).Replace("\"requireUncompressedAtlasSources\":true,", "");
-            var path = Path.Combine(_config, AssetCheckSettingsFile.FileName);
-            File.WriteAllText(path, json);
             var file = new AssetCheckSettingsFile(_config);
-            Assert.That(file.ReadExistingOrDefault().CurrentStandards.texture.requireUncompressedAtlasSources, Is.True);
-            Assert.That(File.ReadAllText(path), Is.EqualTo(json), "只读入口不迁移磁盘配置");
-            settings = file.LoadOrCreate();
-            Assert.That(settings.version, Is.EqualTo(5));
-            Assert.That(settings.CurrentStandards.model.maxTrianglesPerMesh, Is.EqualTo(777));
+            file.LoadOrCreate();
             settings.CurrentStandards.texture.requireUncompressedAtlasSources = false;
             file.Save(settings);
             Assert.That(new AssetCheckSettingsFile(_config).LoadOrCreate().CurrentStandards.texture.requireUncompressedAtlasSources, Is.False);

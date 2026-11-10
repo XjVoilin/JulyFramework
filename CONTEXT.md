@@ -39,3 +39,7 @@ _Avoid_: Initialization phase, lifecycle hook
 **Persistence Declaration**:
 The Composition Root's explicit choice that a Store participates in local restoration, dirty tracking, and saving.
 _Avoid_: Savable Store registration, persistence mode
+
+## Editor caches
+
+Project-local caches owned by July Packages belong under `Library/July/<Feature>/`, for example `AssetCheck/Reports`, `MeshAuthoring`, and `Release/Tools`. Do not create separate `Library/July*` roots. Unity and third-party caches retain their own locations. Build outputs and their report/size files remain together in their build output directories.

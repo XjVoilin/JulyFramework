@@ -61,6 +61,7 @@ namespace July.PointAllocation.Editor
             new Dictionary<int, PointAllocationNodeView>();
         private PointAllocationEditorDocument _document;
         private bool _suppressChanges;
+        private PointAllocationViewState _view;
         private Vector2 _lastContentMousePosition;
 
         public PointAllocationGraphView(PointAllocationEditorWindow window)
@@ -114,9 +115,8 @@ namespace July.PointAllocation.Editor
                     AddElement(edge);
                 }
 
-                UpdateViewTransform(
-                    _document.Workspace.ViewPosition,
-                    _document.Workspace.ViewScale);
+                _view = PointAllocationViewState.Load(_document.Workspace.GraphJson);
+                UpdateViewTransform(_view.position, _view.scale);
             }
             finally
             {
@@ -304,9 +304,8 @@ namespace July.PointAllocation.Editor
         {
             if (_suppressChanges || _document == null)
                 return;
-            Undo.RecordObject(_document.Workspace, "Change PointAllocation View");
-            _document.Workspace.SetViewTransform(viewTransform.position, viewTransform.scale);
-            EditorUtility.SetDirty(_document.Workspace);
+            _view.position = viewTransform.position; _view.scale = viewTransform.scale;
+            _view.Save(_document.Workspace.GraphJson);
         }
     }
 }

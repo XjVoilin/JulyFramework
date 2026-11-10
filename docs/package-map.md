@@ -9,7 +9,7 @@ July uses package seams only where a capability has an independent installation 
 | `com.july.events` | Dependency-free typed event bus. |
 | `com.july.logging` | Logging facade, channels, reporters, and editor redirection. |
 | `com.july.arch` | Context, systems, stores, views, and procedures. |
-| `com.july.launch` | Launch pipeline and launch-step orchestration. |
+| `com.july.launch` | Launch pipeline, launch-step orchestration, and editor entry-scene playback. |
 
 ## Runtime capabilities
 

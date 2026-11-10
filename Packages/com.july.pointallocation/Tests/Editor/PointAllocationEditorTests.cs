@@ -52,6 +52,42 @@ namespace July.PointAllocation.Editor.Tests
         }
 
         [Test]
+        public void PanningAndZoomingPersistLocallyWithoutChangingAuthoringAsset()
+        {
+            string folder = "Assets/__JulyViewState_" + Guid.NewGuid().ToString("N");
+            AssetDatabase.CreateFolder("Assets", Path.GetFileName(folder));
+            string jsonPath = folder + "/Graph.json", workspacePath = folder + "/Workspace.asset", viewPath = null;
+            var window = ScriptableObject.CreateInstance<PointAllocationEditorWindow>();
+            try
+            {
+                var graph = new PointAllocationGraph(12, new[] { new PointAllocationNode(1, 2, new[] { 2, 3 }) }, Array.Empty<PointAllocationConnection>());
+                File.WriteAllText(jsonPath, JsonMapper.ToJson(graph)); AssetDatabase.ImportAsset(jsonPath);
+                var json = AssetDatabase.LoadAssetAtPath<TextAsset>(jsonPath);
+                var workspace = ScriptableObject.CreateInstance<PointAllocationEditorWorkspace>(); workspace.SetGraphJson(json);
+                workspace.GetOrCreateNode(1, new Vector2(33, 44)).SetNote("Keep this author note");
+                var document = new PointAllocationEditorDocument(graph, workspace);
+                AssetDatabase.CreateAsset(workspace, workspacePath); AssetDatabase.SaveAssets();
+                byte[] before = File.ReadAllBytes(workspacePath);
+                var view = new PointAllocationGraphView(window); view.Load(document);
+                view.UpdateViewTransform(new Vector3(25, 50, 0), new Vector3(.8f, .8f, 1));
+                viewPath = PointAllocationViewState.PathFor(json);
+                Assert.That(File.Exists(viewPath), Is.True);
+                var restored = PointAllocationViewState.Load(json);
+                Assert.That(restored.position, Is.EqualTo(new Vector3(25, 50, 0)));
+                Assert.That(restored.scale, Is.EqualTo(new Vector3(.8f, .8f, 1)));
+                Assert.That(EditorUtility.IsDirty(workspace), Is.False);
+                CollectionAssert.AreEqual(before, File.ReadAllBytes(workspacePath));
+                Assert.That(workspace.Nodes[0].Note, Is.EqualTo("Keep this author note"));
+                Assert.That(workspace.Nodes[0].Position, Is.EqualTo(new Vector2(33, 44)));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(window); if (viewPath != null && File.Exists(viewPath)) File.Delete(viewPath);
+                AssetDatabase.DeleteAsset(folder);
+            }
+        }
+
+        [Test]
         public void Workspace_ContainsOnlyEditorMetadata()
         {
             var workspace = ScriptableObject.CreateInstance<PointAllocationEditorWorkspace>();
@@ -193,8 +229,8 @@ namespace July.PointAllocation.Editor.Tests
             }
         }
 
-        [Test]
-        public void GraphView_DoubleClickEmptyCanvas_CreatesNode()
+        [UnityEngine.TestTools.UnityTest]
+        public System.Collections.IEnumerator GraphView_DoubleClickEmptyCanvas_CreatesNode()
         {
             var window = ScriptableObject.CreateInstance<PointAllocationEditorWindow>();
             var workspace = ScriptableObject.CreateInstance<PointAllocationEditorWorkspace>();
@@ -208,8 +244,10 @@ namespace July.PointAllocation.Editor.Tests
                         Array.Empty<PointAllocationConnection>()),
                     workspace);
                 var graphView = new PointAllocationGraphView(window);
+                window.rootVisualElement.Clear();
                 window.rootVisualElement.Add(graphView);
                 graphView.Load(document);
+                yield return null;
                 Assert.That(graphView.panel, Is.Not.Null);
 
                 using (var eventData = MouseDownEvent.GetPooled(new Event
@@ -217,9 +255,10 @@ namespace July.PointAllocation.Editor.Tests
                            type = EventType.MouseDown,
                            button = 0,
                            clickCount = 2,
-                           mousePosition = new Vector2(100f, 100f)
+                           mousePosition = new Vector2(700f, 500f)
                        }))
                 {
+                    eventData.target = graphView.contentViewContainer;
                     graphView.contentViewContainer.SendEvent(eventData);
                 }
 

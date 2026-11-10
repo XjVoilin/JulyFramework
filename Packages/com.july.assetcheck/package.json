@@ -8,7 +8,9 @@
     "com.july.logging": "0.1.0",
     "com.unity.modules.audio": "1.0.0",
     "com.unity.modules.jsonserialize": "1.0.0",
-    "com.july.release": "0.6.1"
+    "com.july.release": "0.6.1",
+    "com.unity.textmeshpro": "3.0.9",
+    "com.unity.nuget.newtonsoft-json": "3.2.1"
   },
   "author": {
     "name": "July"

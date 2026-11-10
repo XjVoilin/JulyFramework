@@ -1,6 +1,18 @@
 # Changelog
 
+## Storage cleanup - 2026-11-08
+
+- Remove obsolete configuration upgrades and old report schema support; current rules and report formats remain unchanged.
+
 ## Unreleased
+
+- Store shared rules under ProjectSettings/July/AssetCheck; keep the last scan scope in Library/July/AssetCheck without rewriting shared rules.
+
+## Unreleased
+
+- Replace the transient font-source ObjectField with an Add JSON File button. Show one deduplicated missing-character list and clipboard action, retain concise character-file/font guidance, and provide collapsed per-file missing-character details and asset location actions.
+
+- Add a read-only font-check page: discover Assets language JSON sources, persist editable GUID lists and exclusions, compare all decoded string-value characters with a selected character JSON and the TMP default font, show source evidence and copy deduplicated missing Unicode characters. Keep scans cancellable, exclusive and stale-aware without changing business tables or populating font atlases.
 
 - Separate bundle-content actions: resource names select and Ping the current GUID-matched asset without navigating; a dedicated inspection button reveals its resource-check row with the owning-bundle size context and clears obstructing display filters.
 

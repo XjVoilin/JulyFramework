@@ -26,7 +26,7 @@ namespace July.AssetCheck
             AssetCheckReportSnapshot data;
             try { data = JsonUtility.FromJson<AssetCheckReportSnapshot>(File.ReadAllText(path)); }
             catch (ArgumentException exception) { throw new InvalidDataException("报告 JSON 无法解析：" + path, exception); }
-            if (data == null || (data.schemaVersion != 1 && data.schemaVersion != 2) || data.module != kind.ToString() ||
+            if (data == null || data.schemaVersion != 2 || data.module != kind.ToString() ||
                 !Enum.TryParse(data.platform, out AssetCheckPlatform platform) || !Enum.IsDefined(typeof(AssetCheckPlatform), platform) ||
                 string.IsNullOrEmpty(data.standardsContext) || data.issues == null ||
                 !new[] { "Completed", "Cancelled", "Failed", "Scanning", "Fixing" }.Contains(data.status) ||

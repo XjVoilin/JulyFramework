@@ -21,28 +21,29 @@ namespace July.Mesh.Authoring
             return MeshBaselineCache.Load(identity);
         }
 
-        internal static void Apply(MeshRow row, int fidelity)
+        internal static void Apply(MeshRow row, int fidelity, MeshColliderUsage colliderUsage = null)
         {
             Validate(row);
             if (!row.HasChanges) return;
             Write(row, row.Candidate, row.CandidateHash, row.CandidateHash != row.BaselineHash,
-                row.Ratio, row.Automatic, fidelity);
+                row.Ratio, row.Automatic, fidelity, colliderUsage);
         }
 
-        internal static void Restore(MeshRow row)
+        internal static void Restore(MeshRow row, MeshColliderUsage colliderUsage = null)
         {
             Validate(row);
-            Write(row, row.Cache.Original, row.BaselineHash, false, 100, false, 0);
+            Write(row, row.Cache.Original, row.BaselineHash, false, 100, false, 0, colliderUsage);
         }
 
-        static void Write(MeshRow row, UMesh result, string expectedHash, bool applied, float ratio, bool automatic, int fidelity)
+        static void Write(MeshRow row, UMesh result, string expectedHash, bool applied, float ratio, bool automatic, int fidelity, MeshColliderUsage colliderUsage)
         {
-            MeshAssetEdits.CheckColliderUse(row.Source);
+            if (colliderUsage == null) MeshAssetEdits.CheckColliderUse(row.Source);
+            else colliderUsage.Check(row.Source);
             bool readable = row.Source.isReadable;
             var before = UnityEngine.Object.Instantiate(row.Source);
             try
             {
-                Undo.RegisterCompleteObjectUndo(row.Source, applied ? "July Mesh 简化" : "July Mesh 还原基准");
+                Undo.RegisterCompleteObjectUndo(row.Source, applied ? "July Mesh 简化" : "July Mesh 还原本机基准");
                 string name = row.Source.name;
                 // CopySerialized 不会可靠地清理已使用的 GPU 缓冲；先使旧布局和缓冲失效。
                 row.Source.Clear(false);

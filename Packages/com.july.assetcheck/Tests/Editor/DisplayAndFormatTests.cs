@@ -26,6 +26,7 @@ namespace July.AssetCheck.Tests
             AssetDatabase.CreateFolder("Assets", Path.GetFileName(_root));
             _config = Path.GetFullPath(Path.Combine("Temp", "AssetCheckDisplay_" + id));
             Directory.CreateDirectory(_config);
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(_config, AssetCheckSettingsFile.FileName)));
             _store = new AssetCheckReportStore(_config);
         }
 
@@ -52,23 +53,7 @@ namespace July.AssetCheck.Tests
             Assert.Throws<InvalidDataException>(() => settings.Validate());
         }
 
-        [TestCase(TextureImporterFormat.ASTC_6x6, 2)]
-        [TestCase(TextureImporterFormat.ASTC_4x4, 1)]
-        public void VersionTwoMigrationPreservesCustomTargetsAndExpandsTheOldDefault(TextureImporterFormat target, int count)
-        {
-            var old = AssetCheckSettings.CreateDefault();
-            old.version = 2;
-            old.CurrentStandards.texture.compressionFormat = target;
-            old.CurrentStandards.texture.atlasCompressionFormat = target;
-            old.CurrentStandards.model.allowLights = true;
-            File.WriteAllText(Path.Combine(_config, AssetCheckSettingsFile.FileName), JsonUtility.ToJson(old));
-            var current = new AssetCheckSettingsFile(_config).LoadOrCreate();
-            Assert.That(current.version, Is.EqualTo(5));
-            Assert.That(current.CurrentStandards.texture.compressionFormat, Is.EqualTo(target));
-            Assert.That(current.CurrentStandards.texture.allowedFormats.Length, Is.EqualTo(count));
-            Assert.That(current.CurrentStandards.texture.allowedAtlasFormats.Length, Is.EqualTo(count));
-            Assert.That(current.CurrentStandards.model.allowLights, Is.True);
-        }
+
 
         [Test]
         public void EightByEightPassesEveryTargetAndIsNotRewrittenToSixBySix()
@@ -377,7 +362,7 @@ namespace July.AssetCheck.Tests
         }
 
         [Test]
-        public void LegacySnapshotSchemaRestoresAsReadOnlyAndIncorrectStatisticsAreRejected()
+        public void UnsupportedSnapshotAndIncorrectStatisticsAreRejected()
         {
             Texture();
             using (var workspace = Workspace()) { workspace.StartScan(AssetCheckKind.Texture); Drain(workspace); }
@@ -386,8 +371,8 @@ namespace July.AssetCheck.Tests
             snapshot.schemaVersion = 1;
             foreach (var issue in snapshot.issues) issue.unverifiedTargets = null;
             File.WriteAllText(path, JsonUtility.ToJson(snapshot));
-            Assert.That(_store.Load(AssetCheckKind.Texture).IsSnapshot, Is.True);
-            snapshot.passedFiles = 999;
+            Assert.Throws<InvalidDataException>(() => _store.Load(AssetCheckKind.Texture));
+            snapshot.schemaVersion = 2; snapshot.passedFiles = 999;
             File.WriteAllText(path, JsonUtility.ToJson(snapshot));
             Assert.Throws<InvalidDataException>(() => _store.Load(AssetCheckKind.Texture));
         }

@@ -19,6 +19,7 @@ namespace July.AssetCheck.Tests
         {
             _root = "Assets/__BundleInspection_" + Guid.NewGuid().ToString("N"); AssetDatabase.CreateFolder("Assets", Path.GetFileName(_root));
             _temp = Path.GetFullPath("Temp/BundleInspection_" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(_temp); _report = Path.Combine(_temp, "fixture.report");
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(_temp, AssetCheckSettingsFile.FileName)));
         }
         [TearDown] public void Cleanup() { AssetDatabase.DeleteAsset(_root); Assert.That(_temp, Does.StartWith(Path.GetFullPath("Temp") + Path.DirectorySeparatorChar)); Directory.Delete(_temp, true); }
         private string Sprite(string name)
@@ -94,17 +95,7 @@ namespace July.AssetCheck.Tests
             Assert.That(models.Check(meshPath, standards).Single(i => i.RuleId == "model.mesh-submeshes").CanFix, Is.False);
             standards.model.maxSubMeshes = 5; Assert.That(models.Check(meshPath, standards).Any(i => i.RuleId == "model.mesh-submeshes"), Is.False);
         }
-        [Test] public void VersionFourMigrationPreservesExistingStandardsAndExclusions()
-        {
-            var settings = AssetCheckSettings.CreateDefault(); settings.version = 4; settings.CurrentStandards.model.maxTrianglesPerMesh = 1234;
-            settings.ignoredAssets.Add(new IgnoredAsset { guid = new string('a', 32), lastKnownPath = "Assets/Old", kind = AssetCheckKind.Texture });
-            File.WriteAllText(Path.Combine(_temp, AssetCheckSettingsFile.FileName), JsonUtility.ToJson(settings));
-            var migrated = new AssetCheckSettingsFile(_temp).LoadOrCreate(); Assert.That(migrated.version, Is.EqualTo(5)); Assert.That(migrated.CurrentStandards.model.maxTrianglesPerMesh, Is.EqualTo(1234));
-            Assert.That(migrated.CurrentStandards.model.maxSubMeshes, Is.EqualTo(4)); Assert.That(migrated.minBundleBytes, Is.EqualTo(32768)); Assert.That(migrated.maxBundleBytes, Is.EqualTo(3145728)); Assert.That(migrated.ignoredAssets.Count, Is.EqualTo(1));
-            migrated.CurrentStandards.texture.allowSpriteMipMaps = true; migrated.CurrentStandards.model.maxSubMeshes = 9;
-            var file = new AssetCheckSettingsFile(_temp); file.LoadOrCreate(); file.Save(migrated); var reloaded = new AssetCheckSettingsFile(_temp).LoadOrCreate();
-            Assert.That(reloaded.CurrentStandards.texture.allowSpriteMipMaps, Is.True); Assert.That(reloaded.CurrentStandards.model.maxSubMeshes, Is.EqualTo(9));
-        }
+
         [Test] public void ChangedInputsStopChecksButKeepReportAndMissingAssetsDoNotPass()
         {
             var x = new BundleReportAssetData { AssetPath = _root + "/gone.png", AssetGUID = new string('a', 32) }; Write(_report, new[] { Bundle("A", 100, Array.Empty<string>(), x) });

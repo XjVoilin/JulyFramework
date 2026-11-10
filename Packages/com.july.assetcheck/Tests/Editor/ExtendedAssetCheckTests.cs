@@ -29,6 +29,7 @@ namespace July.AssetCheck.Tests
             AssetDatabase.CreateFolder("Assets", Path.GetFileName(_root));
             _config = Path.Combine(Directory.GetCurrentDirectory(), "Temp", "AssetCheckExtended_" + id);
             Directory.CreateDirectory(_config);
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(_config, AssetCheckSettingsFile.FileName)));
         }
 
         [TearDown]
@@ -40,26 +41,7 @@ namespace July.AssetCheck.Tests
             Directory.Delete(_config, true);
         }
 
-        [Test]
-        public void VersionOneMigrationPreservesExistingStandardsAndExclusions()
-        {
-            var legacy = AssetCheckSettings.CreateDefault();
-            legacy.version = 1;
-            legacy.CurrentStandards.texture.compressionFormat = TextureImporterFormat.ASTC_8x8;
-            legacy.CurrentStandards.texture.maxTextureSize = 0;
-            legacy.CurrentStandards.model.maxTrianglesPerMesh = 777;
-            legacy.CurrentStandards.model.allowLights = true;
-            legacy.ignoredAssets.Add(new IgnoredAsset { guid = new string('b', 32), kind = AssetCheckKind.Model });
-            File.WriteAllText(Path.Combine(_config, AssetCheckSettingsFile.FileName), JsonUtility.ToJson(legacy));
-            var result = new AssetCheckSettingsFile(_config).LoadOrCreate();
-            Assert.That(result.version, Is.EqualTo(5));
-            Assert.That(result.CurrentStandards.texture.compressionFormat, Is.EqualTo(TextureImporterFormat.ASTC_8x8));
-            Assert.That(result.CurrentStandards.texture.maxTextureSize, Is.EqualTo(1024));
-            Assert.That(result.CurrentStandards.model.maxTrianglesPerMesh, Is.EqualTo(777));
-            Assert.That(result.CurrentStandards.model.allowLights, Is.True);
-            Assert.That(result.ignoredAssets.Single().guid, Is.EqualTo(new string('b', 32)));
-            Assert.That(new AssetCheckSettingsFile(_config).LoadOrCreate().version, Is.EqualTo(5));
-        }
+
 
         [Test]
         public void SmallSourceDoesNotFailBecauseItsMaxSizeIsLarge()

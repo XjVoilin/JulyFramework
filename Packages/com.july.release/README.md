@@ -21,7 +21,7 @@
 
 `ReleaseAssetBundleBuilder.BuildAnalysis(EditorUserBuildSettings.activeBuildTarget)` 使用同一份收集、共享包合并、压缩和临时 TMP 字体策略，只构建 AB。输入使用工程现有 DLL 和资源；缺少 DLL 输入时明确失败，不自动执行 HybridCLR/AOT、玩家导出或发布准备。
 
-正式步骤继续输出 `Bundles/<Target>/<Package>/<Version>` 并执行原有旧包清理、内置文件/CDN 后续；分析输出到同级 `BundlesAnalysis/<Target>/<Package>/<RunVersion>`，不清正式目录、不复制 StreamingAssets/CDN、不上传。构建在同一 Editor 内互斥，兼容缓存继续复用；独立输出目录不等于独立 Unity 工程，Unity 原有保存、导入、编译和图集打包行为仍会发生。
+正式步骤继续输出 `Bundles/<Target>/<Package>/<Version>` 并执行原有旧包清理、内置文件/CDN 后续；分析输出到`Library/July/Release/Analysis/<Target>/<Package>/<RunVersion>`，不清正式目录、不复制 StreamingAssets/CDN、不上传。构建在同一 Editor 内互斥，兼容缓存继续复用；独立输出目录不等于独立 Unity 工程，Unity 原有保存、导入、编译和图集打包行为仍会发生。
 
 分析成功后返回本次 report 路径，并在它旁边写入 `<report>.sizes.json`。快照通过 report 内容指纹绑定该次构建；正式构建默认不采集，读取旧报告也不强制构建。`AssetBundleSizeSnapshot.ReadIfPresent(reportPath)` 读取只读统计；没有快照返回空，损坏、来源不匹配或合计错误明确失败。
 

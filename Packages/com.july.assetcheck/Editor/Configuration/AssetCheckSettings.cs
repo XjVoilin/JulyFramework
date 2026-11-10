@@ -129,11 +129,12 @@ namespace July.AssetCheck
     {
         public int version;
         public AssetCheckPlatform platform;
-        public string scope;
+        [NonSerialized] public string scope = "Assets";
         public List<PlatformStandards> standards;
         public List<IgnoredAsset> ignoredAssets;
         public int minBundleBytes = 32768;
         public int maxBundleBytes = 3145728;
+        public FontCheckSettings fonts = new();
 
         public static AssetCheckSettings CreateDefault() => new AssetCheckSettings
         {
@@ -146,7 +147,12 @@ namespace July.AssetCheck
 
         public PlatformStandards CurrentStandards => standards.Find(value => value.platform == platform);
 
-        public AssetCheckSettings Copy() => JsonUtility.FromJson<AssetCheckSettings>(JsonUtility.ToJson(this));
+        public AssetCheckSettings Copy()
+        {
+            var copy = JsonUtility.FromJson<AssetCheckSettings>(JsonUtility.ToJson(this));
+            copy.scope = scope;
+            return copy;
+        }
 
         // 只记录可由现存 GUID 确认的目录身份；旧记录已丢失目标时保持 Unknown。
         internal bool CaptureIgnoredFolderPaths()
@@ -185,69 +191,11 @@ namespace July.AssetCheck
             return changed;
         }
 
-        internal AssetCheckSettings UpgradeVersionOne()
-        {
-            if (standards == null || standards.Count != 1 || standards[0] == null ||
-                standards[0].platform != AssetCheckPlatform.MiniGame || standards[0].texture == null ||
-                standards[0].model == null)
-                throw new InvalidDataException("旧版资源检查配置缺少贴图或模型标准。");
-            var next = CreateDefault();
-            next.platform = platform;
-            next.scope = scope;
-            next.ignoredAssets = ignoredAssets;
-            next.CurrentStandards.model = standards[0].model;
-            next.CurrentStandards.model.maxSubMeshes = 4;
-            next.CurrentStandards.texture.compressionFormat = standards[0].texture.compressionFormat;
-            next.CurrentStandards.texture.allowedFormats =
-                LegacyFormats(next.CurrentStandards.texture.compressionFormat);
-            next.Validate();
-            return next;
-        }
-
-        internal AssetCheckSettings UpgradeVersionTwo()
-        {
-            if (standards == null || standards.Any(entry => entry == null || entry.texture == null))
-                throw new InvalidDataException("旧版配置缺少类型标准。");
-            foreach (var entry in standards)
-            {
-                entry.texture.allowedFormats = LegacyFormats(entry.texture.compressionFormat);
-                entry.texture.allowedAtlasFormats = LegacyFormats(entry.texture.atlasCompressionFormat);
-            }
-
-            return UpgradeVersionThree();
-        }
-
-        internal AssetCheckSettings UpgradeVersionThree()
-        {
-            if (standards == null || standards.Any(entry => entry == null || entry.texture == null))
-                throw new InvalidDataException("旧版配置缺少贴图标准。");
-            foreach (var entry in standards)
-                entry.texture.requireUncompressedAtlasSources = true;
-            return UpgradeVersionFour();
-        }
-
-        internal AssetCheckSettings UpgradeVersionFour()
-        {
-            if (standards == null || standards.Any(entry => entry == null || entry.model == null || entry.texture == null))
-                throw new InvalidDataException("旧版配置缺少贴图或模型标准。");
-            foreach (var entry in standards)
-            {
-                entry.model.maxSubMeshes = 4;
-                entry.texture.allowSpriteMipMaps = false;
-                entry.texture.allowAtlasMipMaps = false;
-            }
-            minBundleBytes = 32768; maxBundleBytes = 3145728;
-            version = 5; Validate(); return this;
-        }
-
-        private static TextureImporterFormat[] LegacyFormats(TextureImporterFormat target) =>
-            target == TextureImporterFormat.ASTC_6x6
-                ? new[] { TextureImporterFormat.ASTC_6x6, TextureImporterFormat.ASTC_8x8 }
-                : new[] { target };
-
         // 仅在配置读写边界调用；内部调用方依赖已经建立的校验契约。
         public void Validate()
         {
+            if (fonts == null) throw new InvalidDataException("资源检查配置缺少字体检查配置。");
+            fonts.Validate();
             if (version != 5)
                 throw new InvalidDataException("不支持的资源检查配置版本，请检查 version 字段。");
             if (!Enum.IsDefined(typeof(AssetCheckPlatform), platform))

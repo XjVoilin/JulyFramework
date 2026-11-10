@@ -105,3 +105,5 @@ There is no persisted `HasState` flag. The project lifecycle must keep consumers
 The project UI chooses node positions, tree/radial/constellation presentation, styles, icons, animation, visibility, and which existing logical connections to draw. Editor canvas positions are authoring metadata and are not game UI positions.
 
 In the Editor, double-click an empty canvas position or use the canvas context menu to create a node at that position. Double-clicking an existing node, port, or connection does not create a node.
+
+图的节点标注、布局与锁定仍保存在JSON伴生制作资产；个人视角／缩放按图GUID保存在 `Library/July/PointAllocation/`，平移和缩放不再弄脏制作资产。未保存图的视角只在内存保留。
