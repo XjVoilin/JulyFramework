@@ -28,6 +28,7 @@ Paste a complete URL into Unity Package Manager through **Add package from git U
 | `com.july.animation` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.animation#com.july.animation@0.2.7` |
 | `com.july.animation.spine` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.animation.spine#com.july.animation.spine@0.1.1` |
 | `com.july.arch` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.arch#com.july.arch@0.1.0` |
+| `com.july.assetcheck` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.assetcheck#com.july.assetcheck@0.8.0` |
 | `com.july.audio` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.audio#com.july.audio@0.1.0` |
 | `com.july.bootstrap` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.bootstrap#com.july.bootstrap@0.3.1` |
 | `com.july.build` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.build#com.july.build@0.3.0` |
@@ -42,13 +43,15 @@ Paste a complete URL into Unity Package Manager through **Add package from git U
 | `com.july.launch` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.launch#com.july.launch@0.1.1` |
 | `com.july.localization` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.localization#com.july.localization@0.1.0` |
 | `com.july.logging` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.logging#com.july.logging@0.1.0` |
+| `com.july.mesh.authoring` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.mesh.authoring#com.july.mesh.authoring@0.2.0` |
 | `com.july.networking` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.networking#com.july.networking@0.3.0` |
 | `com.july.networking.protobuf` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.networking.protobuf#com.july.networking.protobuf@0.1.0` |
 | `com.july.persistence` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.persistence#com.july.persistence@0.3.2` |
 | `com.july.platform` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.platform#com.july.platform@0.5.2` |
+| `com.july.pointallocation` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.pointallocation#com.july.pointallocation@0.1.1` |
 | `com.july.pooling` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.pooling#com.july.pooling@0.1.1` |
 | `com.july.reddot` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.reddot#com.july.reddot@0.1.1` |
-| `com.july.release` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.release#com.july.release@0.6.0` |
+| `com.july.release` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.release#com.july.release@0.6.2` |
 | `com.july.rendering.urp` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.rendering.urp#com.july.rendering.urp@0.2.1` |
 | `com.july.resource` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.resource#com.july.resource@0.1.0` |
 | `com.july.resource.yooasset` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.resource.yooasset#com.july.resource.yooasset@0.3.3` |
@@ -56,7 +59,7 @@ Paste a complete URL into Unity Package Manager through **Add package from git U
 | `com.july.tasks` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.tasks#com.july.tasks@0.1.0` |
 | `com.july.time` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.time#com.july.time@0.1.0` |
 | `com.july.ui` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.ui#com.july.ui@0.4.1` |
-| `com.july.ui.authoring` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.ui.authoring#com.july.ui.authoring@0.1.3` |
+| `com.july.ui.authoring` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.ui.authoring#com.july.ui.authoring@0.2.0` |
 
 ## Git dependency limitation
 
@@ -66,13 +69,13 @@ Package tests are not part of a production installation. The seed template's val
 
 ## 资源检查工具
 
-`com.july.assetcheck` 0.7.1 仅在编辑器运行，没有运行时代码；依赖 `com.july.logging` 输出错误与异常。同时依赖 Unity 内置的 Audio 和 JSON 模块；URP 为可选项，不产生 URP 程序集依赖。通过 Package Manager 的 **Add package from git URL** 安装：
+`com.july.assetcheck` 0.8.0 仅在编辑器运行，没有运行时代码；依赖 `com.july.logging` 输出错误与异常。同时依赖 Unity 内置的 Audio 和 JSON 模块；URP 为可选项，不产生 URP 程序集依赖。通过 Package Manager 的 **Add package from git URL** 安装：
 
 ```text
-https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.assetcheck#com.july.assetcheck@0.7.1
+https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.assetcheck#com.july.assetcheck@0.8.0
 ```
 
-通过 Git 安装时，还需显式安装上表中的 `com.july.logging`。
+通过 Git 安装时，还需显式安装上表中的 `com.july.logging`、`com.july.release` 及其 July 依赖闭包；同时安装包声明的 TextMeshPro 与 Newtonsoft JSON 依赖。
 
 它取代原 Diagnostics 中的小游戏纹理检查窗口。Diagnostics 0.1.3 已移除旧编辑器入口；使用下列独立版本标签更新现有安装，避免重复菜单：
 

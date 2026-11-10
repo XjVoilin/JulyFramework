@@ -1,6 +1,6 @@
 # Changelog
 
-## Storage cleanup - 2026-11-08
+## 0.2.0 - 2026-11-10
 
 - Store PS2UGUI settings in ProjectSettings/July/UIAuthoring and edit them through Project Settings; stop creating/searching settings assets.
 

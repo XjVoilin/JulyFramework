@@ -1,14 +1,10 @@
 # Changelog
 
-## Storage cleanup - 2026-11-08
+## 0.2.0 - 2026-11-10
 
 - Remove unused legacy MeshEditRecord and MeshBinding types.
 
-## Unreleased
-
 - Keep original Mesh baselines and applied settings in Library/July/MeshAuthoring as local-only data. Clarify restore and ratio semantics; clearing Library or changing machines establishes a new baseline from the current Mesh. Preserve live Mesh references.
-
-## Unreleased
 
 - Share one MeshCollider reference scan within each synchronous apply/restore batch. Preserve per-mesh failures, loaded/persistent/unloaded-scene checks, scene restoration and cancellation before writes or during scanning; standalone backend edits still check their own references.
 

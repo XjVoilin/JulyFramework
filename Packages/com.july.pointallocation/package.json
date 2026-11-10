@@ -1,6 +1,6 @@
 {
   "name": "com.july.pointallocation",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "July Point Allocation",
   "description": "为 JulyFramework 提供数据驱动的加点图编辑与运行时逻辑。",
   "unity": "2022.3",
