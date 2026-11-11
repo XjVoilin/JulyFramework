@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1 - 2026-11-11
+
+- Align red-dot Store and System persistence behavior with the current architecture contract.
+
 ## 0.3.0 - 2026-08-07
 
 - Breaking: runtime red-dot keys now use canonical slash-separated paths such as `Root/Child`.

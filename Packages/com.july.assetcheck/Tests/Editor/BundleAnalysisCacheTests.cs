@@ -76,7 +76,7 @@ namespace July.AssetCheck.Tests
 
         [Test] public void MissingCacheCreatesNothingAndStartsNoInspection()
         {
-            Assert.AreEqual(Path.Combine(temp, "Library", "July", "AssetCheck", "BundleReports"), Path.GetFullPath(cache.DirectoryPath));
+            Assert.AreEqual(Path.Combine(temp, "July", "AssetCheck", "BundleReports"), Path.GetFullPath(cache.DirectoryPath));
             Assert.IsNull(cache.Load().Session); Assert.IsFalse(Directory.Exists(cache.DirectoryPath));
             Open(); Assert.IsNull(panel.Session); Assert.IsFalse(panel.Running);
         }
@@ -231,7 +231,7 @@ namespace July.AssetCheck.Tests
             panel = new BundleAnalysisPanel(() => workspace, () => { }); panel.ImportReport(next); Finish(panel.Session); panel.Dispose(); panel = null;
             Assert.AreEqual(2, cache.Records().Length); Assert.AreEqual(original, File.ReadAllBytes(originalRecord.DataPath));
             using (var restored = cache.Load().Session)
-            { Assert.AreEqual(Path.GetFullPath(next), restored.Packages.Report.SourcePath); Assert.AreEqual(0, restored.Resources.Length); }
+            { Assert.AreEqual(Path.GetFullPath(Path.GetFileName(next)), restored.Packages.Report.SourcePath); Assert.AreEqual(0, restored.Resources.Length); }
         }
 
         [Test] public void SaveFailureIsVisibleAndDoesNotDiscardCompletedResults()
@@ -243,15 +243,70 @@ namespace July.AssetCheck.Tests
             Assert.That(panel.Q<Label>("analysis-status").text, Does.Contain("历史保存失败"));
         }
 
-        [Test] public void CacheIsLocalAndContainsOriginalReportWithoutCopyingAssetBundles()
+        [Test] public void CacheIsProjectScopedAndContainsOriginalReportWithoutCopyingAssetBundles()
         {
             using (var session = Inspect()) cache.Save(session, new BundleAnalysisViewState());
             Assert.IsNull(new BundleAnalysisCache(Path.Combine(temp, "OtherProject")).Load().Session);
             var saved = JsonUtility.FromJson<BundleAnalysisCacheData>(File.ReadAllText(DataFile));
             CollectionAssert.AreEqual(File.ReadAllBytes(report), Convert.FromBase64String(saved.reportBytes));
-            Assert.AreEqual(3, Directory.GetFiles(cache.Records().Single().DirectoryPath).Length);
+            Assert.AreEqual(2, Directory.GetFiles(cache.Records().Single().DirectoryPath).Length);
             Assert.IsEmpty(Directory.GetFiles(cache.DirectoryPath, "*.bundle", SearchOption.AllDirectories));
         }
+        [Test] public void SharedSnapshotOpensInAnotherProjectWithoutLibraryOrOriginalReport()
+        {
+            string evidence;
+            using (var session = Inspect())
+            {
+                evidence = Evidence(session);
+                cache.Save(session, new BundleAnalysisViewState { search = "personal", directory = root });
+            }
+            var original = cache.Records().Single();
+            var otherRoot = Path.Combine(temp, "OtherProject");
+            var other = new BundleAnalysisCache(otherRoot);
+            var copied = Path.Combine(other.DirectoryPath, original.Id);
+            Directory.CreateDirectory(copied);
+            foreach (var source in Directory.GetFiles(original.DirectoryPath)) File.Copy(source, Path.Combine(copied, Path.GetFileName(source)));
+            File.Delete(report);
+            Assert.IsFalse(Directory.Exists(Path.Combine(otherRoot, "Library")));
+            var loaded = other.Load();
+            using (loaded.Session)
+            {
+                Assert.IsTrue(loaded.Session.IsSnapshot);
+                Assert.AreEqual(evidence, Evidence(loaded.Session));
+                Assert.AreEqual("", loaded.View.search);
+                Assert.AreEqual("", loaded.View.directory);
+            }
+            Assert.IsFalse(Directory.Exists(Path.Combine(otherRoot, "Library")), "Reading alone creates no personal state.");
+            var record = other.Records().Single();
+            var before = File.ReadAllBytes(record.DataPath);
+            other.SaveView(record, new BundleAnalysisViewState { search = "another user" });
+            CollectionAssert.AreEqual(before, File.ReadAllBytes(record.DataPath));
+            Assert.AreEqual(2, Directory.GetFiles(record.DirectoryPath).Length);
+            Assert.That(record.ViewPath, Does.StartWith(Path.Combine(otherRoot, "Library")));
+            Assert.AreEqual("fixture.report", JsonUtility.FromJson<BundleAnalysisCacheData>(File.ReadAllText(record.DataPath)).reportPath);
+        }
+
+        [Test] public void ClearingLibraryPreservesSharedHistoryAndUsesDefaultView()
+        {
+            using (var session = Inspect()) cache.Save(session, new BundleAnalysisViewState { search = "personal" });
+            Directory.Delete(Path.Combine(temp, "Library"), true);
+            var loaded = new BundleAnalysisCache(temp).Load();
+            using (loaded.Session)
+            {
+                Assert.IsNotNull(loaded.Session);
+                Assert.AreEqual("", loaded.View.search);
+            }
+            Assert.IsTrue(File.Exists(DataFile));
+        }
+
+        [Test] public void MissingPersonalLastSelectionAfterSharedHistoryChangesUsesAvailableRecord()
+        {
+            using (var session = Inspect()) cache.Save(session, new BundleAnalysisViewState());
+            File.WriteAllText(Path.Combine(temp, "Library/July/AssetCheck/BundleReports/last.json"), "{\"id\":\"removed-in-another-branch\"}");
+            using (var restored = cache.Load().Session) Assert.IsNotNull(restored);
+            Assert.Throws<InvalidDataException>(() => cache.Load("explicit-missing-record"));
+        }
+
         [Test] public void CopiedReportUsesOneRecordAndLatestCompleteInspectionReplacesOnlyItsEvidence()
         {
             using (var initial = Inspect()) cache.Save(initial, new BundleAnalysisViewState { search = "initial" });
@@ -263,7 +318,7 @@ namespace July.AssetCheck.Tests
             Assert.AreEqual(1, cache.Records().Length); Assert.AreEqual(id, cache.Records().Single().Id);
             var loaded = cache.Load(id); using (loaded.Session)
             {
-                Assert.AreEqual(copy, loaded.Session.Packages.Report.SourcePath);
+                Assert.AreEqual(Path.GetFullPath(Path.GetFileName(copy)), loaded.Session.Packages.Report.SourcePath);
                 Assert.IsTrue(loaded.Session.Settings.CurrentStandards.texture.allowSpriteMipMaps);
                 Assert.AreEqual("latest", loaded.View.search);
                 Assert.IsFalse(loaded.Session.Resources.SelectMany(resource => resource.Issues).Any(issue => issue.RuleId == "texture.sprite-mipmaps"));

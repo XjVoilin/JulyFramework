@@ -1,0 +1,21 @@
+{
+  "name": "com.july.config.authoring",
+  "version": "0.1.0",
+  "displayName": "July Config Authoring",
+  "description": "Editor-only Luban generation with project settings, plain C# schemes and an inheritable generation window.",
+  "unity": "2022.3",
+  "dependencies": {
+    "com.july.json": "0.1.0",
+    "com.unity.modules.imgui": "1.0.0"
+  },
+  "author": {
+    "name": "July"
+  },
+  "samples": [
+    {
+      "displayName": "Box Project Extension",
+      "description": "Optional Common/module generation, project providers and custom panel example.",
+      "path": "Samples~/BoxProject"
+    }
+  ]
+}

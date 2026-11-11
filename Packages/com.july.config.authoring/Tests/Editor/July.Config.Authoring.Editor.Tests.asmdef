@@ -1,0 +1,6 @@
+{
+  "name": "July.Config.Authoring.Editor.Tests",
+  "references": ["July.Config.Authoring.Editor"],
+  "includePlatforms": ["Editor"],
+  "optionalUnityReferences": ["TestAssemblies"]
+}

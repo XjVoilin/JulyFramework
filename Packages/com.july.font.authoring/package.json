@@ -1,0 +1,12 @@
+{
+  "name": "com.july.font.authoring",
+  "version": "0.1.1",
+  "displayName": "July Font Authoring",
+  "description": "Editor-only source font subsetting with additional characters and verified sibling output.",
+  "unity": "2022.3",
+  "dependencies": {
+    "com.unity.modules.imgui": "1.0.0",
+    "com.unity.modules.jsonserialize": "1.0.0"
+  },
+  "author": { "name": "July" }
+}

@@ -37,7 +37,7 @@ namespace July.AssetCheck.Tests
         {
             if (_window != null) Object.DestroyImmediate(_window);
             AssetDatabase.DeleteAsset(_root);
-            Assert.AreEqual(Path.GetFullPath("Library/July/AssetCheck/BundleReports"), _analysisCachePath);
+            Assert.AreEqual(Path.GetFullPath("July/AssetCheck/BundleReports"), _analysisCachePath);
             if (Directory.Exists(_analysisCachePath)) Directory.Delete(_analysisCachePath, true);
             if (Directory.Exists(_analysisCacheBackup)) Directory.Move(_analysisCacheBackup, _analysisCachePath);
             if (_settingsBefore == null) File.Delete(AssetCheckSettingsFile.FileName);

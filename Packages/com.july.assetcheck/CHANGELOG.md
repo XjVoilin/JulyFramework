@@ -1,16 +1,8 @@
 # Changelog
 
-## 0.8.0 - 2026-11-10
+## 0.8.1 - 2026-11-11
 
-- Remove obsolete configuration upgrades and old report schema support; current rules and report formats remain unchanged.
-
-- Store shared rules under ProjectSettings/July/AssetCheck; keep the last scan scope in Library/July/AssetCheck without rewriting shared rules.
-
-- Replace the transient font-source ObjectField with an Add JSON File button. Show one deduplicated missing-character list and clipboard action, retain concise character-file/font guidance, and provide collapsed per-file missing-character details and asset location actions.
-
-- Add a read-only font-check page: discover Assets language JSON sources, persist editable GUID lists and exclusions, compare all decoded string-value characters with a selected character JSON and the TMP default font, show source evidence and copy deduplicated missing Unicode characters. Keep scans cancellable, exclusive and stale-aware without changing business tables or populating font atlases.
-
-## Unreleased
+- Move reusable report and inspection snapshots to project-root July/AssetCheck. Keep view/selection state in Library, restore defaults without personal state, and preserve read-only shared evidence across local scope changes. Archive report names without workstation-specific source paths.
 
 - Separate bundle-content actions: resource names select and Ping the current GUID-matched asset without navigating; a dedicated inspection button reveals its resource-check row with the owning-bundle size context and clears obstructing display filters.
 
@@ -18,7 +10,7 @@
 
 - Filter bundle resource results by a recorded Assets/Packages directory (including descendants), with Project selection and clear actions. Scope category counts consistently, combine with existing filters, and retain each report's directory in view state without rescanning or applying ordinary exclusions.
 
-- Keep ordinary reports under Library/July/AssetCheck/Reports and per-report history under Library/July/AssetCheck/BundleReports.
+- Store reusable reports and per-report history under July/AssetCheck; retain personal view state under Library/July/AssetCheck.
 
 - Archive each report by content identity with its latest complete inspection, original report bytes, size data and separate browsing state. Add history selection/recheck and baseline-to-target package/resource comparisons, including dependency closures, physical-copy sizes and per-target issue evidence. Preserve complete results on cancellation/failure and report unavailable measurements or differing comparison contexts explicitly. Reuse the ordinary issue snapshot format.
 
@@ -36,6 +28,16 @@
 - Keep cross-bundle duplicate findings distinct from identical content in different source files; no estimated savings or automatic fixes. Replace old scope-filtered report UI tests with complete-snapshot coverage while retaining historical exclusion regressions.
 - Read report dependencies as flat identity records, matching YooAsset and avoiding recursive Unity serialization warnings.
 - Validate 240 EditMode tests, including cancellation between rule and content phases and inherited variant-atlas mipmaps, explicit path matching, and toolbar visibility; compare the real 442-bundle report without changing its bytes.
+
+## 0.8.0 - 2026-11-10
+
+- Remove obsolete configuration upgrades and old report schema support; current rules and report formats remain unchanged.
+
+- Store shared rules under ProjectSettings/July/AssetCheck; keep the last scan scope in Library/July/AssetCheck without rewriting shared rules.
+
+- Replace the transient font-source ObjectField with an Add JSON File button. Show one deduplicated missing-character list and clipboard action, retain concise character-file/font guidance, and provide collapsed per-file missing-character details and asset location actions.
+
+- Add a read-only font-check page: discover Assets language JSON sources, persist editable GUID lists and exclusions, compare all decoded string-value characters with a selected character JSON and the TMP default font, show source evidence and copy deduplicated missing Unicode characters. Keep scans cancellable, exclusive and stale-aware without changing business tables or populating font atlases.
 
 ## 0.7.1 - 2026-10-25
 

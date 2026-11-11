@@ -1,0 +1,7 @@
+{
+  "name": "July.Config.Authoring.Editor",
+  "rootNamespace": "July.Config.Authoring",
+  "references": [],
+  "includePlatforms": ["Editor"],
+  "autoReferenced": true
+}

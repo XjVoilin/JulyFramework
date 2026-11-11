@@ -1,0 +1,5 @@
+{
+  "name": "July.Config.Authoring.BoxSample.Editor",
+  "references": ["July.Config.Authoring.Editor"],
+  "includePlatforms": ["Editor"]
+}

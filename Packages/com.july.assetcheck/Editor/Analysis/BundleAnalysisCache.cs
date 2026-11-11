@@ -34,7 +34,7 @@ namespace July.AssetCheck
         public string reportName, reportSignature, package, packageVersion, buildDate;
         internal string Id, DirectoryPath;
         internal string DataPath => Path.Combine(DirectoryPath, "inspection.json");
-        internal string ViewPath => Path.Combine(DirectoryPath, "view.json");
+        internal string ViewPath;
         public override string ToString() => reportName + " | " + package + " / " + (UnityEditor.BuildTarget)target + " / " + packageVersion;
     }
 
@@ -59,7 +59,13 @@ namespace July.AssetCheck
         [Serializable] sealed class Selection { public string id; }
         internal string DirectoryPath { get; }
         internal string Notice { get; private set; }
-        internal BundleAnalysisCache(string projectDirectory) => DirectoryPath = Path.Combine(projectDirectory, "Library/July/AssetCheck/BundleReports");
+        readonly string localDirectory;
+        internal BundleAnalysisCache(string projectDirectory)
+        {
+            DirectoryPath = Path.Combine(projectDirectory, "July/AssetCheck/BundleReports");
+            localDirectory = Path.Combine(projectDirectory, "Library/July/AssetCheck/BundleReports");
+        }
+        string ViewPath(string id) => Path.Combine(localDirectory, id, "view.json");
 
         internal BundleAnalysisRecord[] Records()
         {
@@ -77,7 +83,7 @@ namespace July.AssetCheck
                         record.reportSignature == null || record.reportSignature.Length != 64 || !record.reportSignature.All(Uri.IsHexDigit) ||
                         !Enum.IsDefined(typeof(UnityEditor.BuildTarget), record.target))
                         throw new InvalidDataException("历史报告元数据无效。");
-                    record.DirectoryPath = directory; record.Id = Path.GetFileName(directory);
+                    record.DirectoryPath = directory; record.Id = Path.GetFileName(directory); record.ViewPath = ViewPath(record.Id);
                     if (!File.Exists(record.DataPath)) throw new InvalidDataException("缺少完整检查快照。");
                     if (!identities.Add(record.reportSignature)) throw new InvalidDataException("重复的 report 身份，请检查复制的历史目录。");
                     records.Add(record);
@@ -109,11 +115,11 @@ namespace July.AssetCheck
                 if (Directory.Exists(directory)) throw new InvalidDataException("历史目录已存在但身份不匹配，请检查：" + directory);
                 record = new BundleAnalysisRecord { version = 1, reportName = Path.GetFileName(report.SourcePath), reportSignature = report.Signature,
                     target = summary.BuildTarget, package = summary.BuildPackageName, packageVersion = summary.BuildPackageVersion,
-                    buildDate = summary.BuildDate, Id = id, DirectoryPath = directory };
+                    buildDate = summary.BuildDate, Id = id, DirectoryPath = directory, ViewPath = ViewPath(id) };
             }
             var data = new BundleAnalysisCacheData
             {
-                version = 2, reportPath = report.SourcePath, reportSignature = report.Signature,
+                version = 2, reportPath = Path.GetFileName(report.SourcePath), reportSignature = report.Signature,
                 reportBytes = Convert.ToBase64String(report.ReportBytes), hasSizes = report.SizeJson != null, sizeJson = report.SizeJson,
                 checkedAt = session.CheckedAt.ToUniversalTime().ToString("O"), settings = session.Settings,
                 resources = session.Resources.Select(resource => new BundleCachedResource
@@ -132,7 +138,7 @@ namespace July.AssetCheck
                 try
                 {
                     Directory.CreateDirectory(staging);
-                    WriteJson(record.DataPath, data); WriteJson(Path.Combine(staging, "record.json"), record); WriteJson(record.ViewPath, view);
+                    WriteJson(record.DataPath, data); WriteJson(Path.Combine(staging, "record.json"), record);
                     Directory.Move(staging, final);
                 }
                 finally
@@ -140,16 +146,16 @@ namespace July.AssetCheck
                     record.DirectoryPath = final;
                     if (Directory.Exists(staging)) Directory.Delete(staging, true);
                 }
-                WriteJson(Path.Combine(DirectoryPath, "last.json"), new Selection { id = record.Id });
             }
-            else { WriteJson(record.DataPath, data); SaveView(record, view); }
+            else WriteJson(record.DataPath, data);
+            SaveView(record, view);
             return record;
         }
 
         internal void SaveView(BundleAnalysisRecord record, BundleAnalysisViewState view)
         {
             WriteJson(record.ViewPath, view);
-            WriteJson(Path.Combine(DirectoryPath, "last.json"), new Selection { id = record.Id });
+            WriteJson(Path.Combine(localDirectory, "last.json"), new Selection { id = record.Id });
         }
 
         internal (BundleInspectionSession Session, BundleAnalysisViewState View) Load(string id = null)
@@ -157,7 +163,7 @@ namespace July.AssetCheck
             var record = FindRecord(id);
             if (record == null) return (null, null);
             var session = ReadInspection(record);
-            var view = ReadJson<BundleAnalysisViewState>(record.ViewPath);
+            var view = File.Exists(record.ViewPath) ? ReadJson<BundleAnalysisViewState>(record.ViewPath) : new BundleAnalysisViewState { kind = -1 };
             if (view == null || (view.kind != -1 && !Enum.IsDefined(typeof(AssetCheckKind), view.kind)) ||
                 !Enum.IsDefined(typeof(AssetCheckSort), view.resourceSort) || view.expanded == null || view.openDetails == null)
                 throw new InvalidDataException("AB 分析缓存查看状态无效。");
@@ -178,8 +184,12 @@ namespace July.AssetCheck
             if (records.Length == 0) return null;
             if (id == null)
             {
-                var last = Path.Combine(DirectoryPath, "last.json");
-                if (File.Exists(last)) id = ReadJson<Selection>(last)?.id;
+                var last = Path.Combine(localDirectory, "last.json");
+                if (File.Exists(last))
+                {
+                    var selected = ReadJson<Selection>(last)?.id;
+                    if (records.Any(item => item.Id == selected)) id = selected;
+                }
             }
             var record = id == null ? records[0] : records.SingleOrDefault(item => item.Id == id);
             if (record == null) throw new InvalidDataException("所选历史记录不存在，请重新选择。");
@@ -244,6 +254,7 @@ namespace July.AssetCheck
         }
         static void WriteJson<T>(string path, T data)
         {
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
             var temporary = path + ".tmp";
             File.WriteAllText(temporary, JsonUtility.ToJson(data, true), new UTF8Encoding(false));
             if (File.Exists(path)) File.Replace(temporary, path, null); else File.Move(temporary, path);

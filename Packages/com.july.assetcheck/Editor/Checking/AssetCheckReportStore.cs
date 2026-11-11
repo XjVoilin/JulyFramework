@@ -11,7 +11,7 @@ namespace July.AssetCheck
     // 本地快照恢复为只读报告；只有重新扫描后的有效结果才允许修改资源。
     internal sealed class AssetCheckReportStore
     {
-        internal const string RelativeDirectory = "Library/July/AssetCheck/Reports";
+        internal const string RelativeDirectory = "July/AssetCheck/Reports";
         internal string DirectoryPath { get; }
 
         internal AssetCheckReportStore(string projectDirectory) =>

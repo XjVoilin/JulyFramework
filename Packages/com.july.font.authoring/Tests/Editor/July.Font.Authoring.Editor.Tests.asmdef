@@ -1,0 +1,6 @@
+{
+  "name": "July.Font.Authoring.Editor.Tests",
+  "references": ["July.Font.Authoring.Editor"],
+  "includePlatforms": ["Editor"],
+  "optionalUnityReferences": ["TestAssemblies"]
+}

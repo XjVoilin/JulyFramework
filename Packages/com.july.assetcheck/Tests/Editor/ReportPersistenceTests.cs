@@ -36,7 +36,7 @@ namespace July.AssetCheck.Tests
         [Test]
         public void ScanAllWritesOneLatestFilePerModuleIncludingEmptyResults()
         {
-            Assert.AreEqual(Path.Combine(_directory, "Library", "July", "AssetCheck", "Reports"), Path.GetFullPath(_store.DirectoryPath));
+            Assert.AreEqual(Path.Combine(_directory, "July", "AssetCheck", "Reports"), Path.GetFullPath(_store.DirectoryPath));
             using (var workspace = Workspace())
             {
                 workspace.StartScan();
@@ -50,6 +50,25 @@ namespace July.AssetCheck.Tests
                     Assert.That(saved.status, Is.EqualTo("Completed"));
                 }
             }
+        }
+
+        [Test]
+        public void ReopeningAndChangingPersonalScopeDoNotRewriteSharedSnapshot()
+        {
+            Mesh("a.asset");
+            using (var scanned = Workspace())
+            {
+                scanned.StartScan(AssetCheckKind.Model); Drain(scanned);
+            }
+            var path = _store.PathFor(AssetCheckKind.Model);
+            var before = File.ReadAllBytes(path);
+            using (var reopened = Workspace())
+            {
+                Assert.IsTrue(reopened.GetReport(AssetCheckKind.Model).IsSnapshot);
+                reopened.ChangeSettings(settings => settings.scope = "Assets");
+                Assert.IsTrue(reopened.GetReport(AssetCheckKind.Model).Stale);
+            }
+            CollectionAssert.AreEqual(before, File.ReadAllBytes(path));
         }
 
         [Test]

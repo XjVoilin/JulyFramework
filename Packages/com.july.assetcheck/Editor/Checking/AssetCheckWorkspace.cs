@@ -509,6 +509,8 @@ namespace July.AssetCheck
 
         private void SaveReport(AssetCheckReport report)
         {
+            // Loaded shared evidence is read-only; personal scope and local invalidation stay in memory.
+            if (report.IsSnapshot) return;
             try
             {
                 _reportStore.Save(report, ReferenceEquals(report, _activeReport) && _mutating);
@@ -521,7 +523,7 @@ namespace July.AssetCheck
         private void RecordSaveFailure(AssetCheckKind kind, Exception exception)
         {
             var message = KindName(kind) + "结果保存失败：" + exception.Message;
-            // 报告文件属于本地缓存；保存失败时保留内存结果，并明确提示读写错误。
+            // 共享报告保存失败时保留内存结果，并明确提示读写错误。
             if (!_saveFailures.TryGetValue(kind, out var previous) || previous != message)
                 JLogger.LogError(message);
             _saveFailures[kind] = message;

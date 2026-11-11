@@ -8,6 +8,10 @@
 **/[Bb]uilds/
 *.csproj
 *.sln
+# Shared July cache data is tracked; unfinished writes are not.
+July/**/*.tmp
+July/**/.pending_*/
+
 *.user
 *.log
 **/*-results.xml

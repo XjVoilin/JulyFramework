@@ -1,0 +1,7 @@
+{
+  "name": "July.Font.Authoring.Editor",
+  "rootNamespace": "July.Font.Authoring",
+  "references": [],
+  "includePlatforms": ["Editor"],
+  "autoReferenced": true
+}
