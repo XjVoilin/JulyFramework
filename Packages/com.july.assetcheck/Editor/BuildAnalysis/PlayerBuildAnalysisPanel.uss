@@ -1,0 +1,32 @@
+.player-build-analysis { flex-grow: 1; min-height: 0; padding: 0 14px 8px; }
+.player-build-analysis #player-build-heading { flex-direction: row; align-items: center; flex-shrink: 0; padding: 16px 0 12px; }
+.player-build-analysis #player-build-title-group { flex-grow: 1; min-width: 0; }
+.player-build-analysis #player-build-title { font-size: 17px; -unity-font-style: bold; color: var(--ac-text); margin: 0; }
+.player-build-analysis #player-build-subtitle { font-size: 11px; color: var(--ac-muted); margin: 5px 0 0; }
+.player-build-analysis #player-build-heading > Button { height: 27px; padding: 0 13px; margin: 0; flex-shrink: 0; }
+.player-build-analysis #player-build-metrics { flex-direction: row; flex-shrink: 0; padding: 12px 0; background-color: var(--ac-surface); border-top-width: 1px; border-bottom-width: 1px; border-top-color: var(--ac-line); border-bottom-color: var(--ac-line); }
+.player-build-analysis #player-build-metric { flex-grow: 1; flex-basis: 0; padding-left: 18px; }
+.player-build-analysis .player-build-metric-value { font-size: 22px; -unity-font-style: bold; color: var(--ac-text); margin: 0; }
+.player-build-analysis .player-build-metric-caption { font-size: 11px; color: var(--ac-muted); margin: 5px 0 0; }
+.player-build-analysis #player-build-metadata { flex-shrink: 0; color: var(--ac-muted); font-size: 11px; margin: 8px 0 12px; white-space: normal; }
+.player-build-analysis #player-build-tools { flex-direction: row; align-items: center; flex-shrink: 0; margin-bottom: 8px; }
+.player-build-analysis #player-build-search { flex-grow: 1; flex-shrink: 1; flex-basis: 0; min-width: 120px; margin: 0 7px 0 0; }
+.player-build-analysis #player-build-search > .unity-base-field__label { min-width: 32px; color: var(--ac-muted); }
+.player-build-analysis #player-build-tools > Button { margin: 0; padding: 0 10px; }
+.player-build-analysis #player-build-counts { flex-shrink: 0; margin-left: 14px; font-size: 11px; color: var(--ac-muted); }
+.player-build-analysis #player-build-assets { flex-grow: 1; min-height: 80px; background-color: var(--ac-row); border-top-width: 1px; border-bottom-width: 1px; border-top-color: var(--ac-line); border-bottom-color: var(--ac-line); }
+.player-build-analysis .unity-collection-view__item--alternative-background { background-color: var(--ac-row-alt); }
+.player-build-analysis #player-build-resource { height: 44px; margin: 0; padding: 5px 9px; flex-direction: row; align-items: center; justify-content: flex-start; background-color: transparent; border-width: 0; }
+.player-build-analysis #player-build-preview { width: 34px; height: 32px; min-width: 34px; margin-right: 8px; flex-shrink: 0; }
+.player-build-analysis #player-build-preview .resource-thumbnail { margin: 0; }
+.player-build-analysis #player-build-resource-text { flex-grow: 1; flex-shrink: 1; min-width: 0; }
+.player-build-analysis #player-build-resource-text > Label { align-self: stretch; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; -unity-text-align: middle-left; }
+.player-build-analysis #asset-name { -unity-font-style: bold; color: var(--ac-text); }
+.player-build-analysis #asset-path { font-size: 10px; color: var(--ac-muted); margin-top: 2px; }
+.player-build-analysis #player-build-resource:hover #asset-name { color: var(--ac-accent); }
+.player-build-analysis .player-build-cell { height: 44px; -unity-text-align: middle-left; margin: 0; padding: 0 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ac-text); }
+.player-build-analysis .player-build-size { -unity-font-style: bold; }
+.player-build-analysis .player-build-share { color: var(--ac-muted); }
+.player-build-analysis #player-build-empty { flex-grow: 1; min-height: 110px; -unity-text-align: middle-center; white-space: normal; color: var(--ac-muted); font-size: 13px; }
+.player-build-analysis #player-build-note { flex-shrink: 0; margin: 9px 0 0; font-size: 11px; color: var(--ac-muted); white-space: normal; }
+.player-build-analysis #player-build-error { flex-shrink: 0; margin: 5px 0 0; color: rgb(215, 100, 85); white-space: normal; }

@@ -12,7 +12,7 @@ namespace July.AssetCheck
 {
     public sealed class AssetCheckWindow : EditorWindow
     {
-        internal enum ToolPage { ResourceCheck, PlatformCopy, BundleAnalysis, FontCheck }
+        internal enum ToolPage { ResourceCheck, PlatformCopy, BundleAnalysis, FontCheck, PlayerBuildAnalysis }
         private AssetCheckWorkspace _workspace;
         private AssetCheckKind _kind;
         private ObjectField _scope;
@@ -21,6 +21,8 @@ namespace July.AssetCheck
         private WebGLTextureSettingsCopyPanel _copyPage;
         private BundleAnalysisPanel _analysisPage;
         private FontCheckPanel _fontPage;
+        private PlayerBuildAnalysisPanel _playerBuildPage;
+        private Button _playerBuildTool;
         private Button _fontTool;
         private Button _checkTool, _copyTool, _analysisTool;
         [SerializeField] private ToolPage _tool;
@@ -223,6 +225,8 @@ namespace July.AssetCheck
                 shell.Add(_analysisPage);
                 _fontPage = new FontCheckPanel(() => _workspace, RequestRefresh);
                 shell.Add(_fontPage);
+                _playerBuildPage = new PlayerBuildAnalysisPanel();
+                shell.Add(_playerBuildPage);
                 if (_tool == ToolPage.FontCheck) _fontPage.Activate();
             }
             shell.Add(_error);
@@ -253,6 +257,8 @@ namespace July.AssetCheck
             tools.Add(_copyTool);
             _analysisTool = new Button(() => SelectTool(ToolPage.BundleAnalysis)) { name = "tool-analysis", text = "打包分析" };
             tools.Add(_analysisTool);
+            _playerBuildTool = new Button(() => SelectTool(ToolPage.PlayerBuildAnalysis)) { name = "tool-player-build", text = "构建资源大小" };
+            tools.Add(_playerBuildTool);
             _fontTool = new Button(() => SelectTool(ToolPage.FontCheck)) { name = "tool-font", text = "字体检查" };
             tools.Add(_fontTool);
             tools.Add(new VisualElement { style = { flexGrow = 1 } });
@@ -276,6 +282,7 @@ namespace July.AssetCheck
             RequireIdle();
             _tool = tool;
             if (tool == ToolPage.FontCheck) _fontPage?.Activate();
+            if (tool == ToolPage.PlayerBuildAnalysis) _playerBuildPage?.Activate();
             RefreshSharedControls();
         }
 
@@ -305,7 +312,7 @@ namespace July.AssetCheck
         {
             var ready = _workspace != null;
             var idle = ready && !FolderOperationRunning;
-            _scopeHeader.style.display = _tool == ToolPage.BundleAnalysis || _tool == ToolPage.FontCheck ? DisplayStyle.None : DisplayStyle.Flex;
+            _scopeHeader.style.display = _tool == ToolPage.BundleAnalysis || _tool == ToolPage.FontCheck || _tool == ToolPage.PlayerBuildAnalysis ? DisplayStyle.None : DisplayStyle.Flex;
             _scope.SetEnabled(idle);
             _selection.SetEnabled(idle);
             _allAssets.SetEnabled(idle);
@@ -313,10 +320,12 @@ namespace July.AssetCheck
             _copyTool.SetEnabled(idle && _copyPage != null);
             _analysisTool.SetEnabled(idle && _analysisPage != null);
             _fontTool.SetEnabled(idle && _fontPage != null);
+            _playerBuildTool.SetEnabled(idle && _playerBuildPage != null);
             _checkTool.style.unityFontStyleAndWeight = _tool == ToolPage.ResourceCheck ? FontStyle.Bold : FontStyle.Normal;
             _copyTool.style.unityFontStyleAndWeight = _tool == ToolPage.PlatformCopy ? FontStyle.Bold : FontStyle.Normal;
             _analysisTool.style.unityFontStyleAndWeight = _tool == ToolPage.BundleAnalysis ? FontStyle.Bold : FontStyle.Normal;
             _fontTool.style.unityFontStyleAndWeight = _tool == ToolPage.FontCheck ? FontStyle.Bold : FontStyle.Normal;
+            _playerBuildTool.style.unityFontStyleAndWeight = _tool == ToolPage.PlayerBuildAnalysis ? FontStyle.Bold : FontStyle.Normal;
             _checkPage.style.display = _tool == ToolPage.ResourceCheck || _copyPage == null ? DisplayStyle.Flex : DisplayStyle.None;
             _checkPage.SetEnabled(idle);
             if (_copyPage != null)
@@ -328,6 +337,11 @@ namespace July.AssetCheck
             {
                 _analysisPage.style.display = _tool == ToolPage.BundleAnalysis ? DisplayStyle.Flex : DisplayStyle.None;
                 _analysisPage.SetEnabled(ready && !_workspace.Running && (_copyPage == null || !_copyPage.Running) && (_fontPage == null || !_fontPage.Running));
+            }
+            if (_playerBuildPage != null)
+            {
+                _playerBuildPage.style.display = _tool == ToolPage.PlayerBuildAnalysis ? DisplayStyle.Flex : DisplayStyle.None;
+                _playerBuildPage.SetEnabled(idle);
             }
             if (_fontPage != null)
             {

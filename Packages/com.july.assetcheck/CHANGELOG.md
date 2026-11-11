@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.8.3 - 2026-11-11
+
+- Add a compact client-build resource-size page with descending packed-resource sizes, search, GUID-based locating, build metadata and explicit uncompressed/build-size scope in both editor themes. Keep the latest populated snapshot in Library and existing YooAsset analysis unchanged.
+- Capture every client-build callback and retain resource data until build completion. Prevent empty incremental reports from replacing populated snapshots; explain when a first Clean Build is required and display timestamps in the local timezone.
+- Reuse resource-check thumbnails for visible build-resource rows, including textures, asynchronous Unity previews and native icons. Reset preview bindings when rows are recycled, and keep historical sizes separate from current-project previews.
+- Align table cells and keep search actions visible when the window resizes.
+
+## 0.8.2 - 2026-11-11
+
 - Refine the font-check workspace with independently scrolling configuration/results panes, narrow-window stacking, persistent actions/status, scoped dark/light styles and clearer per-font/source/empty/stale states. Checking behavior is unchanged.
 
 - Extend read-only font checks with GUID-based Assets folders for Prefab and scene TMP text, effective component fonts, inactive/nested/variant/instance text, object locations and per-font missing-character evidence. Keep JSON character-file checks separate.
