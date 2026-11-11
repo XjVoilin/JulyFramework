@@ -16,22 +16,27 @@ namespace July.AssetCheck
         internal static void Locate(AssetCheckIssue issue, bool current)
         {
             var path = AssetCheckTarget.Resolve(issue.TargetId);
+            Locate(path, current ? issue.ObjectLocation : null, issue.LocalId);
+        }
+
+        internal static void Locate(string path, AssetCheckObjectLocation location, long localId = 0)
+        {
             Object target = null;
-            if (current && issue.ObjectLocation != null)
+            if (location != null)
             {
                 if (path.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))
                 {
                     var stage = PrefabStageUtility.OpenPrefab(path);
-                    if (stage != null) target = issue.ObjectLocation.Resolve(new[] { stage.prefabContentsRoot });
+                    if (stage != null) target = location.Resolve(new[] { stage.prefabContentsRoot });
                 }
                 else
                 {
                     var scene = SceneManager.GetSceneByPath(path);
                     if (!scene.IsValid() || !scene.isLoaded) scene = EditorSceneManager.OpenScene(path, OpenSceneMode.Additive);
-                    target = issue.ObjectLocation.Resolve(scene.GetRootGameObjects());
+                    target = location.Resolve(scene.GetRootGameObjects());
                 }
             }
-            if (target == null && issue.LocalId != 0) target = FindSubAsset(path, issue.LocalId);
+            if (target == null && localId != 0) target = FindSubAsset(path, localId);
             if (target == null) { Locate(path); return; }
             Select(target);
         }

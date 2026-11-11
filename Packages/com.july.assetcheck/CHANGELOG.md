@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Refine the font-check workspace with independently scrolling configuration/results panes, narrow-window stacking, persistent actions/status, scoped dark/light styles and clearer per-font/source/empty/stale states. Checking behavior is unchanged.
+
+- Extend read-only font checks with GUID-based Assets folders for Prefab and scene TMP text, effective component fonts, inactive/nested/variant/instance text, object locations and per-font missing-character evidence. Keep JSON character-file checks separate.
+- Handle common serialized TMP markup without rendering or populating font assets; report unresolved font/style/case switches, missing fonts and unsaved content as unverified. Clean up temporary content before yielding and preserve the active scene/selection.
+- Invalidate results on asset/dependency/scope changes, preserve source evidence when merging characters, and clear old scan errors after a successful retry. Add focused EditMode regressions; execution remains pending.
+
 ## 0.8.1 - 2026-11-11
 
 - Move reusable report and inspection snapshots to project-root July/AssetCheck. Keep view/selection state in Library, restore defaults without personal state, and preserve read-only shared evidence across local scope changes. Archive report names without workstation-specific source paths.
