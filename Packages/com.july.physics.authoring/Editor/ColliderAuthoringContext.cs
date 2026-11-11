@@ -1,54 +1,31 @@
 using System;
-using System.Collections.Generic;
-using UnityEditor;
-using UnityEditor.SceneManagement;
 using UnityEngine;
 
 namespace July.Physics.Authoring
 {
-    /// <summary>沿用制作上下文，项目仅配置来源和生成请求。</summary>
+    /// <summary>解析单组制作目标，并为生成请求接入项目适配。</summary>
     public sealed class ColliderAuthoringContext
     {
-        private const string SettingsKey = "July.Physics.Authoring.LastSettings.Primitives.v2";
-        public Transform SourceRoot;
         public ColliderGenerationRequest Request;
-        public static event Action<ColliderAuthoringContext> Opening;
-
-        public static ColliderGenerationSettings LastSettings()
+        internal static ColliderGenerationRequest BuildRequest(IColliderAuthoringAdapter adapter, GameObject root, ColliderAuthoringProfile profile, string targetId)
         {
-            var json = EditorPrefs.GetString(SettingsKey, "");
-            return string.IsNullOrEmpty(json) ? new ColliderGenerationSettings() : JsonUtility.FromJson<ColliderGenerationSettings>(json);
+            var request = adapter.CreateRequest(root, profile, targetId);
+            request.AfterApply = result => adapter.Complete(root, new[] { new ColliderTargetResult(targetId, result) });
+            return request;
         }
-
-        internal static void SaveSettings(ColliderGenerationSettings settings) => EditorPrefs.SetString(SettingsKey, JsonUtility.ToJson(settings));
-
         public static ColliderAuthoringContext Create(Transform outputRoot, ColliderGenerationSettings settings)
         {
-            var request = ColliderGeneration.CreateRequest(outputRoot, settings);
-            var body = outputRoot.GetComponentInParent<Rigidbody>(true);
-            var stage = PrefabStageUtility.GetPrefabStage(outputRoot.gameObject);
-            var context = new ColliderAuthoringContext
-            {
-                SourceRoot = body != null ? body.transform : stage != null ? stage.prefabContentsRoot.transform : outputRoot.root,
-                Request = request
-            };
-            Opening?.Invoke(context);
-            context.Request.Sources = ColliderGeometry.Scan(context.SourceRoot);
-            return context;
-        }
-
-        internal static Transform EditableGroup(Transform group)
-        {
-            var source = EditorUtility.IsPersistent(group) ? group : PrefabUtility.GetCorrespondingObjectFromSource(group);
-            var path = AssetDatabase.GetAssetPath(source);
-            if (!path.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))
-                throw new ArgumentException("请先为导入模型创建可编辑的 Prefab。");
-            var indices = new Stack<int>();
-            for (var node = source; node.parent != null; node = node.parent) indices.Push(node.GetSiblingIndex());
-            var stage = PrefabStageUtility.OpenPrefab(path);
-            var target = stage.prefabContentsRoot.transform;
-            while (indices.Count > 0) target = target.GetChild(indices.Pop());
-            return target;
+            var root = outputRoot.root.gameObject;
+            var adapter = ColliderAuthoringAdapters.Resolve(root); var profile = adapter.CreateProfile(); ColliderAuthoringSettings.Load(profile);
+            var layout = adapter.Inspect(root, profile);
+            if (layout.Error != null) throw new InvalidOperationException(layout.Error);
+            int index = Array.FindIndex(layout.Targets, t => t.OutputRoot == outputRoot);
+            if (index < 0) throw new InvalidOperationException("所选节点不是当前配置的输出分组，请在制作设置中指定路径。");
+            var target = profile.Targets[index];
+            if (target.FixedGoal && settings.Goal != target.Settings.Goal)
+                throw new InvalidOperationException("项目已固定该输出的生成方式，请使用对应模式。");
+            var request = BuildRequest(adapter, root, profile, target.Id); request.Settings = settings;
+            return new ColliderAuthoringContext { Request = request };
         }
     }
 }

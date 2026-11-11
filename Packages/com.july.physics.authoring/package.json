@@ -1,13 +1,14 @@
 {
   "name": "com.july.physics.authoring",
-  "version": "0.4.0",
+  "version": "0.6.0",
   "displayName": "July Physics Authoring",
-  "description": "Unity 基础碰撞体制作工具。运行时仅包含无逻辑标记组件，拟合与 Inspector 仅在 Editor 执行。",
+  "description": "Unity 2022.3 编辑器碰撞体制作工具：原生整体包围、拾取结构贴合、候选暂存与项目适配。不包含运行时程序集。",
   "unity": "2022.3",
   "dependencies": {
     "com.unity.modules.physics": "1.0.0",
     "com.unity.modules.imgui": "1.0.0",
-    "com.unity.modules.jsonserialize": "1.0.0"
+    "com.unity.modules.jsonserialize": "1.0.0",
+    "com.unity.modules.uielements": "1.0.0"
   },
   "author": {
     "name": "July"

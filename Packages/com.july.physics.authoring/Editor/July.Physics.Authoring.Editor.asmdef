@@ -1,7 +1,9 @@
 {
   "name": "July.Physics.Authoring.Editor",
   "rootNamespace": "July.Physics.Authoring",
-  "references": ["July.Physics.Authoring"],
-  "includePlatforms": ["Editor"],
+  "references": [],
+  "includePlatforms": [
+    "Editor"
+  ],
   "autoReferenced": true
 }

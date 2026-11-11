@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Unity.Collections;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace July.Physics.Authoring
 {
@@ -39,14 +38,20 @@ namespace July.Physics.Authoring
                 throw new ArgumentException("生成需要输出节点和至少一个 Mesh 来源。");
             if (Mathf.Abs(target.localToWorldMatrix.determinant) < 1e-10f)
                 throw new ArgumentException("输出节点的变换不可逆，请检查零缩放。");
-            // Voxel intersection uses positions, not adjacency or triangle winding.
+            return Read(sources,target.worldToLocalMatrix);
+        }
+
+        internal static Geometry Read(IReadOnlyList<ColliderMeshSource> sources,Matrix4x4 worldToTarget)
+        {
+            if(sources==null||sources.Count==0)throw new ArgumentException("生成需要至少一个 Mesh 来源。");
+            // Combine sources in the fitting frame; winding is adjusted for mirrored sources.
             var vertices = new List<Vector3>();
             var indices = new List<int>();
             foreach (var source in sources)
             {
                 if (source == null || source.Mesh == null || source.Transform == null)
                     throw new ArgumentException("Mesh 来源中存在未配置的网格或坐标节点。");
-                var matrix = target.worldToLocalMatrix * source.Transform.localToWorldMatrix;
+                var matrix = worldToTarget * source.Transform.localToWorldMatrix;
                 using var data = MeshUtility.AcquireReadOnlyMeshData(source.Mesh);
                 using var positions = new NativeArray<Vector3>(data[0].vertexCount, Allocator.Temp);
                 data[0].GetVertices(positions);
@@ -72,7 +77,8 @@ namespace July.Physics.Authoring
                         var b = vertexOffset + triangles[i + 1];
                         var c = vertexOffset + triangles[i + 2];
                         if (vertices[a].Equals(vertices[b]) || vertices[b].Equals(vertices[c]) || vertices[c].Equals(vertices[a])) continue;
-                        indices.Add(a); indices.Add(b); indices.Add(c);
+                        indices.Add(a);
+                        if(matrix.determinant<0){indices.Add(c);indices.Add(b);}else{indices.Add(b);indices.Add(c);}
                     }
                 }
             }

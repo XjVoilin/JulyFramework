@@ -55,7 +55,7 @@ July uses package seams only where a capability has an independent installation 
 | --- | --- |
 | `com.july.assetcheck` | 仅编辑器使用的资源、URP 和项目配置检查，支持检查标准、修改、单文件及目录递归忽略。 |
 | `com.july.font.authoring` | Editor-only TTF/OTF subsetting, extra characters, project-local fontTools and verified sibling output. |
-| `com.july.physics.authoring` | 仅编辑器使用的静态 Mesh 六类碰撞体拟合；支持可配置输出、标准规则凸 Mesh 复用、批量应用／Undo 和项目适配总览，不依赖原生插件。 |
+| `com.july.physics.authoring` | Editor-only 原生整体包围与拾取结构贴合；原生优先、凸包预算、候选暂存／直接复用、批量应用／Undo、成本筛查和项目适配总览，无外部环境依赖。 |
 | `com.july.config.authoring` | Editor-only Luban generation; central Project Settings, an inheritable generation window, plain C# schemes and output processors. |
 | `com.july.build` | Vendor-neutral reusable editor build pipeline. |
 | `com.july.build.hybridclr` | Strongly typed HybridCLR 8.7 build mechanics. |

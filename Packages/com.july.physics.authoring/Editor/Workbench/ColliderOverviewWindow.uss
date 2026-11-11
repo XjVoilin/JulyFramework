@@ -1,0 +1,90 @@
+.collider-colliders { flex-grow: 1; min-height: 0; }
+.collider-dark { background-color: rgb(45,45,45); color: rgb(211,211,211); }
+.collider-light { background-color: rgb(237,237,237); color: rgb(48,48,48); }
+.collider-header { flex-shrink: 0; padding-top: 3px; border-bottom-width: 1px; border-bottom-color: rgba(128, 128, 128, .4); }
+.collider-batch { flex-shrink: 0; border-top-width: 1px; border-top-color: rgba(128, 128, 128, .4); }
+.collider-line { flex-direction: row; flex-wrap: nowrap; flex-shrink: 0; align-items: center; margin: 3px 6px; }
+.collider-line > Button { margin-left: 4px; margin-right: 0; }
+.collider-line > Toggle { margin-right: 5px; }
+.collider-line .unity-base-field__label { min-width: auto; width: auto; }
+.collider-resource-toolbar > Button, .collider-resource-toolbar > ToolbarMenu { flex-shrink: 0; }
+#collider-search { width: 240px; min-width: 240px; height: 24px; min-height: 24px; flex-shrink: 0; margin-left: 6px; }
+#collider-search TextField, #collider-search .unity-base-text-field__input { height: 22px; min-height: 22px; }
+#collider-source { flex-grow: 1; flex-basis: 0; flex-shrink: 1; min-width: 0; margin-left: 6px; overflow: hidden; text-overflow: ellipsis; font-size: 11px; opacity: .8; }
+.collider-five { flex-direction: row; align-items: flex-start; }
+#collider-columns { padding: 0 4px 3px 7px; }
+.collider-reference { flex-grow: 1; flex-basis: 0; min-width: 0; margin: 0 4px; }
+.collider-goal { flex-grow: 2; flex-basis: 0; min-width: 0; margin: 0 4px; border-left-width: 1px; border-left-color: rgba(128, 128, 128, .3); padding-left: 4px; }
+.collider-column-title { height: 21px; font-size: 11px; -unity-font-style: bold; -unity-text-align: middle-center; }
+.collider-pair { flex-direction: row; }
+.collider-preview { flex-grow: 1; flex-basis: 0; min-width: 0; margin-left: 4px; margin-right: 4px; }
+.collider-current-heading { border-bottom-width: 2px; border-bottom-color: rgb(183, 139, 85); }
+.collider-candidate-heading { border-bottom-width: 2px; border-bottom-color: rgb(78, 152, 102); }
+#collider-columns ToolbarMenu { height: 24px; font-size: 11px; }
+.collider-select-actions { flex-direction: row; }
+.collider-select-actions > Button { flex-grow: 1; flex-basis: 0; min-width: 0; height: 24px; margin: 0; padding-left: 2px; padding-right: 2px; font-size: 11px; }
+#collider-select-all { margin-right: 3px; }
+.collider-empty { flex-grow: 1; min-height: 0; white-space: normal; -unity-text-align: middle-center; color: rgb(145, 145, 145); }
+.collider-item { border-width: 1px; border-color: rgba(128,128,128,.3); border-left-width: 3px; border-left-color: rgba(0, 0, 0, 0); border-radius: 4px; margin: 6px 5px; padding: 5px 4px 8px; flex-shrink: 0; }
+.collider-dark .collider-item { background-color: rgb(53,53,53); }
+.collider-light .collider-item { background-color: rgb(249,249,249); }
+.collider-item-selected { border-left-color: rgb(80, 140, 200); }
+.collider-item-header { margin-top: 2px; margin-bottom: 5px; }
+.collider-name { flex-grow: 1; flex-shrink: 1; min-width: 120px; overflow: hidden; text-overflow: ellipsis; -unity-font-style: bold; font-size: 12px; }
+.collider-row-state { margin: 0 10px 4px; font-size: 11px; white-space: normal; max-height: 34px; overflow: hidden; }
+.collider-item-actions { margin: 0 6px 7px; justify-content: flex-end; }
+.collider-split-action { flex-direction: row; height: 22px; flex-shrink: 0; margin-left: 6px; }
+.collider-split-action > Button { height: 22px; width: 70px; margin: 0; padding-left: 6px; padding-right: 6px; font-size: 11px; }
+.collider-split-action > ToolbarMenu { height: 22px; width: 136px; margin: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; font-size: 11px; }
+.collider-scoped-action > Button { border-left-width: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.collider-image { height: 125px; flex-shrink: 0; background-color: rgba(0, 0, 0, .09); border-radius: 3px; }
+.collider-count { height: 20px; margin-top: 2px; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; -unity-text-align: middle-center; }
+.collider-geometry { min-height: 30px; margin-top: 1px; margin-bottom: 2px; font-size: 11px; white-space: normal; -unity-text-align: middle-center; opacity: .8; }
+.collider-composition { font-size: 11px; min-height: 18px; -unity-text-align: middle-center; white-space: normal; }
+.collider-performance-badge { min-height: 23px; margin: 4px 1px 2px; padding: 3px 4px; border-radius: 3px; border-width: 0; font-size: 11px; white-space: normal; background-color: rgba(128,128,128,.1); color: rgb(154,154,154); }
+.collider-light .collider-performance-badge { color: rgb(95,95,95); }
+.collider-performance-badge.collider-risk-reminder { background-color: rgba(201,160,73,.16); color: rgb(226,195,125); }
+.collider-performance-badge.collider-risk-attention { background-color: rgba(222,133,62,.18); color: rgb(240,177,116); }
+.collider-performance-badge.collider-risk-rule { background-color: rgba(211,91,81,.18); color: rgb(239,158,149); }
+.collider-light .collider-performance-badge.collider-risk-reminder { color: rgb(132,94,28); }
+.collider-light .collider-performance-badge.collider-risk-attention { color: rgb(150,76,18); }
+.collider-light .collider-performance-badge.collider-risk-rule { color: rgb(165,53,45); }
+.collider-geometry-summary { margin: 2px 6px; font-size: 11px; white-space: normal; flex-shrink: 0; }
+.collider-count-row { flex-direction: row; align-items: center; min-width: 0; }
+.collider-count-row > .collider-count { flex-grow: 1; flex-shrink: 1; min-width: 0; }
+.collider-tune { width: 34px; height: 20px; margin: 2px 0 0; padding: 0; font-size: 10px; flex-shrink: 0; }
+.collider-review-action { height: 22px; margin: 0 0 0 12px; padding-left: 6px; padding-right: 6px; flex-shrink: 0; }
+.collider-tagbar { flex-wrap: wrap; margin-top: 3px; margin-bottom: 3px; }
+.collider-tag-label { width: 34px; flex-shrink: 0; font-size: 11px; opacity: .8; }
+.collider-tag, .collider-performance-filter-tag { height: 23px; padding-left: 9px; padding-right: 9px; margin: 0 4px 0 0; border-radius: 3px; }
+.collider-tag-active { background-color: rgb(57, 102, 145); border-color: rgb(89, 152, 205); color: rgb(245, 245, 245); }
+.collider-tagbar > .collider-clear-filters { height: 22px; margin-left: auto; font-size: 11px; }
+#collider-differences { margin: 0; min-height: 18px; min-width: 0; flex-shrink: 1; white-space: normal; font-size: 11px; }
+.collider-current-detail { white-space: normal; font-size: 11px; }
+.collider-progress { height: 18px; margin-top: 3px; }
+.collider-progress-complete .unity-progress-bar__background { background-color: rgba(78, 152, 102, .18); border-color: rgba(78, 152, 102, .55); border-radius: 3px; }
+.collider-progress-complete .unity-progress-bar__progress { display: none; }
+.collider-progress-complete .unity-progress-bar__title { font-size: 11px; }
+.collider-stage { max-height: 38px; margin-top: 3px; white-space: normal; font-size: 11px; overflow: hidden; }
+.collider-retry { font-size: 11px; height: 20px; margin: 3px 0 0; }
+.collider-secondary { font-size: 11px; opacity: .8; }
+.collider-error { color: rgb(215, 105, 90); }
+.collider-apply { -unity-font-style: bold; }
+.collider-batch-actions { min-height: 28px; }
+.collider-batch-actions > Button { height: 24px; width: 112px; flex-shrink: 0; font-size: 11px; }
+.collider-batch-actions > Label { flex-shrink: 0; margin: 0 8px 0 0; font-size: 11px; }
+.collider-batch-summary { flex-wrap: wrap; }
+.collider-batch-summary > Label { max-width: 100%; margin-right: 12px; white-space: normal; font-size: 11px; }
+#collider-scope { width: 176px; flex-shrink: 0; }
+.collider-status > Label { flex-grow: 1; min-width: 0; }
+#collider-message { margin: 2px 4px; max-height: 32px; overflow: hidden; white-space: normal; font-size: 11px; }
+
+.collider-reuse { height: 20px; margin: 3px 0 0; font-size: 11px; }
+
+.collider-performance-controls { flex-wrap: wrap; min-height: 24px; margin-top: 2px; margin-bottom: 2px; }
+.collider-performance-label { width: 60px; flex-shrink: 0; font-size: 11px; opacity: .8; }
+.collider-performance-group { flex-direction: row; align-items: center; flex-shrink: 0; margin-right: 10px; padding: 2px 6px; border-radius: 3px; background-color: rgba(128,128,128,.09); }
+.collider-performance-group > Label { margin-right: 8px; font-size: 11px; -unity-font-style: bold; }
+.collider-performance-group > Toggle { margin-right: 6px; margin-top: 0; margin-bottom: 0; font-size: 11px; }
+.collider-performance-summary { margin: 1px 12px 4px 70px; white-space: normal; font-size: 11px; opacity: .8; }
+#collider-performance-convex { margin-left: 8px; font-size: 11px; }

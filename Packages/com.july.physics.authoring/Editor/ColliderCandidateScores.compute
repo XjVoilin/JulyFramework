@@ -1,0 +1,90 @@
+#pragma kernel RenderMasks
+#pragma kernel ScorePairs
+
+struct Projection
+{
+    float4 bounds;
+    float4 shape;
+    float4 segment;
+    float4 parameters;
+    float4 lowStep;
+};
+StructuredBuffer<Projection> _Projections;
+StructuredBuffer<float2> _PolygonPoints;
+StructuredBuffer<uint> _Reference;
+StructuredBuffer<uint> _Backgrounds;
+StructuredBuffer<uint3> _Pairs;
+RWStructuredBuffer<uint> _Masks;
+RWStructuredBuffer<uint> _Counts;
+int _ViewCount;
+int _ShapeCount;
+int _WordsPerView;
+int _Resolution;
+
+float2 Point(Projection p, uint i)
+{
+    return _PolygonPoints[(uint)p.shape.w + i];
+}
+
+bool Inside(Projection s, int x, int y)
+{
+    if (x < s.bounds.x || y < s.bounds.y || x > s.bounds.z || y > s.bounds.w || s.shape.x == 2) return false;
+    precise float2 p = s.lowStep.xy + (float2(x, y) + .5f) * s.lowStep.zw;
+    if (s.shape.x == 0)
+    {
+        uint count = (uint)s.shape.y;
+        [loop] for (uint i = 0u; i < count; ++i)
+        {
+            precise float2 a = Point(s, i);
+            precise float2 edge = Point(s, (i + 1u) % count) - a;
+            precise float2 d = p - a;
+            precise float cross = edge.x * d.y - edge.y * d.x;
+            if (s.shape.z * cross < -1e-7f) return false;
+        }
+        return true;
+    }
+    precise float2 delta = p - s.segment.xy;
+    precise float numerator = delta.x * s.parameters.x + delta.y * s.parameters.y;
+    precise float t = s.parameters.z == 0 ? 0 : saturate(numerator / s.parameters.z);
+    precise float2 radial = delta - s.parameters.xy * t;
+    precise float squared = radial.x * radial.x + radial.y * radial.y;
+    return squared <= s.shape.w;
+}
+
+[numthreads(128, 1, 1)]
+void RenderMasks(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= (uint)_WordsPerView || id.y >= (uint)_ViewCount || id.z >= (uint)_ShapeCount) return;
+    Projection p = _Projections[id.z * _ViewCount + id.y];
+    uint bits = 0;
+    [loop] for (uint b = 0; b < 32; ++b)
+    {
+        uint pixel = id.x * 32 + b;
+        if (Inside(p, pixel % (uint)_Resolution, pixel / (uint)_Resolution)) bits |= 1u << b;
+    }
+    _Masks[(id.z * _ViewCount + id.y) * _WordsPerView + id.x] = bits;
+}
+
+groupshared uint partial[128];
+[numthreads(128, 1, 1)]
+void ScorePairs(uint3 group : SV_GroupID, uint tid : SV_GroupIndex)
+{
+    uint3 task = _Pairs[group.x];
+    uint sum = 0;
+    [loop] for (uint w = tid; w < (uint)_WordsPerView; w += 128)
+    {
+        uint offset = group.y * _WordsPerView + w;
+        uint left = _Masks[task.x * _ViewCount * _WordsPerView + offset];
+        uint right = _Masks[task.y * _ViewCount * _WordsPerView + offset];
+        uint background = _Backgrounds[task.z * _ViewCount * _WordsPerView + offset];
+        sum += countbits((left | right | background) ^ _Reference[offset]);
+    }
+    partial[tid] = sum;
+    GroupMemoryBarrierWithGroupSync();
+    [unroll] for (uint stride = 64; stride > 0; stride >>= 1)
+    {
+        if (tid < stride) partial[tid] += partial[tid + stride];
+        GroupMemoryBarrierWithGroupSync();
+    }
+    if (tid == 0) _Counts[group.x * _ViewCount + group.y] = partial[0];
+}

@@ -47,6 +47,7 @@ Paste a complete URL into Unity Package Manager through **Add package from git U
 | `com.july.networking` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.networking#com.july.networking@0.3.2` |
 | `com.july.networking.protobuf` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.networking.protobuf#com.july.networking.protobuf@0.1.0` |
 | `com.july.persistence` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.persistence#com.july.persistence@0.3.2` |
+| `com.july.physics.authoring` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.physics.authoring#com.july.physics.authoring@0.6.0` |
 | `com.july.platform` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.platform#com.july.platform@0.5.5` |
 | `com.july.pointallocation` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.pointallocation#com.july.pointallocation@0.1.1` |
 | `com.july.pooling` | `https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.pooling#com.july.pooling@0.1.1` |
@@ -87,11 +88,13 @@ https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.diagnostic
 
 ## 碰撞体编辑工具
 
-`com.july.physics.authoring` 0.3.0 可独立安装，仅在编辑器运行。它从显示 Mesh 拟合原生 Box、Sphere、Capsule Collider，支持专用输出 Transform、批量替换和 Undo，不生成碰撞 Mesh 资源，也不依赖原生插件或其它 July 包：
+`com.july.physics.authoring` 0.6.0 为 Editor-only 独立 UPM 包，不依赖外部环境或其它 July 包。整体包围仅输出 Box／Sphere／Capsule，拾取结构贴合原生优先并按预算回退凸包；支持候选暂存、手动直接复用、批量应用／Undo、性能提醒及项目适配总览。使用固定发布标签安装：
 
 ```text
-https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.physics.authoring#com.july.physics.authoring@0.3.0
+https://github.com/XjVoilin/JulyFramework.git?path=/Packages/com.july.physics.authoring#com.july.physics.authoring@0.6.0
 ```
+
+0.6.0 为 Editor-only。升级前先移除旧 ColliderAuthoringTarget、PhysicalColliderAuthoringTarget、FineSphereEditData 元数据组件；确认无其他用途后再清理旧配方拥有的禁用备份，保留启用碰撞体和 Mesh。同步删除 Runtime／Editor asmdef 与 link.xml 对 `July.Physics.Authoring` 的引用；项目 Editor 适配改为仅引用 `July.Physics.Authoring.Editor`。包不会自动改写使用者资源。
 
 项目专属的碰撞体配置和序列化引用更新保留在项目编辑器程序集。调用方式、算法限制和测试说明见包内 README。各 URL 均绑定不可变的独立包版本标签，不依赖 `main` 分支。
 

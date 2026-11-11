@@ -1,0 +1,57 @@
+#pragma kernel CSMain
+
+struct Node { float4 MinLeft; float4 MaxRight; float4 Range; };
+struct Triangle { float4 A; float4 U; float4 V; };
+StructuredBuffer<Node> Nodes;
+StructuredBuffer<Triangle> Triangles;
+StructuredBuffer<float4> Origins;
+StructuredBuffer<float4> Directions;
+RWStructuredBuffer<uint2> Results;
+
+bool Box(float3 p,float3 d,Node n)
+{
+    float lo=0,hi=1e10;
+    [unroll] for(uint axis=0;axis<3;axis++)
+    {
+        float a=n.MinLeft[axis]-1e-5,b=n.MaxRight[axis]+1e-5;
+        if(abs(d[axis])<1e-12){if(p[axis]<a||p[axis]>b)return false;}
+        else {float x=(a-p[axis])/d[axis],y=(b-p[axis])/d[axis];lo=max(lo,min(x,y));hi=min(hi,max(x,y));if(lo>hi)return false;}
+    }
+    return true;
+}
+
+bool Occluded(float3 p,float3 d,out bool uncertain)
+{
+    uint stack[64];uint size=1;stack[0]=0;uncertain=false;
+    [loop] while(size>0)
+    {
+        Node node=Nodes[stack[--size]];if(!Box(p,d,node))continue;
+        if(node.Range.y==0){stack[size++]=(uint)node.MinLeft.w;stack[size++]=(uint)node.MaxRight.w;continue;}
+        uint end=(uint)(node.Range.x+node.Range.y);
+        [loop] for(uint i=(uint)node.Range.x;i<end;i++)
+        {
+            Triangle tri=Triangles[i];float3 crossD=cross(d,tri.V.xyz);float determinant=dot(tri.U.xyz,crossD);
+            if(abs(determinant)<1e-4*tri.A.w){uncertain=true;continue;}
+            float3 s=p-tri.A.xyz;float b=dot(s,crossD)/determinant;if(b< -2e-4||b>1+2e-4)continue;
+            float3 q=cross(s,tri.U.xyz);float c=dot(d,q)/determinant;if(c< -2e-4||b+c>1+2e-4)continue;
+            float t=dot(tri.V.xyz,q)/determinant;if(t< -2e-5)continue;
+            if(b>2e-4&&c>2e-4&&b+c<1-2e-4&&t>2e-5){uncertain=false;return true;}
+            uncertain=true;
+        }
+    }
+    return false;
+}
+
+[numthreads(64,1,1)]
+void CSMain(uint3 id:SV_DispatchThreadID)
+{
+    uint pointCount,pointStride,dirCount,dirStride;Origins.GetDimensions(pointCount,pointStride);Directions.GetDimensions(dirCount,dirStride);
+    uint words=(dirCount+31)/32;if(id.x>=pointCount*words)return;
+    uint pointIndex=id.x/words,first=(id.x%words)*32;uint visible=0,ambiguous=0;
+    [loop] for(uint bit=0;bit<32&&first+bit<dirCount;bit++)
+    {
+        bool uncertain;bool hit=Occluded(Origins[pointIndex].xyz,Directions[first+bit].xyz,uncertain);
+        if(!hit)visible|=1u<<bit;if(uncertain)ambiguous|=1u<<bit;
+    }
+    Results[id.x]=uint2(visible,ambiguous);
+}
