@@ -56,3 +56,44 @@ Shutdown also tolerates Unity destroying the persistent UI camera before the sys
 - 回调内申请阻断允许当前一轮原生处理完成，随后统一收尾；取消路径不合成 Click/Submit/Drop，不回滚本轮已执行的业务。
 - 解除 UI 阻断后等待触摸、鼠标按钮、导航轴及提交/取消键释放，再接收新操作；不恢复旧编辑焦点。只处理 EventSystem 交互，不接管任意控件自己轮询设备的 Update。
 - 失焦恢复已通过隔离 Unity 2022.3.62f2 PlayMode 的六项真实 UGUI 交互回归及 July.UI 编译；完整宿主与真机仍需实际验收。
+
+## UI shaders
+
+All runtime UI shaders live under `Runtime/Shaders`. The move from
+`Runtime/Components/Shaders` preserves shader names and `.meta` GUIDs; existing
+material references and `Shader.Find` callers continue to use the same names.
+
+### TextMeshPro double outline
+
+Use `JulyGF/UI/TextMeshPro Double Outline` on a material preset for the target
+TMP SDF font. Create the preset from that font's material first, then change its
+shader, preserving the atlas texture, dimensions, gradient scale and font weights.
+Fonts, atlases and project-specific material presets remain in the consuming project.
+The shader declares its TMP uniforms directly and has no project-relative include.
+
+- `Face Color` controls the original face. `Inner Outline Color/Width` and
+  `Outer Outline Color/Width` control two successive outward rings. Changing ring
+  width does not shrink the original face.
+- Each width ranges from 0 to 0.4 in normalized SDF distance, not screen pixels;
+  apparent width depends on the font atlas and text size. Zero width removes that ring.
+- Hidden TMP properties reserve mesh padding for the maximum supported widths.
+  Keep these properties on the shader; `_OutlineWidth` is a padding reservation,
+  not a visible outline control. The font atlas also needs sufficient padding.
+- The material uses premultiplied alpha. TMP vertex alpha fades the face and both
+  rings together; RectMask2D, stencil Mask and UI alpha clipping are supported.
+- Glyphs render separately. Thick rings can overlap neighboring glyphs; adjust
+  character spacing when needed. The shader does not composite the entire text
+  into a shared outline or provide the full standard TMP effects/Inspector.
+
+When migrating a project-local copy, move its `.meta` with the shader to preserve
+material references and remove the old copy when upgrading the package. Do not
+keep both copies with the same GUID in one Unity project.
+
+Validation for 0.4.2 passed 44 checks in an isolated Unity 2022.3.62f2 /
+Direct3D11 project, loading an unchanged shader-only snapshot of this package
+from a UPM package path: rendering of the original face, both
+rings, zero/maximum widths, vertex opacity, alpha clipping and both UGUI mask types,
+plus compilation/name/GUID checks for all six shaders. Source comparison also
+verified that all five moved shader bodies and their metadata are unchanged.
+This does not establish full July.UI assembly integration, mobile graphics-backend
+or full consuming-game acceptance.

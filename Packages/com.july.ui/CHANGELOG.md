@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.2 - 2026-11-11
+
+- Add `JulyGF/UI/TextMeshPro Double Outline`: preserve the original SDF face while independently expanding two colored outline rings, with TMP mesh padding, vertex opacity and UGUI masks.
+- Keep TMP uniform declarations inside the shader so consumers do not need a project-specific `Assets/TextMesh Pro/Shaders` include path.
+- Move all five existing UI shaders from `Runtime/Components/Shaders` to `Runtime/Shaders`, preserving shader names, file GUIDs and the folder GUID.
+- Validate the package shader assets in an isolated Unity 2022.3.62f2 / Direct3D11 fixture: 44 compilation, GUID/name, TMP rendering and masking checks pass. Full package/game integration and mobile backends are not validated by this fixture.
+
 ## 0.4.1 - 2026-10-25
 
 - Use JLogger for runtime component diagnostics, toggle-selection exceptions and editor generation errors; retain unconditional editor information and warnings.
