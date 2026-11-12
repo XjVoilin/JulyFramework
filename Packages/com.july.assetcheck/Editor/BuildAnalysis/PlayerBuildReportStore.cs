@@ -68,17 +68,14 @@ namespace July.AssetCheck
             };
         }
 
-        internal static bool Save(PlayerBuildSnapshot snapshot)
+        internal static void Save(PlayerBuildSnapshot snapshot)
         {
-            // Unity 增量构建复用资源数据时不提供 packedAssets，不能覆盖完整明细。
-            if (snapshot.assets.Length == 0) return false;
             Directory.CreateDirectory(Path.GetDirectoryName(RelativePath));
             var temporary = RelativePath + ".tmp";
             File.WriteAllText(temporary, JsonUtility.ToJson(snapshot, true));
             if (File.Exists(RelativePath)) File.Replace(temporary, RelativePath, null);
             else File.Move(temporary, RelativePath);
             Changed?.Invoke();
-            return true;
         }
 
         internal static PlayerBuildSnapshot Load()
@@ -101,13 +98,13 @@ namespace July.AssetCheck
             internal PlayerBuildSnapshot Snapshot;
         }
 
-        private static readonly List<PendingReport> Pending = new List<PendingReport>();
+        private static PendingReport _pending;
         public int callbackOrder => int.MaxValue;
 
         public void OnPostprocessBuild(BuildReport report)
         {
-            // 一次发布可先构建 AOT 再构建客户端；不能只保留最后一个回调。
-            Pending.Add(new PendingReport { Report = report, Snapshot = PlayerBuildReportStore.Capture(report) });
+            // 只分析最后一次 Player 构建，不借用前一次构建的资源明细。
+            _pending = new PendingReport { Report = report, Snapshot = PlayerBuildReportStore.Capture(report) };
             EditorApplication.update -= Complete;
             EditorApplication.update += Complete;
         }
@@ -116,18 +113,14 @@ namespace July.AssetCheck
         {
             if (BuildPipeline.isBuildingPlayer) return;
             EditorApplication.update -= Complete;
-            var reports = Pending.ToArray();
-            Pending.Clear();
-            foreach (var pending in reports)
-            {
-                var summary = pending.Report.summary;
-                if (summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded) continue;
-                var snapshot = pending.Snapshot;
-                snapshot.builtAt = summary.buildEndedAt.ToString("O");
-                snapshot.totalBytes = summary.totalSize;
-                if (!PlayerBuildReportStore.Save(snapshot))
-                    Debug.Log("[July 构建资源] 本次构建未提供资源明细，保留上次完整记录。Unity 复用资源缓存时会出现此情况；首次采集请执行一次 Clean Build。来源：" + summary.outputPath);
-            }
+            var pending = _pending;
+            _pending = null;
+            var summary = pending.Report.summary;
+            if (summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded) return;
+            var snapshot = pending.Snapshot;
+            snapshot.builtAt = summary.buildEndedAt.ToString("O");
+            snapshot.totalBytes = summary.totalSize;
+            PlayerBuildReportStore.Save(snapshot);
         }
     }
 }

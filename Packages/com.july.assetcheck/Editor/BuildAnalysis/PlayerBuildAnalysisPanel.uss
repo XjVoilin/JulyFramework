@@ -8,7 +8,8 @@
 .player-build-analysis #player-build-metric { flex-grow: 1; flex-basis: 0; padding-left: 18px; }
 .player-build-analysis .player-build-metric-value { font-size: 22px; -unity-font-style: bold; color: var(--ac-text); margin: 0; }
 .player-build-analysis .player-build-metric-caption { font-size: 11px; color: var(--ac-muted); margin: 5px 0 0; }
-.player-build-analysis #player-build-metadata { flex-shrink: 0; color: var(--ac-muted); font-size: 11px; margin: 8px 0 12px; white-space: normal; }
+.player-build-analysis #player-build-metadata { flex-shrink: 0; color: var(--ac-muted); font-size: 11px; margin: 8px 0 3px; white-space: normal; }
+.player-build-analysis #player-build-output { flex-shrink: 0; color: var(--ac-muted); font-size: 11px; margin: 0 0 12px; white-space: normal; }
 .player-build-analysis #player-build-tools { flex-direction: row; align-items: center; flex-shrink: 0; margin-bottom: 8px; }
 .player-build-analysis #player-build-search { flex-grow: 1; flex-shrink: 1; flex-basis: 0; min-width: 120px; margin: 0 7px 0 0; }
 .player-build-analysis #player-build-search > .unity-base-field__label { min-width: 32px; color: var(--ac-muted); }

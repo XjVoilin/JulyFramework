@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.8.4 - 2026-11-12
+
+- Keep one pending Player build report, capture resources during the callback and finalize metadata after building. Persist successful reports even when resource details are absent; replace stale rows and show unmeasured values rather than borrowing an earlier build's details.
+- Show the report's output path directly and distinguish reported resource bytes from final platform package size.
+- Refine platform configuration copying with a scan header, compact metrics, collapsible rules, grouped actions, resource thumbnails, highlighted differences and a fixed status footer. Preserve copying and cancellation behavior.
+- Separate bundle-report import, history and build controls; refine result tabs, tables, comparison cells and independently scrolling details in both editor themes, with compact spacing for shorter windows.
+
 ## 0.8.3 - 2026-11-11
 
 - Add a compact client-build resource-size page with descending packed-resource sizes, search, GUID-based locating, build metadata and explicit uncompressed/build-size scope in both editor themes. Keep the latest populated snapshot in Library and existing YooAsset analysis unchanged.

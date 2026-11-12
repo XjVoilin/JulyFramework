@@ -24,14 +24,14 @@ namespace July.AssetCheck
         internal BundleComparisonView(BundleAnalysisCache cache)
         {
             _cache = cache; name = "bundle-comparison"; style.flexGrow = 1; style.minHeight = 0;
-            var choices = Toolbar();
+            var choices = Toolbar(); choices.name = "comparison-sources";
             _before = Picker("基线", "comparison-before"); _after = Picker("目标", "comparison-after");
             choices.Add(_before); choices.Add(_after);
             _compare = new Button(Compare) { name = "compare-reports", text = "比较结果" }; choices.Add(_compare); Add(choices);
             _before.RegisterValueChangedCallback(_ => SelectionChanged()); _after.RegisterValueChangedCallback(_ => SelectionChanged());
             _summary = Text("comparison-summary"); Add(_summary);
             _notice = Text("comparison-notice"); Add(_notice);
-            var tools = Toolbar();
+            var tools = Toolbar(); tools.name = "comparison-tools";
             _packages = new Button(() => ShowResources(false)) { name = "comparison-packages", text = "AB 变化" };
             _resources = new Button(() => ShowResources(true)) { name = "comparison-resources", text = "资源变化" };
             tools.Add(_packages); tools.Add(_resources);
@@ -69,7 +69,7 @@ namespace July.AssetCheck
         void Column(string name, string title, int width, Func<BundleComparisonRow, string> caption)
         {
             var column = new Column { name = name, title = title, width = width, minWidth = 75, stretchable = name == "name" };
-            column.makeCell = () => new Label();
+            column.makeCell = () => { var label = new Label(); label.AddToClassList("analysis-comparison-cell"); return label; };
             column.bindCell = (cell, index) => { var text = caption(_rows[index]); ((Label)cell).text = text; cell.tooltip = text;
                 cell.style.overflow = Overflow.Hidden; cell.style.textOverflow = TextOverflow.Ellipsis; };
             _list.columns.Add(column);

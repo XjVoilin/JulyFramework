@@ -28,6 +28,7 @@ namespace July.AssetCheck
         private MultiColumnListView _list;
         private List<WebGLTextureSettingsCopyEntry> _visible = new List<WebGLTextureSettingsCopyEntry>();
         private Label _status, _counts;
+        private Label _scannedCount, _differenceCount, _consistentCount, _selectionCount, _empty;
         private Toggle _onlyDifferences;
         private Button _copyAll, _copySelected, _cancel;
         private ProgressBar _progress;
@@ -41,6 +42,8 @@ namespace July.AssetCheck
             _workspace = workspace;
             _changed = changed;
             name = "platform-copy-page";
+            AddToClassList("platform-copy");
+            styleSheets.Add(AssetDatabase.LoadAssetAtPath<StyleSheet>("Packages/com.july.assetcheck/Editor/Textures/WebGLTextureSettingsCopyPanel.uss"));
             style.flexGrow = 1;
             Build();
             AssetCheckAssetChanges.Changed += OnAssetsChanged;
@@ -57,13 +60,24 @@ namespace July.AssetCheck
         private void Build()
         {
             var root = this;
-            root.style.paddingLeft = root.style.paddingRight = 8;
-            root.style.paddingTop = root.style.paddingBottom = 8;
-            root.Add(new HelpBox("选择文件夹 → 扫描 → 查看差异 → 复制。WebGL 未启用覆盖时复制 Default 配置；" +
-                "两个目标启用覆盖，Automatic 保持原值。与资源检查共用忽略名单。取消或关闭窗口保留已保存的修改。", HelpBoxMessageType.Info));
+            var heading = Row("copy-heading");
+            var title = new VisualElement { name = "copy-title-group" };
+            title.Add(new Label("平台配置复制") { name = "copy-title" });
+            title.Add(new Label("以 WebGL 为来源，对照 MiniGame 与 WeixinMiniGame 的贴图和图集配置。") { name = "copy-subtitle" });
+            heading.Add(title);
             _scan = new Button(() => RunUi(StartScan)) { name = "scan", text = "扫描平台配置" };
-            root.Add(_scan);
-            _resultControls = new VisualElement { style = { flexDirection = FlexDirection.Row, marginTop = 6 } };
+            _scan.AddToClassList("copy-primary"); heading.Add(_scan); root.Add(heading);
+            var metrics = Row("copy-metrics");
+            _scannedCount = Metric(metrics, "已扫描");
+            _differenceCount = Metric(metrics, "有差异");
+            _consistentCount = Metric(metrics, "配置一致");
+            _selectionCount = Metric(metrics, "已选择");
+            root.Add(metrics);
+            var rules = new Foldout { text = "复制规则与范围", value = false, name = "copy-rules" };
+            rules.Add(new HelpBox("WebGL 未启用覆盖时复制 Default 配置；两个目标启用覆盖，Automatic 保持原值。" +
+                "与资源检查共用目录和忽略名单。取消或关闭窗口保留已保存的修改。", HelpBoxMessageType.Info));
+            root.Add(rules);
+            _resultControls = Row("copy-controls");
             _onlyDifferences = new Toggle("仅显示差异") { name = "only-differences", value = true };
             _onlyDifferences.RegisterValueChangedCallback(_ => RebuildRows());
             _resultControls.Add(_onlyDifferences);
@@ -73,12 +87,13 @@ namespace July.AssetCheck
                 RebuildRows();
             }) { text = "全选差异" });
             _resultControls.Add(new Button(() => { _selected.Clear(); RebuildRows(); }) { text = "清空选择" });
+            _resultControls.Add(new VisualElement { style = { flexGrow = 1 } });
             _copySelected = new Button(() => RunUi(() => StartCopy(true))) { name = "copy-selected", text = "复制选中" };
             _copyAll = new Button(() => RunUi(() => StartCopy(false))) { name = "copy-all", text = "复制全部差异" };
             _resultControls.Add(_copySelected);
             _resultControls.Add(_copyAll);
             root.Add(_resultControls);
-            _counts = new Label { name = "counts", style = { marginTop = 6, marginBottom = 6 } };
+            _counts = new Label { name = "counts" };
             root.Add(_counts);
             _list = new MultiColumnListView
             {
@@ -90,7 +105,8 @@ namespace July.AssetCheck
             _list.columns.Add(new Column
             {
                 name = "resource", title = "资源文件", width = 340, minWidth = 260, stretchable = true,
-                makeCell = MakeResource, bindCell = (cell, index) => BindResource(cell, _visible[index])
+                makeCell = MakeResource, bindCell = (cell, index) => BindResource(cell, _visible[index]),
+                unbindCell = (cell, index) => cell.Q<AssetCheckThumbnail>().ResetPreview()
             });
             AddColumn("source", "WebGL 来源", entry => (entry.Inherited ? "继承 Default\n" : "WebGL 覆盖\n") +
                 WebGLTextureSettingsCopyEntry.Summary(entry.Source), entry => WebGLTextureSettingsCopyEntry.Description(entry.Source));
@@ -99,13 +115,24 @@ namespace July.AssetCheck
             AddColumn("weixin", "WeixinMiniGame", entry => TargetText(entry.WeixinMiniGame, entry.CopyWeixinMiniGame),
                 entry => WebGLTextureSettingsCopyEntry.Description(entry.WeixinMiniGame));
             root.Add(_list);
+            _empty = new Label { name = "copy-empty" }; root.Add(_empty);
+            var footer = Row("copy-footer");
+            _status = new Label { name = "status" }; footer.Add(_status);
+            _cancel = new Button(Cancel) { name = "cancel", text = "取消" }; footer.Add(_cancel);
+            root.Add(footer);
             _progress = new ProgressBar();
             root.Add(_progress);
-            _cancel = new Button(Cancel) { name = "cancel", text = "取消" };
-            root.Add(_cancel);
-            _status = new Label { name = "status", style = { whiteSpace = WhiteSpace.Normal, marginTop = 6 } };
-            root.Add(_status);
             RebuildRows();
+        }
+
+        private static VisualElement Row(string name) => new VisualElement { name = name };
+
+        private static Label Metric(VisualElement parent, string caption)
+        {
+            var metric = new VisualElement(); metric.AddToClassList("copy-metric");
+            var value = new Label("0"); value.AddToClassList("copy-metric-value"); metric.Add(value);
+            var label = new Label(caption); label.AddToClassList("copy-metric-caption"); metric.Add(label);
+            parent.Add(metric); return value;
         }
 
         private void AddColumn(string name, string title, Func<WebGLTextureSettingsCopyEntry, string> text,
@@ -117,6 +144,7 @@ namespace July.AssetCheck
                 makeCell = () =>
                 {
                     var cell = new Label { style = { whiteSpace = WhiteSpace.Normal, unityTextAlign = TextAnchor.MiddleLeft } };
+                    cell.AddToClassList("copy-platform-cell");
                     RegisterLocate(cell);
                     return cell;
                 },
@@ -125,6 +153,8 @@ namespace July.AssetCheck
                     cell.userData = _visible[index];
                     ((Label)cell).text = text(_visible[index]);
                     cell.tooltip = tooltip(_visible[index]);
+                    var entry = _visible[index];
+                    cell.EnableInClassList("copy-difference", name == "minigame" ? entry.CopyMiniGame : name == "weixin" && entry.CopyWeixinMiniGame);
                 }
             });
         }
@@ -135,6 +165,7 @@ namespace July.AssetCheck
         private VisualElement MakeResource()
         {
             var cell = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, overflow = Overflow.Hidden } };
+            cell.AddToClassList("copy-resource-cell");
             RegisterLocate(cell);
             var toggle = new Toggle();
             toggle.RegisterCallback<ClickEvent>(evt => evt.StopPropagation());
@@ -145,7 +176,9 @@ namespace July.AssetCheck
                 Refresh();
             });
             cell.Add(toggle);
+            cell.Add(new AssetCheckThumbnail());
             var text = new VisualElement { style = { flexGrow = 1, minWidth = 0 } };
+            text.AddToClassList("copy-resource-text");
             text.Add(new Label { name = "filename" });
             text.Add(new Label { name = "path", style = { fontSize = 10, overflow = Overflow.Hidden, unityTextOverflowPosition = TextOverflowPosition.Start, textOverflow = TextOverflow.Ellipsis } });
             cell.Add(text);
@@ -159,6 +192,7 @@ namespace July.AssetCheck
             toggle.SetValueWithoutNotify(_selected.Contains(entry.Guid));
             toggle.SetEnabled(CanCopy && entry.NeedsCopy);
             cell.Q<Label>("filename").text = Path.GetFileName(entry.Path) + (entry.IsAtlas ? "（图集）" : "");
+            cell.Q<AssetCheckThumbnail>().BindPath(AssetDatabase.GUIDToAssetPath(entry.Guid));
             cell.Q<Label>("path").text = Path.GetDirectoryName(entry.Path)?.Replace('\\', '/');
             cell.tooltip = entry.Path;
         }
@@ -317,8 +351,18 @@ namespace July.AssetCheck
             _copyAll.SetEnabled(CanCopy && _entries.Any(entry => entry.NeedsCopy));
             _copySelected.SetEnabled(CanCopy && _entries.Any(entry => entry.NeedsCopy && _selected.Contains(entry.Guid)));
             _cancel.SetEnabled(Running);
-            _counts.text = $"已扫描 {_entries.Count + _ignoredCount} 个文件，忽略 {_ignoredCount} 个，差异 {_entries.Count(entry => entry.NeedsCopy)} 个，一致 {_entries.Count(entry => !entry.NeedsCopy)} 个，已选 {_selected.Count} 个。";
+            var differences = _entries.Count(entry => entry.NeedsCopy);
+            _scannedCount.text = (_entries.Count + _ignoredCount).ToString("N0");
+            _differenceCount.text = differences.ToString("N0");
+            _consistentCount.text = (_entries.Count - differences).ToString("N0");
+            _selectionCount.text = _selected.Count.ToString("N0");
+            _counts.text = $"显示 {_visible.Count:N0} 个文件；已忽略 {_ignoredCount:N0} 个。点击资源或平台配置可定位文件。";
             _status.text = _message;
+            _status.EnableInClassList("copy-stale", _stale);
+            _list.style.display = _visible.Count > 0 ? DisplayStyle.Flex : DisplayStyle.None;
+            _empty.style.display = _visible.Count == 0 ? DisplayStyle.Flex : DisplayStyle.None;
+            _empty.text = Scanning ? "正在读取平台配置…" : !_complete ? "扫描当前目录，查看平台配置差异" :
+                _entries.Count == 0 ? "当前目录没有可检查的贴图或图集" : "当前筛选下没有差异文件";
             _progress.style.display = Running ? DisplayStyle.Flex : DisplayStyle.None;
             _progress.title = Scanning ? $"扫描 {_scanIndex}/{_scanPaths.Length}" : Copying ? $"复制 {_operation.Processed}/{_operation.Total}" : "";
             _progress.value = Scanning ? 100f * _scanIndex / Math.Max(1, _scanPaths.Length) :

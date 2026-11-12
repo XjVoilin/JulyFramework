@@ -61,22 +61,29 @@ namespace July.AssetCheck
             AddToClassList("bundle-analysis"); AddToClassList(EditorGUIUtility.isProSkin ? "analysis-dark" : "analysis-light");
             styleSheets.Add(AssetDatabase.LoadAssetAtPath<StyleSheet>("Packages/com.july.assetcheck/Editor/Analysis/BundleAnalysisPanel.uss"));
             style.flexGrow = 1; style.minHeight = 0;
-            var input = Row();
+            RegisterCallback<GeometryChangedEvent>(evt => EnableInClassList("analysis-compact", evt.newRect.height < 680));
+            var heading = new VisualElement { name = "analysis-heading" };
+            heading.Add(new Label("AB 打包分析") { name = "analysis-title" });
+            heading.Add(new Label("从 YooAsset 构建报告查看包体大小、依赖关系与入包资源。") { name = "analysis-subtitle" });
+            Add(heading);
+            var input = Row(); input.name = "analysis-report-input";
             _path = new TextField("报告") { name = "bundle-report-path", style = { flexGrow = 1, flexShrink = 1, flexBasis = 0, minWidth = 0 } }; _path.labelElement.style.minWidth = 36; input.Add(_path);
             _chooseReport = new Button(() => { var path = EditorUtility.OpenFilePanel("选择 YooAsset report", "", "report"); if (path.Length > 0) _path.value = path; }) { text = "选择 .report" }; input.Add(_chooseReport);
             _read = new Button(() => RunUi(() => ImportReport(_path.value))) { name = "analyze-report", text = "开始分析" }; input.Add(_read);
+            Add(input);
+            var historyTools = Row(); historyTools.name = "analysis-history-tools";
             _history = new PopupField<BundleAnalysisRecord>("历史", new List<BundleAnalysisRecord> { null }, 0)
             { name = "analysis-history", formatSelectedValueCallback = record => record?.ToString() ?? "尚无完整结果",
-                formatListItemCallback = record => record?.ToString() ?? "尚无完整结果", style = { width = 235, flexShrink = 1 } };
-            _history.labelElement.style.minWidth = 30; input.Add(_history);
-            _openHistory = new Button(() => RunUi(() => { var id = _history.value.Id; SaveCache(); RestoreCache(id); })) { name = "open-analysis-history", text = "查看" }; input.Add(_openHistory);
+                formatListItemCallback = record => record?.ToString() ?? "尚无完整结果", style = { flexGrow = 1, flexShrink = 1, flexBasis = 0, minWidth = 180 } };
+            _history.labelElement.style.minWidth = 36; historyTools.Add(_history);
+            _openHistory = new Button(() => RunUi(() => { var id = _history.value.Id; SaveCache(); RestoreCache(id); })) { name = "open-analysis-history", text = "查看" }; historyTools.Add(_openHistory);
             _recheck = new Button(() => RunUi(() => BeginInspection(Session.Packages.Report)))
-                { name = "recheck-analysis-history", text = "重检资源", tooltip = "按当前显示的归档报告确定入包范围，检查当前工程；不构建 AB。" }; input.Add(_recheck);
-            _compareHistory = new Button(() => RunUi(() => { _comparison.RefreshRecords(); ShowComparison(true); })) { name = "show-analysis-comparison", text = "结果对比" }; input.Add(_compareHistory);
-            _current = new Button(() => ShowComparison(false)) { name = "show-analysis-current", text = "返回结果" }; input.Add(_current);
-            Add(input);
+                { name = "recheck-analysis-history", text = "重检资源", tooltip = "按当前显示的归档报告确定入包范围，检查当前工程；不构建 AB。" }; historyTools.Add(_recheck);
+            _compareHistory = new Button(() => RunUi(() => { _comparison.RefreshRecords(); ShowComparison(true); })) { name = "show-analysis-comparison", text = "结果对比" }; historyTools.Add(_compareHistory);
+            _current = new Button(() => ShowComparison(false)) { name = "show-analysis-current", text = "返回结果" }; historyTools.Add(_current);
+            Add(historyTools);
             _singlePage = new VisualElement { name = "analysis-single", style = { flexGrow = 1, minHeight = 0 } }; Add(_singlePage);
-            var buildTools = Row();
+            var buildTools = Row(); buildTools.name = "analysis-build-tools";
             var targets = BundleAnalysisBuildQueue.SupportedTargets().ToList();
             var selected = BundleAnalysisBuildQueue.Current?.target ?? EditorUserBuildSettings.activeBuildTarget;
             _target = new PopupField<BuildTarget>("构建目标", targets, targets.Contains(selected) ? selected : targets.FirstOrDefault())
@@ -89,10 +96,11 @@ namespace July.AssetCheck
             _configuration = Label("analysis-configuration", "配置已被外部修改或移除，请通过设置重新加载；已完成的分析快照保留。"); _singlePage.Add(_configuration);
             _summary = Label("report-summary"); _singlePage.Add(_summary);
             _standards = new Foldout { text = "AB 大小标准（资源标准沿用资源检查页）", value = false }; var fields = Row();
+            _standards.name = "analysis-standards";
             _minimum = new IntegerField("最小（KiB）") { style = { width = 260, flexShrink = 1 } }; _maximum = new FloatField("最大（MiB）") { style = { width = 260, flexShrink = 1 } }; fields.Add(_minimum); fields.Add(_maximum); _standards.Add(fields); _singlePage.Add(_standards);
             _minimum.RegisterValueChangedCallback(e => RunUi(() => _workspace().ChangeSettings(s => s.minBundleBytes = checked(e.newValue * 1024))));
             _maximum.RegisterValueChangedCallback(e => RunUi(() => _workspace().ChangeSettings(s => s.maxBundleBytes = checked((int)(e.newValue * 1048576)))));
-            var tabs = Row(); _packsTab = new Button(() => ShowResources(false)) { name = "analysis-packages-tab", text = "AB 包结果" };
+            var tabs = Row(); tabs.name = "analysis-result-tabs"; _packsTab = new Button(() => ShowResources(false)) { name = "analysis-packages-tab", text = "AB 包结果" };
             _resourcesTab = new Button(() => ShowResources(true)) { name = "analysis-resources-tab", text = "资源检查结果" }; tabs.Add(_packsTab); tabs.Add(_resourcesTab); _singlePage.Add(tabs);
             _types = new AssetCheckTypeTabs(kind => SelectResourceType(kind), "bundle-tab-") { name = "bundle-resource-types" };
             _unclassified = new Button(() => SelectResourceType(null)) { name = "bundle-tab-unclassified", text = "未归类" };
@@ -110,7 +118,7 @@ namespace July.AssetCheck
             })) { name = "resource-directory-selected", text = "使用选中目录" });
             _directoryTools.Add(new Button(() => SetResourceDirectory("")) { name = "resource-directory-all", text = "全部目录" });
             _singlePage.Add(_directoryTools);
-            var tools = Row(); _search = new TextField("搜索") { name = "analysis-search", style = { flexGrow = 1, flexShrink = 1, flexBasis = 0, minWidth = 0 } }; _search.labelElement.style.minWidth = 36; tools.Add(_search);
+            var tools = Row(); tools.name = "analysis-result-tools"; _search = new TextField("搜索") { name = "analysis-search", style = { flexGrow = 1, flexShrink = 1, flexBasis = 0, minWidth = 0 } }; _search.labelElement.style.minWidth = 36; tools.Add(_search);
             _filter = new PopupField<string>(new List<string> { "全部", "过大", "过小", "循环依赖" }, 0) { name = "analysis-filter", style = { width = 150, flexShrink = 0 } }; tools.Add(_filter);
             tools.Add(new Button(() => { _owner = null; _directory.SetValueWithoutNotify(""); _filter.SetValueWithoutNotify("全部"); _search.SetValueWithoutNotify(""); Rebuild(); }) { text = "清除筛选" });
             _search.RegisterValueChangedCallback(_ => Rebuild()); _filter.RegisterValueChangedCallback(_ => Rebuild()); _singlePage.Add(tools);
@@ -127,13 +135,14 @@ namespace July.AssetCheck
             _resources.AddRelatedColumn("所属 AB", file => Resource(file.Id).Asset.Owners.Count + " 个包", file => InspectResource(Resource(file.Id)));
             var lists = new VisualElement { style = { flexGrow = 1, minWidth = 490, minHeight = 0 } }; lists.Add(_packs); lists.Add(_resources);
             _inspector = new ScrollView { name = "analysis-inspector", style = { minWidth = 280, flexGrow = 1 } }; _inspector.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+            _inspector.Add(new Label("选择左侧 AB 或资源，查看大小、归属与依赖详情。") { name = "analysis-detail-empty" });
             _resources.SelectionChanged += () =>
             {
                 if (_selectedResource != null && !_resources.Model.Files.Any(file => file.Id == BundlePackageAnalysis.Identity(_selectedResource.Asset)))
                 { _selectedResource = null; _inspector.Clear(); }
             };
             var split = new TwoPaneSplitView(1, 305, TwoPaneSplitViewOrientation.Horizontal) { name = "analysis-split", style = { flexGrow = 1, minHeight = 160 } }; split.Add(lists); split.Add(_inspector); _singlePage.Add(split);
-            var footer = Row(); _status = Label("analysis-status"); _status.style.flexGrow = 1; _status.style.flexShrink = 1; _status.style.flexBasis = 0; _status.style.minWidth = 0; footer.Add(_status);
+            var footer = Row(); footer.name = "analysis-footer"; _status = Label("analysis-status"); _status.style.flexGrow = 1; _status.style.flexShrink = 1; _status.style.flexBasis = 0; _status.style.minWidth = 0; footer.Add(_status);
             _cancel = new Button(() => RunUi(() => { if (BundleAnalysisBuildQueue.Running) BundleAnalysisBuildQueue.Cancel(); else Session.Cancel(); RefreshProgress(); if (_selectedResource != null) InspectResource(_selectedResource); _changed(); })) { name = "analysis-cancel", text = "取消检查" }; footer.Add(_cancel); _singlePage.Add(footer);
             _progress = new ProgressBar { name = "analysis-progress", lowValue = 0, highValue = 1 }; _singlePage.Add(_progress);
             _comparison = new BundleComparisonView(_cache); Add(_comparison); ShowComparison(false);
