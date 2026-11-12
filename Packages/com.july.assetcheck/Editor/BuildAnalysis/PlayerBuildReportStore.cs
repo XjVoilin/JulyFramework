@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Newtonsoft.Json;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
@@ -19,17 +20,33 @@ namespace July.AssetCheck
     [Serializable]
     internal sealed class PlayerBuildSnapshot
     {
-        public int version = 1;
+        public int version = 2;
         public string platform, builtAt, unityVersion, outputPath;
-        public bool development;
+        public bool development, cleanBuild, scriptsOnly;
         public ulong totalBytes, assetBytes;
         public PlayerBuildAsset[] assets;
     }
 
-    internal static class PlayerBuildReportStore
+    [Serializable]
+    internal sealed class PlayerBuildCache
     {
-        internal const string RelativePath = "Library/July/AssetCheck/PlayerBuild/latest.json";
+        public int version = 1;
+        public string lastBuiltAt, lastOutputPath;
+        public bool lastHadDetails;
+        public PlayerBuildSnapshot baseline, incremental;
+
+        internal PlayerBuildSnapshot LatestDetails => incremental ?? baseline;
+    }
+
+    internal sealed class PlayerBuildReportStore
+    {
+        internal const string RelativePath = "July/AssetCheck/PlayerBuild";
+        internal const string LegacyPath = "Library/July/AssetCheck/PlayerBuild/latest.json";
         internal static event Action Changed;
+        private readonly string _project;
+        internal string DirectoryPath => Path.Combine(_project, RelativePath);
+
+        internal PlayerBuildReportStore(string projectDirectory) => _project = Path.GetFullPath(projectDirectory);
 
         internal static PlayerBuildSnapshot Capture(BuildReport report)
         {
@@ -63,33 +80,92 @@ namespace July.AssetCheck
                 platform = summary.platform.ToString(), builtAt = summary.buildEndedAt.ToString("O"),
                 unityVersion = Application.unityVersion, outputPath = summary.outputPath,
                 development = (summary.options & BuildOptions.Development) != 0,
+                cleanBuild = (summary.options & BuildOptions.CleanBuildCache) != 0,
+                scriptsOnly = EditorUserBuildSettings.buildScriptsOnly || (summary.options & BuildOptions.BuildScriptsOnly) != 0,
                 totalBytes = summary.totalSize, assetBytes = bytes,
                 assets = assets.Values.OrderByDescending(asset => asset.bytes).ThenBy(asset => asset.path, StringComparer.Ordinal).ToArray()
             };
         }
 
-        internal static void Save(PlayerBuildSnapshot snapshot)
+        // Only successful content builds may update client resource records.
+        internal bool Record(PlayerBuildSnapshot snapshot, BuildResult result)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(RelativePath));
-            var temporary = RelativePath + ".tmp";
-            File.WriteAllText(temporary, JsonUtility.ToJson(snapshot, true));
-            if (File.Exists(RelativePath)) File.Replace(temporary, RelativePath, null);
-            else File.Move(temporary, RelativePath);
+            if (result != BuildResult.Succeeded || snapshot.scriptsOnly) return false;
+            var cache = Load(snapshot.platform);
+            cache.lastBuiltAt = snapshot.builtAt;
+            cache.lastOutputPath = snapshot.outputPath;
+            cache.lastHadDetails = snapshot.assets.Length > 0;
+            if (cache.lastHadDetails)
+            {
+                if (snapshot.cleanBuild)
+                {
+                    cache.baseline = snapshot;
+                    cache.incremental = null;
+                }
+                else cache.incremental = snapshot;
+            }
+            Directory.CreateDirectory(DirectoryPath);
+            var path = PathFor(snapshot.platform);
+            var temporary = path + ".tmp";
+            File.WriteAllText(temporary, JsonConvert.SerializeObject(cache, Formatting.Indented));
+            if (File.Exists(path)) File.Replace(temporary, path, null);
+            else File.Move(temporary, path);
             Changed?.Invoke();
+            return true;
         }
 
-        internal static PlayerBuildSnapshot Load()
+        internal PlayerBuildCache Load(string platform)
         {
-            if (!File.Exists(RelativePath)) return null;
-            var snapshot = JsonUtility.FromJson<PlayerBuildSnapshot>(File.ReadAllText(RelativePath));
-            if (snapshot == null || snapshot.version != 1 || snapshot.assets == null ||
-                snapshot.assets.Any(asset => asset == null || string.IsNullOrEmpty(asset.path)))
-                throw new InvalidDataException("构建资源记录无效，请完成一次客户端构建以重新生成：" + RelativePath);
-            return snapshot;
+            var path = PathFor(platform);
+            if (File.Exists(path))
+            {
+                var cache = Read<PlayerBuildCache>(path);
+                if (cache == null || cache.version != 1 || string.IsNullOrEmpty(cache.lastBuiltAt)) throw Invalid(path);
+                Validate(cache.baseline, platform, path);
+                Validate(cache.incremental, platform, path);
+                return cache;
+            }
+            // Read old records without changing them or claiming unrecorded build coverage.
+            var legacyPath = Path.Combine(_project, LegacyPath);
+            if (!File.Exists(legacyPath)) return new PlayerBuildCache();
+            var legacy = Read<PlayerBuildSnapshot>(legacyPath);
+            if (legacy == null) throw Invalid(legacyPath);
+            if (legacy.platform != platform) return new PlayerBuildCache();
+            Validate(legacy, platform, legacyPath);
+            return new PlayerBuildCache
+            {
+                lastBuiltAt = legacy.builtAt, lastOutputPath = legacy.outputPath,
+                lastHadDetails = legacy.assets.Length > 0,
+                baseline = legacy.assets.Length > 0 ? legacy : null
+            };
         }
+
+        private string PathFor(string platform)
+        {
+            // Platform comes from a report/file boundary; never use arbitrary text as a filename.
+            if (!Enum.TryParse<BuildTarget>(platform, out var target) || !Enum.IsDefined(typeof(BuildTarget), target))
+                throw new InvalidDataException("Unknown Player build target: " + platform);
+            return Path.Combine(DirectoryPath, target + ".json");
+        }
+
+        private static void Validate(PlayerBuildSnapshot snapshot, string platform, string path)
+        {
+            if (snapshot == null) return;
+            if ((snapshot.version != 1 && snapshot.version != 2) || snapshot.platform != platform ||
+                snapshot.assets == null || snapshot.assets.Any(asset => asset == null || string.IsNullOrEmpty(asset.path)))
+                throw Invalid(path);
+        }
+
+        private static T Read<T>(string path)
+        {
+            try { return JsonConvert.DeserializeObject<T>(File.ReadAllText(path)); }
+            catch (JsonException exception) { throw new InvalidDataException("客户端构建资源记录无法解析：" + path, exception); }
+        }
+
+        private static InvalidDataException Invalid(string path) => new InvalidDataException("客户端构建资源记录无效：" + path);
     }
 
-    // 在回调中保留资源数据；等构建结束后补齐最终结果和总大小。
+    // Capture during the callback; finalize only the last content report after the build finishes.
     internal sealed class PlayerBuildReportCapture : IPostprocessBuildWithReport
     {
         private sealed class PendingReport
@@ -103,8 +179,10 @@ namespace July.AssetCheck
 
         public void OnPostprocessBuild(BuildReport report)
         {
-            // 只分析最后一次 Player 构建，不借用前一次构建的资源明细。
-            _pending = new PendingReport { Report = report, Snapshot = PlayerBuildReportStore.Capture(report) };
+            var snapshot = PlayerBuildReportStore.Capture(report);
+            // HybridCLR enables scriptsOnly while producing its temporary stripped-AOT Player.
+            if (snapshot.scriptsOnly) return;
+            _pending = new PendingReport { Report = report, Snapshot = snapshot };
             EditorApplication.update -= Complete;
             EditorApplication.update += Complete;
         }
@@ -116,11 +194,10 @@ namespace July.AssetCheck
             var pending = _pending;
             _pending = null;
             var summary = pending.Report.summary;
-            if (summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded) return;
             var snapshot = pending.Snapshot;
             snapshot.builtAt = summary.buildEndedAt.ToString("O");
             snapshot.totalBytes = summary.totalSize;
-            PlayerBuildReportStore.Save(snapshot);
+            new PlayerBuildReportStore(Directory.GetCurrentDirectory()).Record(snapshot, summary.result);
         }
     }
 }

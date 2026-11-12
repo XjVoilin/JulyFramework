@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.8.5 - 2026-11-12
+
+- Preserve available client resource details when a successful incremental build returns no resource data. Keep every displayed metric, timestamp and output path bound to its source report; show the latest content-build status separately.
+- Retain a clean-build baseline independently from the latest populated incremental report, with a direct view switch. Label incremental and legacy coverage explicitly rather than merging records or treating non-empty data as complete coverage.
+- Store snapshots per build target under July/AssetCheck/PlayerBuild. Read existing Library snapshots without rewriting them or inventing coverage; migrate preserved data on the next successful content report.
+- Ignore failed and scripts-only/AOT temporary Player reports. Keep callback-time resource capture and post-build finalization, existing size aggregation, thumbnails and locating.
+- Add focused Editor regressions for empty/partial/clean transitions, report provenance, platform isolation, legacy records, failed/temporary builds, invalid caches and page switching.
+
 ## 0.8.4 - 2026-11-12
 
 - Keep one pending Player build report, capture resources during the callback and finalize metadata after building. Persist successful reports even when resource details are absent; replace stale rows and show unmeasured values rather than borrowing an earlier build's details.
