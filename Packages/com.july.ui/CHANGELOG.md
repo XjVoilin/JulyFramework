@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+- Advance UITextReveal directly from accumulated frame time in LateUpdate; remove the component's DOTween object, callbacks and tween cleanup.
+
+- Read the parsed TMP character count after ForceMeshUpdate without temporarily expanding maxVisibleCharacters; visibility limits do not truncate the count.
+
+- Use one animated-character-count setting for UITextReveal: animate the last N characters (0 means the full text), from zero visible characters to the complete range. Remove the separate initial-visible setting.
+
+- Replace UITextReveal loop toggle with a total play count: positive values play that many cycles; -1 loops indefinitely.
+
+- Capture TMP display settings only when reveal playback takes ownership; make stop/disable cleanup idempotent and remove the redundant DOTween object link.
+
+- Add `UITextReveal` for whole-text or trailing-character TMP reveal, once or looping, with configurable character range, interval, unscaled time and autoplay.
+- Preserve authored/localized text and layout; restore display settings on stop/disable, and support late localization assignment without a localization dependency.
+
 ## 0.4.2 - 2026-11-11
 
 - Add `JulyGF/UI/TextMeshPro Double Outline`: preserve the original SDF face while independently expanding two colored outline rings, with TMP mesh padding, vertex opacity and UGUI masks.

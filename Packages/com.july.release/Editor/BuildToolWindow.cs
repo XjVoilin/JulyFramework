@@ -34,6 +34,8 @@ namespace July.Release.Editor
         void OnDisable()
         {
             EditorApplication.projectChanged -= OnProjectChanged;
+            _build?.Dispose();
+            _ctx.Repaint = null;
             if (_buildEditor != null) DestroyImmediate(_buildEditor);
             if (_runtimeEditor != null) DestroyImmediate(_runtimeEditor);
         }
@@ -50,33 +52,34 @@ namespace July.Release.Editor
                     ProjectWindowUtil.CreateAsset(CreateInstance<BuildConfig>(), "BuildConfig.asset");
                 return;
             }
-            _scroll = EditorGUILayout.BeginScrollView(_scroll);
-            DrawConfiguration(config);
-            // 配置不完整时仍允许编辑原资产，不要求先通过 Profile 的校验。
-            try { _ctx.SyncConfiguration(); }
-            catch (InvalidOperationException exception)
+            using (var scroll = new EditorGUILayout.ScrollViewScope(_scroll))
             {
-                EditorGUILayout.HelpBox(exception.Message, MessageType.Error);
-                EditorGUILayout.EndScrollView();
-                return;
-            }
-            if (_platform == null)
-            {
-                _platform = new PlatformPanel(); _build = new BuildPipelinePanel();
-                _diff = new DiffPanel();
-                foreach (var panel in new IBuildToolPanel[] { _platform, _build, _diff })
-                    panel.OnEnable(_ctx);
-            }
-            if (_refreshRequested) { _refreshRequested = false; _ctx.RefreshBackups(); }
+                _scroll = scroll.scrollPosition;
+                DrawConfiguration(config);
+                // 配置不完整时仍允许编辑原资产，不要求先通过 Profile 的校验。
+                try { _ctx.SyncConfiguration(); }
+                catch (InvalidOperationException exception)
+                {
+                    EditorGUILayout.HelpBox(exception.Message, MessageType.Error);
+                    return;
+                }
+                if (_platform == null)
+                {
+                    _platform = new PlatformPanel(); _build = new BuildPipelinePanel();
+                    _diff = new DiffPanel();
+                    foreach (var panel in new IBuildToolPanel[] { _platform, _build, _diff })
+                        panel.OnEnable(_ctx);
+                }
+                if (_refreshRequested) { _refreshRequested = false; _ctx.RefreshBackups(); }
 
-            _platform.OnGUI();
-            _ctx.SyncConfiguration();
-            EditorGUILayout.Space(8);
-            _build.OnGUI();
-            EditorGUILayout.Space(8);
-            DrawResult();
-            EditorGUILayout.Space(8);
-            EditorGUILayout.EndScrollView();
+                _platform.OnGUI();
+                _ctx.SyncConfiguration();
+                EditorGUILayout.Space(8);
+                _build.OnGUI();
+                EditorGUILayout.Space(8);
+                DrawResult();
+                EditorGUILayout.Space(8);
+            }
         }
 
         void DrawConfiguration(BuildConfig config)

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Browse saved client resource reports independently of the active Unity build target. Add an explicit report-platform selector, default to the newest available resource data, retain the open-page selection on refresh, and discover legacy records without switching platforms or building.
+
+- Use a concrete, script-backed EditorWindow for Player resource UI regressions instead of showing the EditorWindow base type; keep explicit Close cleanup and avoid anonymous test-window restoration.
+
 ## 0.8.5 - 2026-11-12
 
 - Preserve available client resource details when a successful incremental build returns no resource data. Keep every displayed metric, timestamp and output path bound to its source report; show the latest content-build status separately.

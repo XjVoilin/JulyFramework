@@ -48,6 +48,22 @@ namespace July.AssetCheck
 
         internal PlayerBuildReportStore(string projectDirectory) => _project = Path.GetFullPath(projectDirectory);
 
+        internal IReadOnlyDictionary<string, PlayerBuildCache> LoadAvailable()
+        {
+            var platforms = new HashSet<string>(StringComparer.Ordinal);
+            if (Directory.Exists(DirectoryPath))
+                foreach (var path in Directory.GetFiles(DirectoryPath, "*.json"))
+                    platforms.Add(Path.GetFileNameWithoutExtension(path));
+            var legacyPath = Path.Combine(_project, LegacyPath);
+            if (File.Exists(legacyPath))
+            {
+                var legacy = Read<PlayerBuildSnapshot>(legacyPath);
+                if (legacy == null) throw Invalid(legacyPath);
+                platforms.Add(legacy.platform);
+            }
+            return platforms.ToDictionary(platform => platform, Load, StringComparer.Ordinal);
+        }
+
         internal static PlayerBuildSnapshot Capture(BuildReport report)
         {
             var assets = new Dictionary<string, PlayerBuildAsset>(StringComparer.Ordinal);

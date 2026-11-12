@@ -140,7 +140,8 @@ namespace July.AssetCheck.Tests
 
         private PlayerBuildAnalysisPanel Panel()
         {
-            _window = ScriptableObject.CreateInstance<EditorWindow>();
+            _window = ScriptableObject.CreateInstance<PlayerBuildReportTestWindow>();
+            _window.titleContent = new GUIContent("Player resource report test");
             var panel = new PlayerBuildAnalysisPanel(_store);
             _window.rootVisualElement.Add(panel);
             _window.Show(); panel.Activate(); return panel;
@@ -171,6 +172,59 @@ namespace July.AssetCheck.Tests
             using (var evt = NavigationSubmitEvent.GetPooled()) { evt.target = button; button.SendEvent(evt); }
             Assert.That(panel.Q<Label>("player-build-metadata").text, Does.Contain("完整构建提供"));
             Assert.That(panel.Q<MultiColumnListView>("player-build-assets").itemsSource.Count, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void PageFindsSavedReportEvenWhenEditorTargetIsDifferent()
+        {
+            var editorTarget = EditorUserBuildSettings.activeBuildTarget;
+            var record = Snapshot(true);
+            record.platform = Target == "WebGL" ? "StandaloneWindows64" : "WebGL";
+            _store.Record(record, BuildResult.Succeeded);
+            var panel = Panel();
+            Assert.That(panel.Q<PopupField<string>>("player-build-platform").value, Is.EqualTo(record.platform));
+            Assert.That(panel.Q<MultiColumnListView>("player-build-assets").itemsSource.Count, Is.EqualTo(2));
+            Assert.That(EditorUserBuildSettings.activeBuildTarget, Is.EqualTo(editorTarget));
+        }
+
+        [Test]
+        public void PagePrefersAvailableDetailsOverNewerEmptyPlatformAndCanSelectBoth()
+        {
+            var editorTarget = EditorUserBuildSettings.activeBuildTarget;
+            var populated = Snapshot(true);
+            _store.Record(populated, BuildResult.Succeeded);
+            var empty = Snapshot(false, 0, "2026-11-12T05:00:00Z");
+            empty.platform = Target == "WebGL" ? "StandaloneWindows64" : "WebGL";
+            _store.Record(empty, BuildResult.Succeeded);
+            var panel = Panel();
+            var selector = panel.Q<PopupField<string>>("player-build-platform");
+            Assert.That(selector.value, Is.EqualTo(populated.platform));
+            selector.value = empty.platform;
+            Assert.That(panel.Q<MultiColumnListView>("player-build-assets").itemsSource.Count, Is.Zero);
+            Assert.That(panel.Q<Label>("player-build-empty").text, Does.Contain("切换"));
+            selector.value = populated.platform;
+            panel.Activate();
+            Assert.That(selector.value, Is.EqualTo(populated.platform));
+            Assert.That(panel.Q<MultiColumnListView>("player-build-assets").itemsSource.Count, Is.EqualTo(2));
+            Assert.That(EditorUserBuildSettings.activeBuildTarget, Is.EqualTo(editorTarget));
+        }
+
+        [Test]
+        public void AvailableReportsIncludeLegacyPlatformWithoutWritingOrCrossingRecords()
+        {
+            var legacy = Snapshot(false); legacy.version = 1;
+            var path = Path.Combine(_root, PlayerBuildReportStore.LegacyPath);
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            File.WriteAllText(path, JsonUtility.ToJson(legacy));
+            var original = File.ReadAllBytes(path);
+            var other = Snapshot(false, 0);
+            other.platform = Target == "WebGL" ? "StandaloneWindows64" : "WebGL";
+            _store.Record(other, BuildResult.Succeeded);
+            var available = _store.LoadAvailable();
+            Assert.That(available.Count, Is.EqualTo(2));
+            Assert.That(available[legacy.platform].LatestDetails.assets.Length, Is.EqualTo(2));
+            Assert.That(available[other.platform].LatestDetails, Is.Null);
+            CollectionAssert.AreEqual(original, File.ReadAllBytes(path));
         }
     }
 }

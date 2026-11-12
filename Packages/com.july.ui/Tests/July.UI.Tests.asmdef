@@ -3,6 +3,7 @@
   "rootNamespace": "July.UI.Tests",
   "references": [
     "July.UI",
+    "Unity.TextMeshPro",
     "July.Arch",
     "July.Resource",
     "UniTask",

@@ -5,6 +5,8 @@
 .player-build-analysis #player-build-subtitle { font-size: 11px; color: var(--ac-muted); margin: 5px 0 0; }
 .player-build-analysis #player-build-heading > Button { height: 27px; padding: 0 13px; margin: 0; flex-shrink: 0; }
 .player-build-analysis #player-build-notice { flex-shrink: 0; color: var(--ac-muted); font-size: 11px; white-space: normal; margin: 0 0 7px; }
+.player-build-analysis #player-build-platform { align-self: flex-start; flex-shrink: 0; min-width: 260px; margin: 0 0 8px; }
+.player-build-analysis #player-build-platform > .unity-base-field__label { min-width: 62px; color: var(--ac-muted); }
 .player-build-analysis #player-build-baseline { align-self: flex-start; flex-shrink: 0; margin: 0 0 8px; padding: 0 10px; }
 .player-build-analysis #player-build-metrics { flex-direction: row; flex-shrink: 0; padding: 12px 0; background-color: var(--ac-surface); border-top-width: 1px; border-bottom-width: 1px; border-top-color: var(--ac-line); border-bottom-color: var(--ac-line); }
 .player-build-analysis #player-build-metric { flex-grow: 1; flex-basis: 0; padding-left: 18px; }

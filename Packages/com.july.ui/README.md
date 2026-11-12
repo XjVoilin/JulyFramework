@@ -97,3 +97,48 @@ plus compilation/name/GUID checks for all six shaders. Source comparison also
 verified that all five moved shader bodies and their metadata are unchanged.
 This does not establish full July.UI assembly integration, mobile graphics-backend
 or full consuming-game acceptance.
+
+
+## TMP character reveal
+
+`UITextReveal` owns `TMP_Text.maxVisibleCharacters` and temporarily disables
+`useMaxVisibleDescender` while playing to keep the full text baseline stable. It never writes
+`text`, translates strings, or owns a window's visibility or minimum display time.
+Keep the complete text (including animated suffix characters) in the consuming
+project's authored/localized content. Do not combine it with another owner of
+`maxVisibleCharacters` on the same TMP object.
+
+- `Animated Character Count`: 0 reveals the whole text; a positive value reveals
+  only that many final TMP characters and keeps the preceding text visible. Playback
+  starts with that range fully hidden, then reveals one character per interval.
+  Shorter texts use their available characters; empty text stays empty. TMP rich-text
+  tags do not count as characters.
+- `Character Interval`: positive finite seconds between character steps.
+- `Loop Count`: total play count; 1 plays once, positive integers play that many
+  cycles, and -1 repeats indefinitely. Repeated cycles hold the fully revealed text
+  for one interval before restarting; finite playback ends with the complete text.
+- `Ignore Time Scale`: use unscaled time (default true).
+- `Play On Enable`: automatically replay on enable (default true).
+
+`Play()` restarts. `Stop()` stops and
+restores the original visible-character setting; disabling/destroying the object
+also stops. Settings are captured when playback actually begins; stopping before
+playback or stopping again does not overwrite externally assigned settings.
+Playback advances in LateUpdate from accumulated scaled or unscaled frame time.
+A delayed frame jumps to the matching character step. No tween, coroutine or async
+task is created; Stop and OnDisable stop the counter and restore owned TMP settings.
+Setup occurs in LateUpdate after other components' OnEnable text
+assignment, so UILocalizedText does not require a dependency or execution-order
+setting. After replacing the complete source text while enabled, call `Play()` to restart.
+Full text remains in TMP layout, keeping the fixed prefix in place while the suffix
+is revealed. Parsed whitespace/sprites count as TMP characters too.
+
+Examples: a typewriter uses the defaults (whole text, starting empty, once). A looping
+three-character suffix uses animated count 3, interval 0.3, loop count -1;
+the suffix can contain any characters, not only periods.
+
+Unreleased validation is recorded with the consuming project's integration checks;
+this section does not imply a new package tag has been published.
+
+The component PlayMode tests require the host project to configure TMP Settings
+with a default font covering ASCII digits, periods and lowercase `g`/`y`.

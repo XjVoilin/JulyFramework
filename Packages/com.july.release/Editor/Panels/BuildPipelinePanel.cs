@@ -1,14 +1,18 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
 namespace July.Release.Editor
 {
-    public sealed class BuildPipelinePanel : IBuildToolPanel
+    public sealed class BuildPipelinePanel : IBuildToolPanel, IDisposable
     {
         readonly VersionPanel _versions = new();
         BuildToolContext _ctx;
+        Action _pendingBuild;
+        internal bool IsBusy => _pendingBuild != null;
         BuildToolSelection Selection => _ctx.Selection;
 
         public void OnEnable(BuildToolContext ctx)
@@ -83,9 +87,40 @@ namespace July.Release.Editor
                     report.Length == 0 ? MessageType.Info : MessageType.Error);
             }
             if (error != null) EditorGUILayout.HelpBox(error, MessageType.Warning);
-            using (new EditorGUI.DisabledScope(error != null))
+            using (new EditorGUI.DisabledScope(error != null || IsBusy))
                 if (GUILayout.Button(Selection.CustomSteps ? "执行所选步骤" : "开始构建", GUILayout.Height(32)))
-                    Execute(preview);
+                {
+                    var fullBuild = Selection.Mode == ReleaseBuildMode.Full;
+                    var steps = Selection.CreateSteps().ToArray();
+                    QueueBuild(() => Execute(preview, fullBuild, steps));
+                }
+        }
+
+        internal void QueueBuild(Action build)
+        {
+            if (IsBusy) return;
+            _pendingBuild = build;
+            EditorApplication.delayCall += RunQueuedBuild;
+            _ctx.Repaint?.Invoke();
+        }
+
+        internal void RunQueuedBuild()
+        {
+            EditorApplication.delayCall -= RunQueuedBuild;
+            // 窗口关闭时可能已取消请求；Editor 已取出的回调仍可能到达。
+            if (_pendingBuild == null) return;
+            try { _pendingBuild(); }
+            finally
+            {
+                _pendingBuild = null;
+                _ctx.Repaint?.Invoke();
+            }
+        }
+
+        public void Dispose()
+        {
+            EditorApplication.delayCall -= RunQueuedBuild;
+            _pendingBuild = null;
         }
 
         internal static void DrawBaseline(BuildToolContext ctx)
@@ -114,7 +149,7 @@ namespace July.Release.Editor
                 ? "AB、微信首包 data、本次生成的 preload.json" : "AB、本次生成的 preload.json";
         }
 
-        void Execute(BuildContext context)
+        void Execute(BuildContext context, bool fullBuild, IEnumerable<BuildStep> steps)
         {
             var originalVersion = PlayerSettings.bundleVersion;
             _ctx.LastDiff = null;
@@ -123,9 +158,9 @@ namespace July.Release.Editor
             _ctx.LastBuild = context;
             try
             {
-                if (Selection.Mode == ReleaseBuildMode.Full)
+                if (fullBuild)
                     PlayerSettings.bundleVersion = context.CoreVersion;
-                var result = new July.Build.BuildRunner(new July.Build.UnityBuildHost()).Run(context, Selection.CreateSteps());
+                var result = new July.Build.BuildRunner(new July.Build.UnityBuildHost()).Run(context, steps);
                 _ctx.LastResult = result;
                 _ctx.LastPackageVersion = context.PackageVersion;
                 if (context.CdnSnapshotBefore != null && context.CdnSnapshotAfter != null)

@@ -14,6 +14,8 @@ namespace July.AssetCheck
         private readonly Label _metadata, _outputPath, _buildSize, _assetSize, _assetCount, _counts, _empty, _error, _notice;
         private readonly Button _baseline;
         private readonly PlayerBuildReportStore _store;
+        private readonly PopupField<string> _platform;
+        private IReadOnlyDictionary<string, PlayerBuildCache> _reports = new Dictionary<string, PlayerBuildCache>();
         private PlayerBuildCache _cache;
         private bool _showBaseline;
         private readonly TextField _search;
@@ -37,6 +39,17 @@ namespace July.AssetCheck
             header.Add(title);
             var refresh = new Button(Activate) { text = "刷新记录", tooltip = "读取已保存的构建结果，不发起构建。" };
             header.Add(refresh); Add(header);
+            _platform = new PopupField<string>("报告平台", new List<string> { "暂无报告" }, 0)
+                { name = "player-build-platform", tooltip = "选择已保存的报告，不切换 Unity 构建目标。" };
+            _platform.SetEnabled(false);
+            _platform.RegisterValueChangedCallback(change =>
+            {
+                _cache = _reports[change.newValue];
+                _showBaseline = false;
+                _error.text = "";
+                Refresh();
+            });
+            Add(_platform);
             _notice = new Label { name = "player-build-notice" }; Add(_notice);
             _baseline = new Button(() => { _showBaseline = !_showBaseline; Refresh(); })
                 { name = "player-build-baseline", text = "查看保留的完整构建明细" };
@@ -106,7 +119,17 @@ namespace July.AssetCheck
         {
             try
             {
-                _cache = _store.Load(EditorUserBuildSettings.activeBuildTarget.ToString());
+                _reports = _store.LoadAvailable();
+                var choices = _reports.Keys.OrderBy(platform => platform, StringComparer.Ordinal).ToList();
+                var selected = _platform.value;
+                if (!_reports.ContainsKey(selected))
+                    selected = _reports.OrderByDescending(report => report.Value.LatestDetails != null)
+                        .ThenByDescending(report => BuildTime(report.Value.LatestDetails?.builtAt ?? report.Value.lastBuiltAt))
+                        .ThenBy(report => report.Key, StringComparer.Ordinal).Select(report => report.Key).FirstOrDefault();
+                _platform.choices = choices.Count > 0 ? choices : new List<string> { "暂无报告" };
+                _platform.SetValueWithoutNotify(selected ?? "暂无报告");
+                _platform.SetEnabled(choices.Count > 0);
+                _cache = selected == null ? null : _reports[selected];
                 _error.text = "";
                 Refresh();
             }
@@ -114,6 +137,8 @@ namespace July.AssetCheck
             {
                 _snapshot = null;
                 _cache = null;
+                _reports = new Dictionary<string, PlayerBuildCache>();
+                _platform.SetEnabled(false);
                 Refresh();
                 _empty.text = "无法读取构建记录";
                 _error.text = exception.Message;
@@ -165,7 +190,10 @@ namespace July.AssetCheck
             _counts.text = _snapshot == null ? "" : _snapshot.assets.Length == 0 ? "本次明细未提供" : $"显示 {_rows.Count:N0} / {_snapshot.assets.Length:N0} 项";
             _list.style.display = _rows.Count > 0 ? DisplayStyle.Flex : DisplayStyle.None;
             _empty.style.display = _rows.Count == 0 ? DisplayStyle.Flex : DisplayStyle.None;
-            _empty.text = _snapshot == null ? "暂无可用的客户端资源明细\n本次未提供明细时会保留已有记录；首次需要通过现有入口执行完整资源构建（Clean Build）。" :
+            _empty.text = _snapshot == null ?
+                _reports.Values.Any(report => report.LatestDetails != null)
+                    ? "所选报告平台尚无资源明细\n请切换上方“报告平台”查看已有记录，无需切换 Unity 构建目标。"
+                    : "暂无可用的客户端资源明细\n本次未提供明细时会保留已有记录；首次需要通过现有入口执行完整资源构建（Clean Build）。" :
                 _snapshot.assets.Length == 0 ? "本次报告未提供资源明细\nUnity 可能复用了资源缓存。需要查看资源排行时，请通过现有出包入口执行一次完整资源构建（Clean Build）。" :
                 "没有匹配的资源，请修改搜索内容。";
         }
@@ -186,6 +214,10 @@ namespace July.AssetCheck
         private static string Time(string value) =>
             DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var time)
                 ? time.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") : value;
+
+        private static DateTimeOffset BuildTime(string value) =>
+            DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var time)
+                ? time : DateTimeOffset.MinValue;
 
         private void Column(string name, string title, int width, Func<PlayerBuildAsset, string> text)
         {
