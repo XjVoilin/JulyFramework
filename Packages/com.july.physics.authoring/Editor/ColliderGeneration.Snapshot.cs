@@ -14,7 +14,7 @@ namespace July.Physics.Authoring
             public ColliderGenerationSettings settings;
             public PrimitiveColliderFitter.Shape[] shapes;
             public Matrix4x4 fitMatrix;
-            public string geometryHash, summary;
+            public string geometryHash, summary, processorFingerprint;
             public double seconds;
             public bool manuallyReused;
         }
@@ -24,7 +24,7 @@ namespace July.Physics.Authoring
         public static string SerializePreview(Preview preview) => JsonUtility.ToJson(new Snapshot
         {
             version = 2, settings = preview.Settings, shapes = preview.Fit.Shapes, fitMatrix = preview.FitMatrix,
-            geometryHash = preview.GeometryHash, summary = preview.Summary, seconds = preview.Fit.GenerationSeconds, manuallyReused = preview.ManuallyReused
+            geometryHash = preview.GeometryHash, summary = preview.Summary, seconds = preview.Fit.GenerationSeconds, manuallyReused = preview.ManuallyReused, processorFingerprint = preview.ProcessorFingerprint
         });
 
         internal static Preview CopyForReuse(Preview source, ColliderGenerationSettings settings)
@@ -42,7 +42,7 @@ namespace July.Physics.Authoring
             var json = JsonUtility.ToJson(new Snapshot
             {
                 version = 2, settings = preview.Settings, shapes = preview.Fit.Shapes,
-                fitMatrix = preview.FitMatrix, geometryHash = preview.GeometryHash, manuallyReused = preview.ManuallyReused
+                fitMatrix = preview.FitMatrix, geometryHash = preview.GeometryHash, manuallyReused = preview.ManuallyReused, processorFingerprint = preview.ProcessorFingerprint
             });
             using var hash = SHA256.Create();
             return BitConverter.ToString(hash.ComputeHash(System.Text.Encoding.UTF8.GetBytes(json))).Replace("-", "");
@@ -61,24 +61,35 @@ namespace July.Physics.Authoring
                 throw new InvalidDataException("预览缓存方案版本或内容无效，请重新生成预览。");
             try { data.settings.Validate(); }
             catch (ArgumentException error) { throw new InvalidDataException("碰撞体预览缓存参数无效。", error); }
-            foreach (var shape in data.shapes)
+            ValidateShapes(data.shapes);
+            return new Preview
+            {
+                Settings = data.settings, FitMatrix = data.fitMatrix, GeometryHash = data.geometryHash, ManuallyReused = data.manuallyReused,
+                ProcessorFingerprint = data.processorFingerprint ?? "",
+                Fit = new PrimitiveColliderFitter.Result { Shapes = data.shapes, Note = data.summary, GenerationSeconds = data.seconds }
+            };
+        }
+
+        private static void ValidateShapes(PrimitiveColliderFitter.Shape[] shapes)
+        {
+            foreach (var shape in shapes)
             {
                 if (shape == null || !Enum.IsDefined(typeof(PrimitiveColliderFitter.Kind), shape.Type) ||
                     !Finite(shape.Center) || !Finite(shape.Size) || !float.IsFinite(shape.Radius) ||
                     !float.IsFinite(shape.Height) || !float.IsFinite(shape.Bottom) || !float.IsFinite(shape.Top) || !float.IsFinite(shape.Volume) || shape.Volume < 0 ||
                     !Finite(new Vector3(shape.Rotation.x, shape.Rotation.y, shape.Rotation.z)) ||
                     !float.IsFinite(shape.Rotation.w) || Mathf.Abs(Quaternion.Dot(shape.Rotation, shape.Rotation) - 1) > .001f)
-                    throw new InvalidDataException("碰撞体预览缓存形状无效。");
+                    throw new InvalidDataException("碰撞体预览候选形状无效。");
                 switch (shape.Type)
                 {
                     case PrimitiveColliderFitter.Kind.Box:
                         if (Mathf.Min(shape.Size.x, Mathf.Min(shape.Size.y, shape.Size.z)) <= 0)
-                            throw new InvalidDataException("缓存盒体尺寸无效。");
+                            throw new InvalidDataException("候选盒体尺寸无效。");
                         break;
                     case PrimitiveColliderFitter.Kind.Sphere:
                     case PrimitiveColliderFitter.Kind.Capsule:
                         if (shape.Radius <= 0 || (shape.Type == PrimitiveColliderFitter.Kind.Capsule && shape.Height < 2 * shape.Radius - 1e-6f))
-                            throw new InvalidDataException("缓存球体／胶囊尺寸无效。");
+                            throw new InvalidDataException("候选球体／胶囊尺寸无效。");
                         break;
                     case PrimitiveColliderFitter.Kind.Convex:
                         ValidatePickingMesh(shape);
@@ -90,20 +101,15 @@ namespace July.Physics.Authoring
                             (shape.Type == PrimitiveColliderFitter.Kind.Cylinder && shape.Radius <= 0) ||
                             (shape.Type != PrimitiveColliderFitter.Kind.Cylinder && (shape.Bottom < 0 || shape.Top < 0 || Mathf.Max(shape.Bottom, shape.Top) <= 0)) ||
                             (shape.Type == PrimitiveColliderFitter.Kind.Prism && (shape.Size.x <= 0 || shape.Size.y <= 0)))
-                            throw new InvalidDataException("缓存规则图元参数无效。");
+                            throw new InvalidDataException("候选规则图元参数无效。");
                         if (shape.ConvexVertices == null || shape.ConvexVertices.Length < 4 ||
                             shape.ConvexVertices.Length > 64 || shape.ConvexVertices.Any(v => !Finite(v)) ||
                             shape.ConvexTriangles == null || shape.ConvexTriangles.Length < 12 || shape.ConvexTriangles.Length % 3 != 0 ||
                             shape.ConvexTriangles.Any(i => i < 0 || i >= shape.ConvexVertices.Length))
-                            throw new InvalidDataException("缓存凸网格无效。");
+                            throw new InvalidDataException("候选凸网格无效。");
                         break;
                 }
             }
-            return new Preview
-            {
-                Settings = data.settings, FitMatrix = data.fitMatrix, GeometryHash = data.geometryHash, ManuallyReused = data.manuallyReused,
-                Fit = new PrimitiveColliderFitter.Result { Shapes = data.shapes, Note = data.summary, GenerationSeconds = data.seconds }
-            };
         }
 
         private static bool Finite(Vector3 v) => float.IsFinite(v.x) && float.IsFinite(v.y) && float.IsFinite(v.z);

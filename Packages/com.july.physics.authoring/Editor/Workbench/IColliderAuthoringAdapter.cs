@@ -22,6 +22,8 @@ namespace July.Physics.Authoring
         public List<ColliderMeshSource> Sources;
         public ColliderTargetLayout[] Targets;
         public string Error;
+        public string Badge, BadgeTooltip;
+        public bool BadgeWarning;
     }
     public sealed class ColliderTargetLayout
     {
@@ -30,6 +32,7 @@ namespace July.Physics.Authoring
         public int DisabledCount;
         public string Issue, Notice;
         public bool ExternalShapes;
+        public IColliderCandidateProcessor Processor;
     }
     public readonly struct ColliderTargetResult
     {

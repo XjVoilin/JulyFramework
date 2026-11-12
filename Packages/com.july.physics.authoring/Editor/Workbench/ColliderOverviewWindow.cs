@@ -42,6 +42,8 @@ namespace July.Physics.Authoring
         readonly List<VisualElement> filters = new List<VisualElement>();
         ColliderQueue queue = ColliderQueue.Pending, detailFilter = ColliderQueue.All;
         ColliderSort sort;
+        Comparison<ColliderRow> projectSort;
+        string projectSortLabel;
         ColliderData dataSource, sortSource;
         ColliderFilter composition;
         ColliderTargetSelection scope;
@@ -80,6 +82,18 @@ namespace July.Physics.Authoring
         }
 
         protected virtual void BuildProjectTools(VisualElement header) { }
+        protected virtual void BuildProjectSortMenu(DropdownMenu menu) { }
+        protected bool IsProjectSort(Comparison<ColliderRow> comparison) => projectSort == comparison;
+        protected void ToggleProjectSort(string label, Comparison<ColliderRow> ascendingOrder, Comparison<ColliderRow> descendingOrder)
+        {
+            bool reverse = projectSort == ascendingOrder;
+            projectSort = (reverse ? descendingOrder : ascendingOrder) ??
+                throw new ArgumentNullException(reverse ? nameof(descendingOrder) : nameof(ascendingOrder));
+            projectSortLabel = label + (reverse ? "↓" : "↑");
+            sort = ColliderSort.Name; descending = false; sortSource = ColliderData.Model; sortTarget = null;
+            ApplySort(); Refresh();
+            if (visibleRows.Count > 0) list.ScrollToItem(0);
+        }
         public virtual void CreateGUI()
         {
             foreach (var view in views) view.Release(); views.Clear();
@@ -137,7 +151,6 @@ namespace July.Physics.Authoring
             toolsMenu = new ToolbarMenu { name = "collider-tools", text = "更多" }; toolbar.Add(toolsMenu); filters.Add(toolsMenu);
             toolsMenu.menu.AppendAction("全选可见", _ => SelectAll(true));
             toolsMenu.menu.AppendAction("取消可见勾选", _ => SelectAll(false));
-            toolsMenu.menu.AppendAction("按名称排序", _ => SortBy(ColliderSort.Name));
             toolsMenu.menu.AppendAction("重新分析并生成所选", _ => Generate(SelectedRows(), Scope, true),
                 _ => !workspace.Busy && SelectedRows().Length > 0 ? DropdownMenuAction.Status.Normal : DropdownMenuAction.Status.Disabled);
             toolsMenu.menu.AppendSeparator();
@@ -146,8 +159,13 @@ namespace July.Physics.Authoring
                 "读取后比较当前和候选；生成不会修改Prefab，应用直接替换所选组，不备份。\n拖动预览同步旋转，不缩放。点击名称只定位Prefab。\n整体包围栏“复用当前”原样暂存当前形状；结构贴合栏“复用整体候选”直接复制整体候选，不执行生成验收。\n候选栏调参只影响当前Prefab和本栏；生成和应用仅处理当前项或可见选中项，并使用各自参数。\n应用后检查并点击“标记完成”；可在已完成Tag点击“标为待处理”重新审阅，碰撞体和候选保持。\n列头菜单按该列排序或组成筛选；当前按Collider类型，候选按实际碰撞体类型统计。当前Mesh预览为源网格。", "关闭"));
             var columns = new VisualElement { name = "collider-columns" }; columns.AddToClassList("collider-five"); header.Add(columns);
             var reference = new VisualElement(); reference.AddToClassList("collider-reference"); columns.Add(reference);
-            modelMenu = new ToolbarMenu { name = "collider-model-column", text = "原模型", tooltip = "按原模型的顶点数或三角面数排序，再次选择切换升降序。" };
+            modelMenu = new ToolbarMenu { name = "collider-model-column", text = "原模型", tooltip = "按原模型属性排序，再次选择内置排序项切换升降序。" };
             modelMenu.AddToClassList("collider-column-title"); reference.Add(modelMenu); filters.Add(modelMenu);
+            modelMenu.menu.AppendAction("名称", _ =>
+            {
+                sortSource = ColliderData.Model; sortTarget = null; SortBy(ColliderSort.Name);
+            }, _ => workspace.Busy ? DropdownMenuAction.Status.Disabled :
+                projectSort == null && sort == ColliderSort.Name ? DropdownMenuAction.Status.Checked : DropdownMenuAction.Status.Normal);
             foreach (var value in new[] { ColliderSort.Vertices, ColliderSort.Triangles })
             {
                 var column = value;
@@ -157,6 +175,7 @@ namespace July.Physics.Authoring
                     sortSource = ColliderData.Model; sortTarget = null; SortBy(column);
                 }, _ => workspace.Busy ? DropdownMenuAction.Status.Disabled : sortSource == ColliderData.Model && sort == column ? DropdownMenuAction.Status.Checked : DropdownMenuAction.Status.Normal);
             }
+            BuildProjectSortMenu(modelMenu.menu);
             var selectionActions = new VisualElement(); selectionActions.AddToClassList("collider-select-actions"); reference.Add(selectionActions);
             selectionActions.Add(new Button(() => SelectAll(true)) { text = "全选可见", name = "collider-select-all", tooltip = "勾选当前筛选结果中的全部物品。" });
             selectionActions.Add(new Button(() => SelectAll(false)) { text = "全不选", name = "collider-select-none", tooltip = "取消当前筛选结果中的全部勾选，隐藏项的勾选保持。" });
@@ -391,8 +410,10 @@ namespace July.Physics.Authoring
 
         internal void SortBy(ColliderSort column)
         {
+            bool wasProjectSort = projectSort != null;
+            projectSort = null; projectSortLabel = null;
             if (IsChange(column)) sortSource = ColliderData.Candidate;
-            descending = sort == column ? !descending : column != ColliderSort.Name;
+            descending = !wasProjectSort && sort == column ? !descending : column != ColliderSort.Name;
             sort = column; ApplySort(); Refresh();
             if (visibleRows.Count > 0) list.ScrollToItem(0);
         }
@@ -458,7 +479,12 @@ namespace July.Physics.Authoring
 
         void ApplySort() => workspace.Rows.Sort((a, b) =>
         {
-            if (sort != ColliderSort.Name)
+            if (projectSort != null)
+            {
+                int value = projectSort(a, b);
+                if (value != 0) return value;
+            }
+            else if (sort != ColliderSort.Name)
             {
                 var x = SortValue(a); var y = SortValue(b);
                 if (x.exists != y.exists) return x.exists ? -1 : 1;
@@ -476,7 +502,7 @@ namespace July.Physics.Authoring
             RefreshPerformance();
             if (!workspace.Busy)
             {
-                if (sort != ColliderSort.Name) ApplySort();
+                if (projectSort != null || sort != ColliderSort.Name || descending) ApplySort();
                 var rows = workspace.Rows.Where(Matches).ToArray();
                 if (!visibleRows.SequenceEqual(rows)) { visibleRows.Clear(); visibleRows.AddRange(rows); list.Rebuild(); }
             }
@@ -511,7 +537,7 @@ namespace July.Physics.Authoring
                 columnMenus[i].text = (source == ColliderData.Current ? "当前" : "候选") + order + (composition != ColliderFilter.All && filterIndex == goal && dataSource == source ? " ●" : "");
                 columnMenus[i].tooltip = "按本列碰撞体数、碰撞网格量、凸包数或性能等级排序；再次选择切换升降序。" + (source == ColliderData.Current ? "当前按Collider类型统计。" : "候选按碰撞体类型统计。") + compositionFilter;
             }
-            modelMenu.text = "原模型" + (sortSource == ColliderData.Model && sort != ColliderSort.Name ? " " + SortLabel(sort) + (descending ? "↓" : "↑") : "");
+            modelMenu.text = "原模型" + (projectSort != null ? " " + projectSortLabel : sortSource == ColliderData.Model ? " " + SortLabel(sort) + (descending ? "↓" : "↑") : "");
             int selected = visibleRows.Count(r => r.Selected);
             selection.text = $"已选 {selected}";
             geometryTotals.style.display = selected > 0 ? DisplayStyle.Flex : DisplayStyle.None;

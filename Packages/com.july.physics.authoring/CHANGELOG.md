@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.1 - 2026-11-12
+
+- Let project windows add custom sort menu actions and comparators; keep the shared natural-name tie-breaker and replace custom ordering when a built-in sort is selected.
+- Add an optional project candidate processor with a stable rule/input fingerprint and detached geometry drafts. Seal and validate processing output before preview/cache/apply; expire generated candidates when the policy changes and preserve manual snapshots.
+- Keep project-specific shape adjustments out of generation settings, layout-to-settings mutation and the fitter. Expose native dimensions and shape poses through a separate draft contract; retain internal fitting and mesh ownership.
+- Allow project adapters to supply adjacent name badges with warning styling.
+
 ## 0.6.0 - 2026-11-11
 
 - Ship as an Editor-only UPM package. Remove obsolete authoring marker/recipe components and the runtime assembly; keep project integration in Editor adapters. Existing projects must clean old serialized components and assembly/linker references before upgrading.

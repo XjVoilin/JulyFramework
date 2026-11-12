@@ -24,6 +24,7 @@ namespace July.Physics.Authoring
         public bool RejectMirroredOutput;
         public bool RebuildPickingAnalysis;
         public Action<ColliderGenerationResult> AfterApply;
+        public IColliderCandidateProcessor Processor;
     }
 
     public sealed class ColliderGenerationResult
@@ -47,6 +48,7 @@ namespace July.Physics.Authoring
             internal Matrix4x4 FitMatrix, OutputMatrix;
             internal string Stamp;
             internal bool ManuallyReused;
+            internal string ProcessorFingerprint = "";
             public ColliderGenerationRequest Request { get; internal set; }
 
             public string Summary => Fit.Note;
@@ -58,6 +60,9 @@ namespace July.Physics.Authoring
             public string SourceStamp => GeometryHash + ":" + JsonUtility.ToJson(FitMatrix);
             public string ContentHash => HashSnapshot(this);
             public ColliderGeometryGoal Goal => Settings.Goal;
+            public bool MatchesProcessor(IColliderCandidateProcessor processor) =>
+                MatchesProcessorFingerprint(ReadProcessorFingerprint(processor));
+            internal bool MatchesProcessorFingerprint(string fingerprint) => ManuallyReused || ProcessorFingerprint == fingerprint;
             public bool MatchesSettings(ColliderGenerationSettings settings) =>
                 ManuallyReused ? Goal == settings.Goal :
                 JsonUtility.ToJson(Settings) == JsonUtility.ToJson(settings) &&
@@ -93,7 +98,8 @@ namespace July.Physics.Authoring
         public static async Task<Preview> PreviewAsync(ColliderGenerationRequest request, CancellationToken cancellation = default,
             IProgress<ColliderGenerationProgress> progress = null)
         {
-            Validate(request);
+            string processorFingerprint = Validate(request);
+            var processor = request.Processor;
             var report = new ColliderFitProgress(progress);
             var clock = System.Diagnostics.Stopwatch.StartNew();
             report.Report(0, "读取模型网格");
@@ -116,9 +122,20 @@ namespace July.Physics.Authoring
                     FitPickingProxy(geometry, geometryHash, settings, kernel, rebuildPickingAnalysis, report.Slice(.03f, .99f), lifetime.Token) :
                     PrimitiveColliderFitter.Fit(geometry, settings, report.Slice(.03f, .99f), lifetime.Token, scoring));
                 lifetime.ThrowIfUnavailable();
+                if (processor != null)
+                {
+                    report.Report(.99f, "执行项目候选处理");
+                    var draft = new ColliderCandidateDraft(geometry, fit);
+                    processor.Process(draft);
+                    var processed = draft.Seal();
+                    ValidateShapes(processed);
+                    fit.Shapes = processed;
+                    fit.Note = draft.Summary;
+                    lifetime.ThrowIfUnavailable();
+                }
                 if (settings.Goal == ColliderGeometryGoal.Structure) fit.GenerationSeconds = clock.Elapsed.TotalSeconds;
                 report.Report(1, "预览数据已生成");
-                return new Preview{Request = request, Fit = fit, GeometryHash = geometryHash, Settings = settings, FitMatrix = fitMatrix, OutputMatrix = matrix, Stamp = stamp};
+                return new Preview{Request = request, Fit = fit, GeometryHash = geometryHash, Settings = settings, FitMatrix = fitMatrix, OutputMatrix = matrix, Stamp = stamp, ProcessorFingerprint = processorFingerprint};
             }
             finally
             {
@@ -132,8 +149,8 @@ namespace July.Physics.Authoring
             if (preview == null)
                 throw new ArgumentNullException(nameof(preview));
             var request = preview.Request;
-            Validate(request);
-            if (!preview.MatchesSettings(request.Settings) || !request.OutputRoot.localToWorldMatrix.Equals(preview.OutputMatrix) || Stamp(request.OutputRoot) != preview.Stamp)
+            string processorFingerprint = Validate(request);
+            if (!preview.MatchesProcessorFingerprint(processorFingerprint) || !preview.MatchesSettings(request.Settings) || !request.OutputRoot.localToWorldMatrix.Equals(preview.OutputMatrix) || Stamp(request.OutputRoot) != preview.Stamp)
                 throw new InvalidOperationException("参数、变换或原形状已改变，请重新生成预览。");
             var now = ColliderGeometry.Read(request.Sources, preview.FitMatrix.inverse);
             if (HashGeometry(now) != preview.GeometryHash)
@@ -221,7 +238,7 @@ namespace July.Physics.Authoring
             }
         }
 
-        private static void Validate(ColliderGenerationRequest request)
+        private static string Validate(ColliderGenerationRequest request)
         {
             if (request == null)
                 throw new ArgumentNullException(nameof(request));
@@ -240,6 +257,16 @@ namespace July.Physics.Authoring
             foreach (var source in request.Sources)
                 if (source.Transform.IsChildOf(request.OutputRoot))
                     throw new ArgumentException("来源不能在将被替换的输出分组内。");
+            return ReadProcessorFingerprint(request.Processor);
+        }
+
+        internal static string ReadProcessorFingerprint(IColliderCandidateProcessor processor)
+        {
+            if (processor == null) return "";
+            string fingerprint = processor.Fingerprint;
+            if (string.IsNullOrWhiteSpace(fingerprint))
+                throw new ArgumentException("项目候选处理器必须提供包含规则版本及输入的稳定指纹。");
+            return fingerprint;
         }
 
         internal static void ValidateEditableOutput(Transform output)

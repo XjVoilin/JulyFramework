@@ -77,7 +77,8 @@ namespace July.Physics.Authoring
         }
         internal Vector2 Rotation = new Vector2(-15, 145);
         internal bool IsCurrent(int index) => Candidates[index].Preview != null && Inspection.Ready &&
-            Candidates[index].Preview.SourceStamp == Inspection.SourceStamps[index] && Candidates[index].Preview.MatchesSettings(EffectiveSettings(index));
+            Candidates[index].Preview.SourceStamp == Inspection.SourceStamps[index] && Candidates[index].Preview.MatchesSettings(EffectiveSettings(index)) &&
+            Candidates[index].Preview.MatchesProcessor(Inspection.Layout.Targets[index].Processor);
         internal ColliderReviewGoal ReviewGoal(int index) => Review.Goal(Profile.Targets[index].Id);
         internal ColliderDecision Decision(int index) => Review == null ? ColliderDecision.Pending : ReviewGoal(index).decision;
         internal bool NeedsReview(int index) => Review != null && Decision(index) == ColliderDecision.Keep &&
@@ -639,6 +640,7 @@ namespace July.Physics.Authoring
         {
             var request = ColliderAuthoringContext.BuildRequest(row.Owner.Adapter, root, row.Profile, row.Profile.Targets[index].Id);
             request.Settings = row.EffectiveSettings(index);
+            request.Processor = row.Inspection.Layout.Targets[index].Processor;
             return request;
         }
 

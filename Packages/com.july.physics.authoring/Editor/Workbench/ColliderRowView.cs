@@ -15,7 +15,7 @@ namespace July.Physics.Authoring
         internal bool Dirty;
         readonly ColliderOverviewWindow window;
         readonly Toggle selected;
-        readonly Label name, state, origin;
+        readonly Label name, badge, state, origin;
         readonly Label[] counts, details, geometry, compositions;
         readonly Button[] performance;
         readonly Image[] images;
@@ -44,7 +44,9 @@ namespace July.Physics.Authoring
             var header = ColliderOverviewWindow.Line();
             header.AddToClassList("collider-item-header");
             selected = new Toggle(); selected.RegisterValueChangedCallback(e => { row.Selected = e.newValue; window.Refresh(); }); header.Add(selected);
-            name = new Label(); name.AddToClassList("collider-name"); header.Add(name);
+            var title = new VisualElement(); title.AddToClassList("collider-item-title"); header.Add(title);
+            name = new Label(); name.AddToClassList("collider-name"); title.Add(name);
+            badge = new Label { name = "collider-item-badge" }; badge.AddToClassList("collider-item-badge"); title.Add(badge);
             name.RegisterCallback<ClickEvent>(e => { if (e.button == 0) EditorGUIUtility.PingObject(AssetDatabase.LoadAssetAtPath<GameObject>(row.Path)); });
             origin = new Label(); origin.AddToClassList("collider-secondary"); header.Add(origin);
             Root.Add(header);
@@ -166,6 +168,11 @@ namespace July.Physics.Authoring
         internal void Refresh()
         {
             if (row == null) return;
+            var layout = row.Inspection.Layout;
+            badge.text = layout.Badge;
+            badge.tooltip = layout.BadgeTooltip;
+            badge.style.display = string.IsNullOrEmpty(layout.Badge) ? DisplayStyle.None : DisplayStyle.Flex;
+            badge.EnableInClassList("collider-badge-warning", layout.BadgeWarning);
             geometry[0].text = row.Inspection.Ready ? row.Inspection.ModelGeometry.ColumnText : "顶点 —\n三角面 —";
             selected.SetValueWithoutNotify(row.Selected);
             origin.text = row.Review == null ? "登记失败" : "新";

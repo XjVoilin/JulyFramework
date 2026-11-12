@@ -24,7 +24,8 @@ namespace July.Physics.Authoring
             var target = profile.Targets[index];
             if (target.FixedGoal && settings.Goal != target.Settings.Goal)
                 throw new InvalidOperationException("项目已固定该输出的生成方式，请使用对应模式。");
-            var request = BuildRequest(adapter, root, profile, target.Id); request.Settings = settings;
+            var request = BuildRequest(adapter, root, profile, target.Id); request.Settings = settings.Copy();
+            request.Processor = layout.Targets[index].Processor;
             return new ColliderAuthoringContext { Request = request };
         }
     }

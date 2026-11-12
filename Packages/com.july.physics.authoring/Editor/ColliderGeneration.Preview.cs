@@ -11,10 +11,10 @@ namespace July.Physics.Authoring
         // bind the result to a fresh editable copy. The caller owns file revision checks.
         public static Preview RetargetPreview(Preview preview, ColliderGenerationRequest request)
         {
-            Validate(request);
+            string processorFingerprint = Validate(request);
             var frame = PhysicalFitMatrix(request.OutputRoot);
             if (!frame.Equals(preview.FitMatrix) ||
-                !preview.MatchesSettings(request.Settings))
+                !preview.MatchesSettings(request.Settings) || !preview.MatchesProcessorFingerprint(processorFingerprint))
                 throw new InvalidOperationException("预览坐标或参数已改变，请重新生成。");
             var geometry = ColliderGeometry.Read(request.Sources, frame.inverse);
             if (HashGeometry(geometry) != preview.GeometryHash)
@@ -22,7 +22,7 @@ namespace July.Physics.Authoring
             return new Preview
             {
                 Request = request, Fit = preview.Fit, GeometryHash = preview.GeometryHash, Settings = preview.ManuallyReused ? request.Settings.Copy() : preview.Settings,
-                ManuallyReused = preview.ManuallyReused,
+                ManuallyReused = preview.ManuallyReused, ProcessorFingerprint = preview.ProcessorFingerprint,
                 FitMatrix = frame, OutputMatrix = request.OutputRoot.localToWorldMatrix,
                 Stamp = Stamp(request.OutputRoot)
             };

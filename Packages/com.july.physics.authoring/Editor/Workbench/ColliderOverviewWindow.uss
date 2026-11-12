@@ -88,3 +88,9 @@
 .collider-performance-group > Toggle { margin-right: 6px; margin-top: 0; margin-bottom: 0; font-size: 11px; }
 .collider-performance-summary { margin: 1px 12px 4px 70px; white-space: normal; font-size: 11px; opacity: .8; }
 #collider-performance-convex { margin-left: 8px; font-size: 11px; }
+
+.collider-item-title { flex-direction: row; align-items: center; flex-grow: 1; flex-shrink: 1; min-width: 0; }
+.collider-item-title .collider-name { flex-grow: 0; min-width: 0; }
+.collider-item-badge { flex-shrink: 0; margin-left: 6px; padding: 1px 5px; border-radius: 3px; background-color: rgba(128,128,128,.12); font-size: 11px; }
+.collider-item-badge.collider-badge-warning { background-color: rgba(201,160,73,.2); color: rgb(226,195,125); }
+.collider-light .collider-item-badge.collider-badge-warning { color: rgb(132,94,28); }
