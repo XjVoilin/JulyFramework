@@ -15,6 +15,14 @@ namespace July.UI.Authoring.Editor
     /// 从布局 JSON 一键生成 Unity UI Prefab
     /// 右键 _ps_data.json / _figma_data.json → PS2UGUI
     /// </summary>
+    public struct GenerationResult
+    {
+        public bool success;
+        public bool cancelled;
+        public string prefabPath;
+        public string error;
+    }
+
     public static class PS2UGUIGenerator
     {
         // UITemplate.prefab 已不再需要，prefab 结构由代码直接创建
@@ -30,15 +38,6 @@ namespace July.UI.Authoring.Editor
         private const string FontMaterialPrefix = "Font_Main Material ";
 
 
-        private static readonly Dictionary<int, int> OpacityMap = new Dictionary<int, int>
-        {
-            { 0, 0 }, { 5, -1 }, { 10, -1 }, { 15, -1 }, { 20, -1 },
-            { 25, -1 }, { 30, -1 }, { 35, -1 }, { 40, -1 }, { 45, -1 },
-            { 50, -1 }, { 55, -1 }, { 60, -1 }, { 65, -1 }, { 70, -1 },
-            { 75, -1 }, { 80, -1 }, { 85, -1 }, { 90, -1 }, { 95, -1 },
-            { 100, 100 }
-        };
-
         // 运行时缓存：当前 JSON 所在目录（末尾含 /）
         private static string _currentJsonDirectory;
 
@@ -49,24 +48,21 @@ namespace July.UI.Authoring.Editor
         /// 供 AI 自动化流程或外部脚本调用。
         /// </summary>
         /// <param name="jsonAssetPath">JSON 文件的 Asset 路径</param>
-        public static void GenerateFromJson(string jsonAssetPath)
+        public static GenerationResult GenerateFromJson(string jsonAssetPath)
         {
-            if (!IsSupportedPrefabJsonPath(jsonAssetPath))
+            try
             {
-                JLogger.LogError($"PS2UGUI: 不支持的文件路径 → {jsonAssetPath}");
-                return;
+                if (!IsSupportedPrefabJsonPath(jsonAssetPath))
+                    throw new ArgumentException($"不支持的文件路径: {jsonAssetPath}");
+                var data = PS2UGUITranslate.Translate(jsonAssetPath);
+                if (data == null) throw new FormatException($"JSON 转换失败: {jsonAssetPath}");
+                return GeneratePrefab(data, jsonAssetPath, GetPrefabNameFromJsonPath(jsonAssetPath));
             }
-
-            UnityData data = PS2UGUITranslate.Translate(jsonAssetPath);
-
-            if (data == null || data.canvas == null || data.children == null)
+            catch (Exception exception)
             {
-                JLogger.LogError($"PS2UGUI: JSON 转换失败 → {jsonAssetPath}");
-                return;
+                JLogger.LogError($"PS2UGUI: {exception}");
+                return new GenerationResult { error = exception.Message };
             }
-
-            var uiName = GetPrefabNameFromJsonPath(jsonAssetPath);
-            GeneratePrefab(data, jsonAssetPath, uiName);
         }
 
         #endregion
@@ -98,16 +94,9 @@ namespace July.UI.Authoring.Editor
             var selected = Selection.activeObject;
             var path = AssetDatabase.GetAssetPath(selected);
 
-            UnityData data = PS2UGUITranslate.Translate(path);
-
-            if (data == null || data.canvas == null || data.children == null)
-            {
-                EditorUtility.DisplayDialog("PS2UGUI", "数据转换失败。", "确定");
-                return;
-            }
-
-            var uiName = GetPrefabNameFromJsonPath(path);
-            GeneratePrefab(data, path, uiName);
+            var result = GenerateFromJson(path);
+            if (!result.success && !result.cancelled)
+                EditorUtility.DisplayDialog("PS2UGUI", result.error, "确定");
         }
 
         internal static bool IsSupportedPrefabJsonPath(string path)
@@ -149,58 +138,67 @@ namespace July.UI.Authoring.Editor
         /// <summary>
         /// 生成 Prefab 到磁盘。
         /// </summary>
-        internal static void GeneratePrefab(UnityData data, string jsonPath, string uiName)
+        internal static GenerationResult GeneratePrefab(UnityData data, string jsonPath, string uiName,
+            Func<string, bool> confirmOverwrite = null)
         {
             var dir = Path.GetDirectoryName(jsonPath)?.Replace("\\", "/");
             _currentJsonDirectory = string.IsNullOrEmpty(dir) ? "Assets/" : dir + "/";
-
-            var prefabPath = ResolvePrefabOutputPath(jsonPath, uiName);
-            if (string.IsNullOrEmpty(prefabPath))
+            GameObject prefabRoot = null;
+            try
             {
-                EditorUtility.DisplayDialog("PS2UGUI",
-                    $"无法确定 Prefab 输出路径。\n\nJSON 位置: {jsonPath}\n请确保 JSON 位于 Art/Textures/ 目录下。", "确定");
-                return;
-            }
-
-            if (AssetDatabase.GetMainAssetTypeAtPath(prefabPath) != null)
-            {
-                if (!EditorUtility.DisplayDialog("PS2UGUI",
-                        $"目标 Prefab 已存在：\n{prefabPath}\n\n是否覆盖？", "覆盖", "取消"))
+                var prefabPath = ResolvePrefabOutputPath(jsonPath, uiName);
+                if (string.IsNullOrEmpty(prefabPath))
+                    return new GenerationResult { error = $"无法确定 Prefab 输出路径，JSON 上级目录需要包含 Res/: {jsonPath}" };
+                ValidateResources(data.children);
+                if (AssetDatabase.GetMainAssetTypeAtPath(prefabPath) != null)
                 {
-                    return;
+                    bool overwrite = confirmOverwrite != null
+                        ? confirmOverwrite(prefabPath)
+                        : ConfirmOverwrite(prefabPath);
+                    if (!overwrite) return new GenerationResult { cancelled = true };
                 }
 
-                AssetDatabase.DeleteAsset(prefabPath);
+                var prefabDir = Path.GetDirectoryName(prefabPath)?.Replace("\\", "/");
+                if (!AssetDatabase.IsValidFolder(prefabDir)) CreateFolderRecursive(prefabDir);
+                prefabRoot = CreatePrefabRoot(uiName);
+                foreach (var child in data.children) CreateNode(child, prefabRoot.transform);
+                PrefabUtility.SaveAsPrefabAsset(prefabRoot, prefabPath, out bool saved);
+                if (!saved) return new GenerationResult { error = $"Prefab 保存失败: {prefabPath}" };
+                var asset = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+                Selection.activeObject = asset;
+                EditorGUIUtility.PingObject(asset);
+                if (!Application.isBatchMode) AssetDatabase.OpenAsset(asset);
+                Debug.Log($"PS2UGUI: 已生成 Prefab → {prefabPath}");
+                return new GenerationResult { success = true, prefabPath = prefabPath };
             }
-
-            // 确保输出目录存在
-            var prefabDir = Path.GetDirectoryName(prefabPath)?.Replace("\\", "/");
-            if (!string.IsNullOrEmpty(prefabDir) && !AssetDatabase.IsValidFolder(prefabDir))
+            finally
             {
-                CreateFolderRecursive(prefabDir);
+                if (prefabRoot != null) GameObject.DestroyImmediate(prefabRoot);
+                _currentJsonDirectory = null;
             }
+        }
 
-            // 创建 prefab 根节点
-            var prefabRoot = CreatePrefabRoot(uiName);
+        internal static bool ConfirmOverwrite(string prefabPath)
+        {
+            return AssetDatabase.GetMainAssetTypeAtPath(prefabPath) == null ||
+                EditorUtility.DisplayDialog("PS2UGUI", $"目标 Prefab 已存在：\n{prefabPath}\n\n是否覆盖？", "覆盖", "取消");
+        }
 
-            if (data.children != null)
+        private static void ValidateResources(List<UnityNode> nodes)
+        {
+            foreach (var node in nodes)
             {
-                foreach (var child in data.children)
-                    CreateNode(child, prefabRoot.transform);
+                foreach (var path in new[] { node.spritePath, node.fillSpritePath })
+                    if (!string.IsNullOrEmpty(path) && AssetDatabase.LoadAssetAtPath<Sprite>(ResolveSpriteFullPath(path)) == null)
+                        throw new InvalidOperationException($"Sprite 加载失败，请检查文件及 Sprite 导入设置: {path}");
+                if (!string.IsNullOrEmpty(node.prefabPath))
+                {
+                    var path = ResolveReferencedPrefabPath(node.prefabPath);
+                    if (string.IsNullOrEmpty(path) || AssetDatabase.LoadAssetAtPath<GameObject>(path) == null)
+                        throw new InvalidOperationException($"外部 Prefab 加载失败: {node.prefabPath}");
+                }
+                ValidateResources(node.children);
             }
-
-            PrefabUtility.SaveAsPrefabAsset(prefabRoot, prefabPath);
-            GameObject.DestroyImmediate(prefabRoot);
-
-            AssetDatabase.Refresh();
-
-            var newPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
-            Selection.activeObject = newPrefab;
-            EditorGUIUtility.PingObject(newPrefab);
-            AssetDatabase.OpenAsset(newPrefab);
-
-            Debug.Log($"PS2UGUI: 已生成 Prefab → {prefabPath}");
-            _currentJsonDirectory = null;
         }
 
         private static GameObject CreatePrefabRoot(string name)
@@ -226,7 +224,7 @@ namespace July.UI.Authoring.Editor
         /// 从 JSON 所在目录向上逐级查找包含 Res/ 子目录的那一层，
         /// 输出到 {找到的层}/Res/Prefabs/UI/{name}/{name}.prefab
         /// </summary>
-        private static string ResolvePrefabOutputPath(string jsonPath, string prefabName)
+        internal static string ResolvePrefabOutputPath(string jsonPath, string prefabName)
         {
             var normalized = jsonPath.Replace("\\", "/");
             var dir = Path.GetDirectoryName(normalized)?.Replace("\\", "/");
@@ -547,6 +545,7 @@ namespace July.UI.Authoring.Editor
                 }
 
                 LoadSprite(fillImage, nodeData.fillSpritePath);
+                ApplyColorAndOpacity(fillImage, nodeData.fillColorHex, nodeData.fillOpacity);
 
                 slider.fillRect = fillRect;
             }
@@ -579,8 +578,8 @@ namespace July.UI.Authoring.Editor
                 rect.anchorMin = new Vector2(0.5f, 0.5f);
                 rect.anchorMax = new Vector2(0.5f, 0.5f);
                 rect.pivot = new Vector2(0.5f, 0.5f);
-                rect.anchoredPosition = TruncateToTwoDecimals(new Vector2(nodeData.x, nodeData.y));
-                rect.sizeDelta = TruncateToTwoDecimals(new Vector2(nodeData.width, nodeData.height));
+                rect.anchoredPosition = new Vector2(nodeData.x, nodeData.y);
+                rect.sizeDelta = new Vector2(nodeData.width, nodeData.height);
             }
         }
 
@@ -597,10 +596,10 @@ namespace July.UI.Authoring.Editor
             var parentScale = GetAccumulatedParentScale(parent);
             var baseScale = rect.localScale;
 
-            rect.localScale = TruncateToTwoDecimals(new Vector3(
+            rect.localScale = new Vector3(
                 ResolveCompensatedLocalScale(baseScale.x, nodeData.scaleX, parentScale.x),
                 ResolveCompensatedLocalScale(baseScale.y, nodeData.scaleY, parentScale.y),
-                baseScale.z));
+                baseScale.z);
         }
 
         private static void ApplyDesiredVisualFontSize(TextMeshProUGUI tmp, UnityNode nodeData, Transform parent)
@@ -790,13 +789,7 @@ namespace July.UI.Authoring.Editor
 
         private static int MapOpacity(int psOpacity)
         {
-            int rounded = (int)(Math.Round(psOpacity / 5.0) * 5);
-            rounded = Math.Max(0, Math.Min(100, rounded));
-
-            if (OpacityMap.TryGetValue(rounded, out int mapped) && mapped >= 0)
-                return mapped;
-
-            return psOpacity;
+            return Mathf.Clamp(psOpacity, 0, 100);
         }
 
         #endregion

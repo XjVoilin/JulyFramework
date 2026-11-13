@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
-using UnityEditor;
 using UnityEngine;
 
 namespace July.UI.Authoring.Editor
@@ -13,13 +12,13 @@ namespace July.UI.Authoring.Editor
     /// </summary>
     public static class PS2UGUITranslate
     {
-        private const float ScaleEpsilon = 0.0001f;
 
         #region 输入数据模型
 
         [Serializable]
         private class PSData
         {
+            public int schemaVersion;
             public PSCanvas canvas;
             public List<PSLayer> layers;
         }
@@ -38,10 +37,10 @@ namespace July.UI.Authoring.Editor
             public string name;
             public string groupPath;
             public string type;
-            public int x;
-            public int y;
-            public int width;
-            public int height;
+            public float x;
+            public float y;
+            public float width;
+            public float height;
             public bool visible;
             public int order;
             public int opacity;
@@ -71,12 +70,12 @@ namespace July.UI.Authoring.Editor
             public string UnityName;
             public string UnityType;
             public bool IsSliderfill;
-            public string FillSpritePath;
+            public LayerInfo FillLayer;
 
             public bool Claimed;
             public bool UseNativeSize;
             public bool IsSliced;
-            public float NameScale = 1f;
+            public bool IsTint;
 
             public float AbsUnityX;
             public float AbsUnityY;
@@ -92,26 +91,11 @@ namespace July.UI.Authoring.Editor
             var jsonText = File.ReadAllText(psDataJsonPath);
             var psData = LitJson.JsonMapper.ToObject<PSData>(jsonText);
 
-            if (psData?.layers != null)
-            {
-                foreach (var layer in psData.layers)
-                {
-                    if (layer.scaleX == 0f) layer.scaleX = 1f;
-                    if (layer.scaleY == 0f) layer.scaleY = 1f;
-                }
-            }
-
             if (psData == null || psData.canvas == null || psData.layers == null)
-            {
-                EditorUtility.DisplayDialog("PS2UGUI", "JSON 解析失败，请检查文件格式。", "确定");
-                return null;
-            }
+                throw new FormatException("PS2UGUI: JSON 缺少 canvas 或 layers。");
 
             if (psData.canvas.width <= 0 || psData.canvas.height <= 0)
-            {
-                EditorUtility.DisplayDialog("PS2UGUI", "画布尺寸无效。", "确定");
-                return null;
-            }
+                throw new FormatException("PS2UGUI: 画布尺寸无效。");
 
             return Translate(psData);
         }
@@ -126,6 +110,11 @@ namespace July.UI.Authoring.Editor
             int canvasH = psData.canvas.height;
 
             var layers = ClassifyLayers(psData.layers);
+            foreach (var layer in layers)
+            {
+                if (psData.schemaVersion >= 2) layer.UseNativeSize = false;
+                if (layer.Prefix != "text" && psData.schemaVersion < 2) layer.Source.opacity = 100;
+            }
             PairSliders(layers);
             var activeLayers = FilterActiveLayers(layers);
             AssignUnityNames(layers);
@@ -155,8 +144,8 @@ namespace July.UI.Authoring.Editor
                 if (IsGroupPathIgnored(groupPath)) continue;
 
                 var isTextLayer = layer.type == "text";
-                fullName = ExtractNameScale(fullName, isTextLayer, out var nameScale);
-                var info = new LayerInfo { Source = layer, NameScale = isTextLayer ? 1f : nameScale };
+                if (!isTextLayer) fullName = StripRasterScale(fullName);
+                var info = new LayerInfo { Source = layer };
 
                 if (isTextLayer)
                 {
@@ -167,44 +156,29 @@ namespace July.UI.Authoring.Editor
                 }
                 else
                 {
-                    // Strip tint suffix ~ (color already captured in fontColor by Figma plugin)
-                    if (fullName.EndsWith("~"))
-                        fullName = fullName.Substring(0, fullName.Length - 1);
-
-                    bool isPrefab = fullName.EndsWith("@");
-                    if (isPrefab)
+                    var suffixes = "";
+                    while (fullName.Length > 0 && "$%@~".IndexOf(fullName[fullName.Length - 1]) >= 0)
                     {
-                        fullName = fullName.Substring(0, fullName.Length - 1).Replace('_', '/').Trim('/');
-                    }
-
-                    bool useNativeSize = !isPrefab && fullName.EndsWith("$");
-                    if (useNativeSize)
+                        suffixes += fullName[fullName.Length - 1];
                         fullName = fullName.Substring(0, fullName.Length - 1);
-
-                    bool isSliced = !isPrefab && fullName.EndsWith("%");
-                    if (isSliced)
-                        fullName = fullName.Substring(0, fullName.Length - 1);
-
-                    if (isPrefab && (fullName.EndsWith("$") || fullName.EndsWith("%")))
-                    {
-                        Debug.LogWarning($"PS2UGUI: 图层 '{layer.name}' 的 @ 命名不支持 $ 或 % 后缀，忽略该图层。");
-                        continue;
                     }
-
+                    bool isPrefab = suffixes.Contains("@");
+                    bool useNativeSize = suffixes.Contains("$");
+                    bool isSliced = suffixes.Contains("%");
+                    info.IsTint = suffixes.Contains("~");
+                    if (isPrefab && (useNativeSize || isSliced))
+                        throw new FormatException($"PS2UGUI: 图层 '{layer.name}' 的 @ 不支持 $ 或 %。");
                     if (useNativeSize && isSliced)
-                    {
-                        Debug.LogWarning($"PS2UGUI: 图层 '{layer.name}' 同时含 $ 和 % 后缀，$ 和 % 不可同时使用，% 将被忽略。");
-                        isSliced = false;
-                    }
+                        throw new FormatException($"PS2UGUI: 图层 '{layer.name}' 的 $ 和 % 不可同时使用。");
+                    if (isPrefab) fullName = fullName.Replace('_', '/').Trim('/');
+                    if (fullName.StartsWith("/") || fullName.Contains("\\") || fullName.Contains(":"))
+                        throw new FormatException($"PS2UGUI: 资源路径必须是相对路径: {layer.name}");
+                    foreach (var segment in fullName.Split('/'))
+                        if (segment.Length == 0 || segment == "." || segment == "..")
+                            throw new FormatException($"PS2UGUI: 无效的资源路径: {layer.name}");
 
                     var lastSlash = fullName.LastIndexOf('/');
                     var resourcePart = lastSlash >= 0 ? fullName.Substring(lastSlash + 1) : fullName;
-                    if (string.IsNullOrEmpty(resourcePart))
-                    {
-                        Debug.LogWarning($"PS2UGUI: 图层 '{layer.name}' 缺少有效资源名，忽略该图层。");
-                        continue;
-                    }
-
                     if (isPrefab)
                     {
                         info.Prefix = "prefab";
@@ -300,7 +274,7 @@ namespace July.UI.Authoring.Editor
             {
                 if (layer.Prefix == "slider" && fillDict.TryGetValue(GetGroupScopedResourceKey(layer), out var fill))
                 {
-                    layer.FillSpritePath = fill.SpritePath;
+                    layer.FillLayer = fill;
                     fill.Claimed = true;
                 }
                 else if (layer.Prefix == "slider")
@@ -438,7 +412,7 @@ namespace July.UI.Authoring.Editor
 
         private static UnityNode BuildUnityNode(LayerInfo layer)
         {
-            float nodeScale = GetLayerScale(layer);
+            const float nodeScale = 1f;
             float desiredVisualRotationZ = layer.AbsRotationZ;
 
             var node = new UnityNode
@@ -447,11 +421,13 @@ namespace July.UI.Authoring.Editor
                 type = layer.UnityType,
                 spritePath = layer.SpritePath ?? "",
                 prefabPath = layer.PrefabPath ?? "",
-                fillSpritePath = layer.FillSpritePath ?? "",
+                fillSpritePath = layer.FillLayer?.SpritePath ?? "",
+                fillColorHex = layer.FillLayer != null && layer.FillLayer.IsTint ? layer.FillLayer.Source.fontColor ?? "" : "",
+                fillOpacity = layer.FillLayer?.Source.opacity ?? 100,
                 x = layer.AbsUnityX,
                 y = layer.AbsUnityY,
-                width = GetBaseWidth(layer),
-                height = GetBaseHeight(layer),
+                width = layer.Source.width,
+                height = layer.Source.height,
                 anchorPreset = (layer.Prefix == "mask" || layer.Prefix == "tile") ? "stretch-all" : "middle-center",
                 active = layer.Source.visible,
                 order = layer.Source.order,
@@ -481,7 +457,7 @@ namespace July.UI.Authoring.Editor
                 node.strokeWidth = layer.Source.strokeWidth;
             }
 
-            node.colorHex = layer.Source.fontColor ?? "";
+            node.colorHex = layer.Prefix == "text" || layer.IsTint ? layer.Source.fontColor ?? "" : "";
 
             return node;
         }
@@ -507,50 +483,16 @@ namespace July.UI.Authoring.Editor
             return sb.ToString();
         }
 
-        private static string ExtractNameScale(string rawName, bool isTextLayer, out float scale)
+        private static string StripRasterScale(string rawName)
         {
-            scale = 1f;
-            if (string.IsNullOrEmpty(rawName)) return rawName ?? "";
-
-            var lastSlash = rawName.LastIndexOf('/');
-            var lastStar = rawName.LastIndexOf('*');
-            if (lastStar < 0 || lastStar < lastSlash)
-                return rawName;
-
-            var nameWithoutScale = rawName.Substring(0, lastStar);
-            var scaleText = rawName.Substring(lastStar + 1);
-
-            if (isTextLayer)
-            {
-                Debug.LogWarning($"PS2UGUI: 文本图层 '{rawName}' 不支持 *scale，已忽略该缩放配置。");
-                return nameWithoutScale;
-            }
-
-            if (!float.TryParse(scaleText, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsedScale) ||
-                float.IsNaN(parsedScale) || float.IsInfinity(parsedScale) || parsedScale <= 0f)
-            {
-                Debug.LogWarning($"PS2UGUI: 图层 '{rawName}' 的 *scale 值无效，已按 1 处理。");
-                return nameWithoutScale;
-            }
-
-            scale = parsedScale;
-            return nameWithoutScale;
-        }
-
-        private static float GetLayerScale(LayerInfo layer)
-        {
-            if (layer == null || layer.Prefix == "text") return 1f;
-            return Mathf.Abs(layer.NameScale) <= ScaleEpsilon ? 1f : layer.NameScale;
-        }
-
-        private static float GetBaseWidth(LayerInfo layer)
-        {
-            return layer.Source.width / GetLayerScale(layer);
-        }
-
-        private static float GetBaseHeight(LayerInfo layer)
-        {
-            return layer.Source.height / GetLayerScale(layer);
+            var star = rawName.LastIndexOf('*');
+            if (star < 0) return rawName;
+            var scaleText = rawName.Substring(star + 1);
+            if (!System.Text.RegularExpressions.Regex.IsMatch(scaleText, @"^(?:\d+(?:\.\d*)?|\.\d+)$") ||
+                !float.TryParse(scaleText, NumberStyles.Float, CultureInfo.InvariantCulture, out var scale) ||
+                float.IsNaN(scale) || float.IsInfinity(scale) || scale <= 0f)
+                throw new FormatException($"PS2UGUI: 节点 PNG 倍率必须是正数: {rawName}");
+            return rawName.Substring(0, star);
         }
 
         private static float NormalizeAngle(float degrees)
@@ -582,7 +524,12 @@ namespace July.UI.Authoring.Editor
 
         private static string MapTextAlignment(string psAlignment)
         {
-            return "center-middle";
+            switch (psAlignment)
+            {
+                case "left": return "left-middle";
+                case "right": return "right-middle";
+                default: return "center-middle";
+            }
         }
 
         #endregion

@@ -2,7 +2,8 @@
     "name": "July.UI.Authoring.Editor.Tests",
     "rootNamespace": "July.UI.Authoring.Editor.Tests",
     "references": [
-        "July.UI.Authoring.Editor"
+        "July.UI.Authoring.Editor",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [
         "Editor"

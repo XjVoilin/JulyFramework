@@ -10,6 +10,8 @@ namespace July.UI.Authoring.Editor
     public struct ImportResult
     {
         public bool success;
+        public bool cancelled;
+        public string error;
         public string prefabPath;
         public int localCopied;
         public int sharedCopied;
@@ -82,12 +84,12 @@ namespace July.UI.Authoring.Editor
                         $"导入成功！\n\n本地 sprite: {result.localCopied}\n共享 sprite: {result.sharedCopied}\nPrefab: {result.prefabPath}",
                         "确定");
                 }
-                else
+                else if (!result.cancelled)
                 {
                     var missing = result.missingSprites != null && result.missingSprites.Count > 0
                         ? $"\n\n缺失文件:\n{string.Join("\n", result.missingSprites)}"
                         : "";
-                    EditorUtility.DisplayDialog("Art Importer", $"导入失败。{missing}", "确定");
+                    EditorUtility.DisplayDialog("Art Importer", $"导入失败。\n{result.error}{missing}", "确定");
                 }
             }
             EditorGUI.EndDisabledGroup();
@@ -101,11 +103,21 @@ namespace July.UI.Authoring.Editor
         /// <param name="isWindow">是否生成 UIWindow</param>
         public static ImportResult Import(string sourceFolderPath, string targetArtTexturesBase, bool isWindow = false)
         {
+            try { return ImportCore(sourceFolderPath, targetArtTexturesBase, isWindow); }
+            catch (Exception exception)
+            {
+                JLogger.LogError($"ArtImporter: {exception}");
+                return new ImportResult { error = exception.Message, missingSprites = new List<string>() };
+            }
+        }
+
+        private static ImportResult ImportCore(string sourceFolderPath, string targetArtTexturesBase, bool isWindow)
+        {
             var result = new ImportResult { missingSprites = new List<string>() };
 
             if (!Directory.Exists(sourceFolderPath))
             {
-                JLogger.LogError($"ArtImporter: 源文件夹不存在 → {sourceFolderPath}");
+                result.error = $"源文件夹不存在: {sourceFolderPath}";
                 return result;
             }
 
@@ -113,67 +125,62 @@ namespace July.UI.Authoring.Editor
             var jsonPath = FindJsonFile(sourceFolderPath);
             if (string.IsNullOrEmpty(jsonPath))
             {
-                JLogger.LogError($"ArtImporter: 未找到支持的 JSON 文件（*_ui_data.json / *_ps_data.json / *_figma_data.json）");
+                result.error = "未找到支持的 JSON 文件（*_ui_data.json / *_ps_data.json / *_figma_data.json）";
                 return result;
             }
 
             var panelName = ExtractPanelName(jsonPath);
             if (string.IsNullOrEmpty(panelName))
             {
-                JLogger.LogError($"ArtImporter: 无法从 JSON 文件名提取面板名 → {jsonPath}");
+                result.error = $"无法从 JSON 文件名提取面板名: {jsonPath}";
                 return result;
             }
 
-            // 目标面板目录
+            targetArtTexturesBase = targetArtTexturesBase.Replace("\\", "/").TrimEnd('/');
+            var assetsRoot = Path.GetFullPath("Assets") + Path.DirectorySeparatorChar;
+            if (!targetArtTexturesBase.StartsWith("Assets/", StringComparison.Ordinal) ||
+                !Path.GetFullPath(targetArtTexturesBase).StartsWith(assetsRoot, StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException("目标必须是 Assets/ 下的资源目录。", nameof(targetArtTexturesBase));
             var targetPanelDir = $"{targetArtTexturesBase}/{panelName}";
-            EnsureDirectoryExists(targetPanelDir);
-
-            // 解析 JSON 中的 sprite 引用
-            var jsonText = File.ReadAllText(jsonPath);
-            var spriteNames = ExtractSpriteNames(jsonText);
-
-            // 复制本地 sprites（无 /）
-            foreach (var name in spriteNames)
+            var unityJsonPath = $"{targetPanelDir}/{Path.GetFileName(jsonPath)}";
+            var prefabPath = PS2UGUIGenerator.ResolvePrefabOutputPath(unityJsonPath, panelName);
+            if (string.IsNullOrEmpty(prefabPath))
             {
-                if (name.Contains("/")) continue;
-
-                var srcFile = Path.Combine(sourceFolderPath, name + ".png");
-                var dstFile = $"{targetPanelDir}/{name}.png";
-                var dstAbsolute = Path.GetFullPath(dstFile);
-
-                if (File.Exists(srcFile))
-                {
-                    File.Copy(srcFile, dstAbsolute, true);
-                    result.localCopied++;
-                }
-                else
-                {
-                    result.missingSprites.Add(name + ".png");
-                }
+                result.error = $"无法确定 Prefab 输出路径，JSON 上级目录需要包含 Res/: {unityJsonPath}";
+                return result;
             }
 
-            // 复制共享 sprites（有 /）
+            // Translation owns name parsing. Resolve all source files before copying anything.
+            var data = PS2UGUITranslate.Translate(jsonPath);
+            var spriteNames = new HashSet<string>();
+            CollectSpriteNames(data.children, spriteNames);
+            var sourceFiles = new Dictionary<string, string>();
             foreach (var name in spriteNames)
             {
-                if (!name.Contains("/")) continue;
-
-                var srcResolved = ResolveSharedSpriteSource(sourceFolderPath, name);
-                var dstFile = $"{targetArtTexturesBase}/{name}.png";
-                var dstAbsolute = Path.GetFullPath(dstFile);
-
-                if (!string.IsNullOrEmpty(srcResolved) && File.Exists(srcResolved))
-                {
-                    var dstDir = Path.GetDirectoryName(dstAbsolute);
-                    if (!string.IsNullOrEmpty(dstDir) && !Directory.Exists(dstDir))
-                        Directory.CreateDirectory(dstDir);
-
-                    File.Copy(srcResolved, dstAbsolute, true);
-                    result.sharedCopied++;
-                }
-                else
-                {
-                    result.missingSprites.Add(name + ".png");
-                }
+                var file = Path.Combine(sourceFolderPath, name + ".png");
+                if (!File.Exists(file) && name.Contains("/")) file = ResolveSharedSpriteSource(sourceFolderPath, name);
+                if (string.IsNullOrEmpty(file) || !File.Exists(file)) result.missingSprites.Add(name + ".png");
+                else sourceFiles.Add(name, file);
+            }
+            if (result.missingSprites.Count > 0)
+            {
+                result.error = "缺少导出图片，未复制资源或生成 Prefab。";
+                return result;
+            }
+            if (!PS2UGUIGenerator.ConfirmOverwrite(prefabPath))
+            {
+                result.cancelled = true;
+                return result;
+            }
+            EnsureDirectoryExists(targetPanelDir);
+            foreach (var entry in sourceFiles)
+            {
+                var shared = entry.Key.Contains("/");
+                var target = shared ? $"{targetArtTexturesBase}/{entry.Key}.png" : $"{targetPanelDir}/{entry.Key}.png";
+                EnsureDirectoryExists(Path.GetDirectoryName(target));
+                File.Copy(entry.Value, Path.GetFullPath(target), true);
+                if (shared) result.sharedCopied++;
+                else result.localCopied++;
             }
 
             // 复制 JSON 到面板目录
@@ -185,11 +192,22 @@ namespace July.UI.Authoring.Editor
             AssetDatabase.Refresh();
 
             // 生成 Prefab
-            var unityJsonPath = $"{targetPanelDir}/{jsonFileName}";
-            PS2UGUIGenerator.GenerateFromJson(unityJsonPath);
-
-            result.success = true;
-            result.prefabPath = unityJsonPath;
+            foreach (var name in spriteNames)
+            {
+                var assetPath = name.Contains("/") ? $"{targetArtTexturesBase}/{name}.png" : $"{targetPanelDir}/{name}.png";
+                var importer = (TextureImporter)AssetImporter.GetAtPath(assetPath);
+                if (importer.textureType != TextureImporterType.Sprite || importer.spriteImportMode != SpriteImportMode.Single)
+                {
+                    importer.textureType = TextureImporterType.Sprite;
+                    importer.spriteImportMode = SpriteImportMode.Single;
+                    importer.SaveAndReimport();
+                }
+            }
+            var generated = PS2UGUIGenerator.GeneratePrefab(data, unityJsonPath, panelName, _ => true);
+            result.success = generated.success;
+            result.cancelled = generated.cancelled;
+            result.error = generated.error;
+            result.prefabPath = generated.prefabPath;
             return result;
         }
 
@@ -221,43 +239,14 @@ namespace July.UI.Authoring.Editor
             return fileName;
         }
 
-        /// <summary>
-        /// 从 JSON 内容提取所有 image 类型 layer 的 name 字段作为 sprite 引用。
-        /// </summary>
-        private static HashSet<string> ExtractSpriteNames(string jsonText)
+        private static void CollectSpriteNames(List<UnityNode> nodes, HashSet<string> names)
         {
-            var names = new HashSet<string>();
-            var data = LitJson.JsonMapper.ToObject(jsonText);
-            if (data == null || !data.ContainsKey("layers")) return names;
-
-            var layers = data["layers"];
-            for (int i = 0; i < layers.Count; i++)
+            foreach (var node in nodes)
             {
-                var layer = layers[i];
-                if (!layer.ContainsKey("type") || !layer.ContainsKey("name")) continue;
-                var type = (string)layer["type"];
-                if (type != "image") continue;
-
-                var name = (string)layer["name"];
-                if (string.IsNullOrEmpty(name) || name.StartsWith("#")) continue;
-
-                // Strip special suffixes for file lookup
-                var stripped = StripSpecialSuffix(name);
-                if (!string.IsNullOrEmpty(stripped))
-                    names.Add(stripped);
+                if (!string.IsNullOrEmpty(node.spritePath)) names.Add(node.spritePath);
+                if (!string.IsNullOrEmpty(node.fillSpritePath)) names.Add(node.fillSpritePath);
+                CollectSpriteNames(node.children, names);
             }
-            return names;
-        }
-
-        private static string StripSpecialSuffix(string name)
-        {
-            // Strip *scale suffix
-            var starIdx = name.LastIndexOf('*');
-            if (starIdx > 0) name = name.Substring(0, starIdx);
-            // Strip $ % @ suffixes
-            if (name.Length > 0 && (name[name.Length - 1] == '$' || name[name.Length - 1] == '%' || name[name.Length - 1] == '@'))
-                name = name.Substring(0, name.Length - 1);
-            return name;
         }
 
         /// <summary>

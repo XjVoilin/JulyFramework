@@ -21,6 +21,8 @@ namespace July.UI.Authoring.Editor
         public string spritePath = "";
         public string prefabPath = "";
         public string fillSpritePath = "";
+        public string fillColorHex = "";
+        public int fillOpacity = 100;
         public float x;
         public float y;
         public float width;
