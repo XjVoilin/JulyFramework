@@ -11,6 +11,7 @@ namespace July.Platform
 
         private TTRewardedVideoAd _videoAd;
         private bool _isLoaded;
+        private bool _isPlaying;
         private readonly string _adUnitId;
         public TikTokADsService(string adUnitId) => _adUnitId = adUnitId;
 
@@ -30,7 +31,7 @@ namespace July.Platform
             JLogger.Log("[TikTokADsService] 广告实例延迟创建完成");
         }
 
-        public bool HasRewardedAd() => _isLoaded;
+        public bool HasRewardedAd() => _isLoaded && !_isPlaying;
 
         public void PlayRewardedAd()
         {
@@ -47,6 +48,8 @@ namespace July.Platform
                 return;
             }
 
+            _isPlaying = true;
+            _isLoaded = false;
             _videoAd.Show();
         }
 
@@ -57,13 +60,20 @@ namespace July.Platform
 
         private void OnAdClose(bool isComplete, int multitonCount)
         {
+            if (!_isPlaying) return;
+            _isPlaying = false;
             this.Publish(new RewardedAdResultEvent(true, isComplete));
+            _videoAd.Load();
         }
 
         private void OnAdError(int errCode, string errMsg)
         {
             JLogger.LogWarning($"[TikTokAd] Error: {errCode} {errMsg}");
             _isLoaded = false;
+            if (!_isPlaying) return;
+            _isPlaying = false;
+            this.Publish(new RewardedAdResultEvent(false, false));
+            _videoAd.Load();
         }
     }
 }
