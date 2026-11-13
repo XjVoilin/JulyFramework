@@ -35,6 +35,7 @@ namespace July.UI.Authoring.Editor
         public float fontSize;
         public string colorHex = "";
         public string alignment = "";
+        public bool wordWrap = true;
         public int opacity = 100;
         public bool useNativeSize;
         public string imageType = "simple";

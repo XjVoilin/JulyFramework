@@ -464,6 +464,7 @@ namespace July.UI.Authoring.Editor
             ApplyDefaultFont(tmp);
 
             tmp.text = nodeData.text;
+            tmp.enableWordWrapping = nodeData.wordWrap;
             tmp.fontSize = TruncateToTwoDecimals(nodeData.fontSize);
             tmp.raycastTarget = false;
 

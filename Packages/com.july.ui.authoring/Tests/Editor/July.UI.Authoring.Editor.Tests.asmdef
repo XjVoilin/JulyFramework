@@ -3,7 +3,8 @@
     "rootNamespace": "July.UI.Authoring.Editor.Tests",
     "references": [
         "July.UI.Authoring.Editor",
-        "UnityEngine.UI"
+        "UnityEngine.UI",
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [
         "Editor"

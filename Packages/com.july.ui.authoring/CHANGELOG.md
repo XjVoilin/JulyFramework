@@ -2,7 +2,13 @@
 
 ## Unreleased
 
-- Align PS/Figma export schema v2: fractional layout, raster-only *N, single opacity application, explicit Tint, and text alignment.
+- Replace raster scale marker *N with ^N in PS/Figma naming and import parsing; reject legacy star scale names with a migration message.
+
+- Support PS fixedCanvas export names [WxH] while retaining literal bracket names from other producers; import at the exported slot size.
+
+- Preserve exported point-text wrapping through TMP; add real-game-font mesh regression for transformed 105px text.
+
+- Align PS/Figma export schema v2: fractional layout, raster-only ^N, single opacity application, explicit Tint, and text alignment.
 - Share translated sprite references with Art Importer; import PNGs as Single Sprites and preflight missing files/output paths before copying.
 - Return actual generation/cancellation results and Prefab paths; preserve Prefab GUIDs and clean temporary objects on failure.
 - Preserve Slider Fill Tint/opacity and add EditMode/cross-tool regression coverage.

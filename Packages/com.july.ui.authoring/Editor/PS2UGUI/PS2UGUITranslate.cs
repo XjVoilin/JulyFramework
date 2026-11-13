@@ -49,6 +49,8 @@ namespace July.UI.Authoring.Editor
             public string fontColor;
             public string fontName;
             public string textAlignment;
+            public bool wordWrap = true;
+            public bool fixedCanvas;
             public float scaleX;
             public float scaleY;
             public float rotationZ;
@@ -144,7 +146,11 @@ namespace July.UI.Authoring.Editor
                 if (IsGroupPathIgnored(groupPath)) continue;
 
                 var isTextLayer = layer.type == "text";
-                if (!isTextLayer) fullName = StripRasterScale(fullName);
+                if (!isTextLayer)
+                {
+                    fullName = StripRasterScale(fullName);
+                    if (layer.fixedCanvas) fullName = StripFixedCanvasSuffix(fullName);
+                }
                 var info = new LayerInfo { Source = layer };
 
                 if (isTextLayer)
@@ -171,6 +177,8 @@ namespace July.UI.Authoring.Editor
                     if (useNativeSize && isSliced)
                         throw new FormatException($"PS2UGUI: 图层 '{layer.name}' 的 $ 和 % 不可同时使用。");
                     if (isPrefab) fullName = fullName.Replace('_', '/').Trim('/');
+                    if (fullName.Contains("*"))
+                        throw new FormatException($"PS2UGUI: * 不再作为倍率后缀，请改用 ^N，例如 img_logo^0.5: {layer.name}");
                     if (fullName.StartsWith("/") || fullName.Contains("\\") || fullName.Contains(":"))
                         throw new FormatException($"PS2UGUI: 资源路径必须是相对路径: {layer.name}");
                     foreach (var segment in fullName.Split('/'))
@@ -453,6 +461,7 @@ namespace July.UI.Authoring.Editor
                 node.text = layer.Source.text ?? "";
                 node.fontSize = layer.Source.fontSize;
                 node.alignment = MapTextAlignment(layer.Source.textAlignment);
+                node.wordWrap = layer.Source.wordWrap;
                 node.strokeColor = layer.Source.strokeColor ?? "";
                 node.strokeWidth = layer.Source.strokeWidth;
             }
@@ -485,14 +494,24 @@ namespace July.UI.Authoring.Editor
 
         private static string StripRasterScale(string rawName)
         {
-            var star = rawName.LastIndexOf('*');
-            if (star < 0) return rawName;
-            var scaleText = rawName.Substring(star + 1);
+            var caret = rawName.LastIndexOf('^');
+            if (caret < 0) return rawName;
+            var scaleText = rawName.Substring(caret + 1);
             if (!System.Text.RegularExpressions.Regex.IsMatch(scaleText, @"^(?:\d+(?:\.\d*)?|\.\d+)$") ||
                 !float.TryParse(scaleText, NumberStyles.Float, CultureInfo.InvariantCulture, out var scale) ||
                 float.IsNaN(scale) || float.IsInfinity(scale) || scale <= 0f)
                 throw new FormatException($"PS2UGUI: 节点 PNG 倍率必须是正数: {rawName}");
-            return rawName.Substring(0, star);
+            return rawName.Substring(0, caret);
+        }
+
+        private static string StripFixedCanvasSuffix(string name)
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(name, @"\[(\d+)[xX×](\d+)\](?=[$%@~]*$)");
+            if (!match.Success ||
+                !int.TryParse(match.Groups[1].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var width) || width <= 0 ||
+                !int.TryParse(match.Groups[2].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var height) || height <= 0)
+                throw new FormatException($"PS2UGUI: 固定画布命名无效: {name}");
+            return name.Remove(match.Index, match.Length);
         }
 
         private static float NormalizeAngle(float degrees)
