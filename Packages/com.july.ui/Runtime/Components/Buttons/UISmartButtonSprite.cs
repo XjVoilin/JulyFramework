@@ -11,7 +11,11 @@ namespace July.UI
         [SerializeField] private Sprite _normalSprite;
         [SerializeField] private Sprite _disabledSprite;
 
-        private void OnEnable() => RefreshSprite();
+        protected override void OnEnable()
+        {
+            base.OnEnable();
+            RefreshSprite();
+        }
 
         public override void SetInteractable(bool value)
         {

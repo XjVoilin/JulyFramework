@@ -142,3 +142,81 @@ this section does not imply a new package tag has been published.
 
 The component PlayMode tests require the host project to configure TMP Settings
 with a default font covering ASCII digits, periods and lowercase `g`/`y`.
+
+## Authored disabled visuals
+
+`UIDisabledVisual` switches explicitly authored Normal/Disabled values on one UI
+subtree. Add it to the UI root, then configure any number of Image sprite pairs,
+child GameObject active pairs, Graphic color pairs (including TMP), and TMP shared
+font-material preset pairs. Empty sprite references explicitly clear the image.
+Unlisted properties, text contents, image dimensions, raycasts and gameplay stay
+with their existing owners. Normal values are authored, not runtime snapshots.
+
+- For ordinary buttons, assign the visual to `UISmartButton.Disabled Visual`.
+  Continue calling `button.SetInteractable(canUse)`; initial state, repeated calls,
+  updates while inactive and reopen reapply the corresponding visual. One visual
+  must have one button source. Do not independently drive that visual as well.
+- For a gray-but-clickable element, leave the button reference empty and call
+  `visual.SetDisabled(isLocked)`. The visual never blocks input itself.
+- Own each property in one place. For stock/advertisement badges, let this visual
+  hide an outer container while project logic controls its children. Never bind
+  the visual's own GameObject or an ancestor to its active-object list.
+- Targets belong to this subtree. Do not combine overlapping UIGrayGroup,
+  UISmartButtonGray/UISmartButtonSprite, animation tracks, another visual, or
+  project writes to the same owned properties. Existing legacy button components
+  remain available; use plain UISmartButton when adopting the new visual.
+- For outlines, author two material presets for the target SDF font. The preset
+  must use the font's atlas texture and a TMP SDF shader. Assignments use
+  `fontSharedMaterial`; preset contents are never mutated and the visual creates
+  no per-element materials. Standard and July double-outline presets are supported.
+  Font changes need matching new presets; independent runtime font/icon rebinding
+  is outside this component's current contract.
+- Prefabs directly reference sprites/materials and use the existing UI/resource
+  lifetime. No runtime address lookup, automatic gray-image naming or SO registry.
+
+The Inspector uses four counted foldouts (empty groups start collapsed), with paired Normal/Disabled fields and a compact capture/preview toolbar. Help lives in tooltips; configuration errors remain visible. It captures current Normal values with
+Undo, and previews either state. Preview uses Unity AnimationMode to restore the
+actual scene values (which need not match the authored Normal values); it does not
+modify the initial state, button or business data. End preview before editing.
+Leaving the Inspector, saving, assembly reload, Undo and entering Play Mode stop
+preview. Another active animation preview blocks starting this one. Missing,
+external, duplicate and conflicting targets and incompatible font presets are
+reported in the Inspector; invalid local runtime configuration fails on first use.
+
+Disabling/reopening a window preserves the current visual state. Hiding the window
+does not mean that its business condition became Normal. No automatic OnDisable
+rollback is performed. Configuration is fixed for an instantiated visual.
+
+
+## Art numbers
+
+`UIArtNumber` uses authored Image slots and digit sprites (0-9). Minimum Digits
+defaults to 1; set it to 2 to display 0 as `00` and 5 as `05`. Provide enough
+slots for the largest number. Images retain native sprite sizing.
+
+Layout has four options: Manual preserves authored slot positions; Left aligns
+to this component's RectTransform left edge; Center centers within its rectangle;
+Right aligns to its right edge. Automatic placement uses the owner rectangle's
+coordinates independently of slot anchors and accounts for owner and digit pivots.
+Spacing controls the gap between native-size slots in all three automatic layouts;
+negative spacing is supported. Digit order remains left to right. Use unit digit
+scale and scale the whole number to size the display. The container needs enough
+width for the native-size digits and spacing; layout does not shrink or clip them.
+Decorations such as a timer colon are placed independently.
+
+The Inspector refreshes assigned Images immediately when display settings change.
+In edit mode, Preview Number selects the value (initially 0); it does not change
+CurrentNumber or the runtime value cache. In Play Mode, settings refresh the
+current runtime value. Generated sprite, size, visibility and layout edits support
+Undo and prefab instance overrides and can be saved as the authored appearance.
+Merely selecting the component does not rewrite its children. Incomplete bindings
+show a warning and skip preview until all ten sprites and the slots are assigned.
+
+For a timer, compose two two-digit numbers with an authored colon; time rules and
+unlimited-state visuals belong to the consuming project. No timer or resource
+loading is added to the number component.
+
+Migration: replace serialized `_centerAlign: 0` with `_layout: 0` (Manual), and
+`_centerAlign: 1` with `_layout: 2` (Center), including any prefab property overrides.
+The consuming GooseMarketSort project's four existing bindings have been migrated
+explicitly. No legacy boolean field is retained.

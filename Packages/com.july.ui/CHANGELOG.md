@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- Fix UIArtNumber automatic alignment to use the owner RectTransform left edge, center and right edge. Remove anchor-origin offset and account for slot anchors and owner pivot.
+
+- Replace UIArtNumber Center Align with Manual / Left / Center / Right Layout. Apply Spacing to all automatic layouts, respect slot pivots, and preserve live Inspector preview and Undo. Existing serialized Center Align values require the documented migration.
+
+- Add live UIArtNumber Inspector preview with a preview value, immediate centered-spacing updates, Undo and prefab override support; preserve manual layout and runtime number caching.
+
+- Add optional minimum digits to UIArtNumber for leading zeros; preserve the default integer display and authored slot layout.
+
+- Use English labels, tooltips and configuration messages for UIDisabledVisual Inspector; size compact controls for English text.
+
+- Add UIDisabledVisual for authored normal/disabled sprite, child visibility,
+  Graphic color and TMP font-material pairs, with explicit property ownership.
+- Add optional UISmartButton visual composition, including initial/repeated state,
+  inactive updates and reopen. Preserve scale when disabled before first Awake.
+- Add a grouped Inspector with Normal capture/Undo, temporary state preview and
+  save/reload cleanup, plus target, duplicate, legacy/animation and font checks.
+- Preserve legacy gray/sprite button types and existing resource lifetimes.
+
 - Advance UITextReveal directly from accumulated frame time in LateUpdate; remove the component's DOTween object, callbacks and tween cleanup.
 
 - Read the parsed TMP character count after ForceMeshUpdate without temporarily expanding maxVisibleCharacters; visibility limits do not truncate the count.

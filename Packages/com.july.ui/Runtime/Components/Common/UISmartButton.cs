@@ -17,6 +17,8 @@ public class UISmartButton : ArchBehaviour,
 {
     [FormerlySerializedAs("interactable")]
     [Header("Interact")] [SerializeField] private bool _interactable = true;
+    [Tooltip("Optional authored Normal/Disabled visuals. Do not combine with legacy gray or sprite buttons.")]
+    [SerializeField] private UIDisabledVisual _disabledVisual;
 
     [Header("Scale Feedback")] public bool enableScale = true;
     public float scaleTarget = 1.11f;
@@ -38,12 +40,20 @@ public class UISmartButton : ArchBehaviour,
     private Vector3 _pressedScale;
     private float _lastClickTime;
 
-    private void Awake()
+    private bool _scaleInitialized;
+
+    private void Awake() => EnsureScaleInitialized();
+
+    private void EnsureScaleInitialized()
     {
+        if (_scaleInitialized) return;
+        _scaleInitialized = true;
         _originScale = transform.localScale;
         _pressedScale = _originScale * scaleTarget;
         _targetScale = _originScale;
     }
+
+    protected virtual void OnEnable() => RefreshDisabledVisual();
 
     private void OnDestroy()
     {
@@ -103,16 +113,24 @@ public class UISmartButton : ArchBehaviour,
 
     public virtual void SetInteractable(bool value)
     {
-        if (_interactable == value)
-            return;
-
-        _interactable = value;
-
-        if (!_interactable)
+        if (_interactable != value)
         {
-            _scaleTweener?.Kill();
-            transform.localScale = _originScale;
+            EnsureScaleInitialized();
+            _interactable = value;
+            if (!_interactable)
+            {
+                _scaleTweener?.Kill();
+                transform.localScale = _originScale;
+            }
         }
+
+        // 同态设置也重绘，覆盖首次绑定、复用和外部内容刷新。
+        RefreshDisabledVisual();
+    }
+
+    private void RefreshDisabledVisual()
+    {
+        if (_disabledVisual) _disabledVisual.SetDisabled(!_interactable);
     }
 
     #endregion

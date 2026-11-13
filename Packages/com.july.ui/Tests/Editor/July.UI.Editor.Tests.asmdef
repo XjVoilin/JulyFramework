@@ -1,0 +1,9 @@
+{
+  "name": "July.UI.Editor.Tests",
+  "rootNamespace": "July.UI.Editor.Tests",
+  "references": ["July.UI", "July.UI.Editor", "Unity.TextMeshPro", "UnityEngine.UI"],
+  "includePlatforms": ["Editor"],
+  "autoReferenced": false,
+  "defineConstraints": ["UNITY_INCLUDE_TESTS"],
+  "optionalUnityReferences": ["TestAssemblies"]
+}

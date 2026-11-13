@@ -3,18 +3,27 @@ using UnityEngine.UI;
 
 namespace July.UI
 {
+    public enum UIArtNumberLayout
+    {
+        Manual,
+        Left,
+        Center,
+        Right
+    }
+
     /// <summary>
     /// 美术字数字显示：通过 Sprite 数组（0-9）拼接显示整数。
     /// 轻量实现，不依赖 LayoutGroup，不动态创建对象。
-    /// 数字 slot 和装饰图（前缀/后缀均可）的位置全由美术在 prefab 中自由摆放。
+    /// 手动模式保留数位位置；自动模式按组件矩形的左边、中线或右边排列，装饰图独立摆放。
     /// </summary>
     [DisallowMultipleComponent]
     public class UIArtNumber : MonoBehaviour
     {
         [SerializeField] private Sprite[] _digits = new Sprite[10];
         [SerializeField] private Image[] _digitSlots;
-        [SerializeField] private bool _centerAlign;
-        [SerializeField] private float _spacing;
+        [SerializeField, Min(1)] private int _minimumDigits = 1;
+        [SerializeField, Tooltip("Manual preserves slot positions. Left, Center and Right align within this component's RectTransform.")] private UIArtNumberLayout _layout;
+        [SerializeField, Tooltip("Spacing between digit slots in Left, Center or Right layouts.")] private float _spacing;
 
         private int _currentNumber = -1;
 
@@ -24,15 +33,20 @@ namespace July.UI
         {
             if (number == _currentNumber) return;
             _currentNumber = number;
-            Refresh();
+            Refresh(number);
         }
 
-        private void Refresh()
+#if UNITY_EDITOR
+        // Editor preview must not replace the runtime value or its change cache.
+        internal void RefreshEditorPreview(int number) => Refresh(number);
+#endif
+
+        private void Refresh(int number)
         {
             if (_digitSlots == null || _digitSlots.Length == 0) return;
 
-            int number = Mathf.Max(0, _currentNumber);
-            string numStr = number.ToString();
+            number = Mathf.Max(0, number);
+            string numStr = number.ToString().PadLeft(_minimumDigits, '0');
             int digitCount = Mathf.Min(numStr.Length, _digitSlots.Length);
 
             float totalWidth = 0f;
@@ -46,7 +60,7 @@ namespace July.UI
                     int d = numStr[i] - '0';
                     _digitSlots[i].sprite = _digits[d];
                     _digitSlots[i].SetNativeSize();
-                    if (_centerAlign)
+                    if (_layout != UIArtNumberLayout.Manual)
                         totalWidth += _digitSlots[i].rectTransform.sizeDelta.x;
                 }
                 else
@@ -55,15 +69,24 @@ namespace July.UI
                 }
             }
 
-            if (_centerAlign && digitCount > 0)
+            if (_layout != UIArtNumberLayout.Manual && digitCount > 0)
             {
                 totalWidth += (digitCount - 1) * _spacing;
-                float x = -totalWidth * 0.5f;
+                var bounds = ((RectTransform)transform).rect;
+                float x = _layout switch
+                {
+                    UIArtNumberLayout.Left => bounds.xMin,
+                    UIArtNumberLayout.Center => bounds.center.x - totalWidth * 0.5f,
+                    UIArtNumberLayout.Right => bounds.xMax - totalWidth,
+                    _ => throw new System.ArgumentOutOfRangeException(nameof(_layout), _layout, null)
+                };
                 for (int i = 0; i < digitCount; i++)
                 {
                     if (_digitSlots[i] == null) continue;
-                    float w = _digitSlots[i].rectTransform.sizeDelta.x;
-                    _digitSlots[i].rectTransform.anchoredPosition = new Vector2(x + w * 0.5f, 0f);
+                    var slot = _digitSlots[i].rectTransform;
+                    float w = slot.sizeDelta.x;
+                    // Position in the owner rectangle, independently of each slot's anchors.
+                    slot.position = transform.TransformPoint(new Vector3(x + w * slot.pivot.x, bounds.center.y, 0f));
                     x += w + _spacing;
                 }
             }
