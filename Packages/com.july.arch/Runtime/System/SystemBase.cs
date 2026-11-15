@@ -5,9 +5,10 @@ using Cysharp.Threading.Tasks;
 namespace July.Arch
 {
     /// <summary>
-    /// 长期运行能力的统一基类。初始化完成表示该 System 已可供后续 System 使用。
-    /// System 管理业务过程及其运行数据的生命周期，可持有普通数据对象并提供查询入口。
-    /// 复杂逻辑可委托普通类处理，无需把运行数据统一放入 Store。
+    /// 长期提供模块能力和业务入口，管理权威运行状态及其生命周期。
+    /// 初始化完成表示该 System 已可供后续 System 使用。
+    /// 需要独立表达的一次操作由 Procedure 编排，规则和模型可委托普通类实现。
+    /// 可持有运行数据并提供查询入口，无需把运行数据统一放入 Store；异步能力也可由 System 提供。
     /// </summary>
     public abstract class SystemBase : ICanGetStore, ICanEvent, ICanGetSystem, ICanGetView, ICanRunProcedure
     {

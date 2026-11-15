@@ -205,6 +205,10 @@ namespace July.Arch
 
         #endregion
 
+        /// <summary>
+        /// 执行一次 Procedure，并在结束时解除该实例所属的事件订阅。
+        /// 令牌只传入本次执行，子流程须显式传递；业务回滚、阶段恢复和退出去向由流程约定。
+        /// </summary>
         public async UniTask RunProcedure(ProcedureBase procedure, CancellationToken ct = default)
         {
             if (procedure == null) throw new ArgumentNullException(nameof(procedure));
