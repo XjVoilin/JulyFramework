@@ -329,11 +329,11 @@ namespace July.Rendering.URP.Editor
             var material = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
             if (material == null)
             {
-                material = new Material(Shader.Find("July/URP/Baked Transparent Surface"));
+                material = new Material(Shader.Find("JulyGF/URP/Baked Transparent Surface"));
                 AssetDatabase.CreateAsset(material, materialPath);
             }
             Undo.RecordObject(material, action);
-            material.shader = Shader.Find("July/URP/Baked Transparent Surface");
+            material.shader = Shader.Find("JulyGF/URP/Baked Transparent Surface");
             material.SetTexture("_BaseMap", image);
             material.SetColor("_BaseColor", Color.white);
             material.SetTextureScale("_BaseMap", Vector2.one);

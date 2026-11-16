@@ -17,7 +17,7 @@ namespace July.Rendering.URP
 
         void Awake()
         {
-            if (_material == null || _material.shader.name != "July/URP/Mesh Highlight")
+            if (_material == null || _material.shader.name != "JulyGF/URP/Mesh Highlight")
                 throw new InvalidOperationException(name + ": configure the mask highlight material.");
             if (_renderers == null || _renderers.Length == 0)
                 throw new InvalidOperationException(name + ": configure the static MeshRenderers.");

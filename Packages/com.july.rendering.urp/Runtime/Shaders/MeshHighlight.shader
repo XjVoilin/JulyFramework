@@ -1,4 +1,4 @@
-Shader "July/URP/Mesh Highlight"
+Shader "JulyGF/URP/Mesh Highlight"
 {
     Properties
     {

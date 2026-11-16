@@ -43,7 +43,7 @@ namespace July.Physics.Authoring
 
         internal ColliderPreview()
         {
-            var shader = Shader.Find("Hidden/July/ColliderOverviewPreview");
+            var shader = Shader.Find("Hidden/JulyGF/ColliderOverviewPreview");
             solid = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
             wire = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
             depth = LayerMaterial(shader, 1900, CompareFunction.LessEqual, true, 0, false);

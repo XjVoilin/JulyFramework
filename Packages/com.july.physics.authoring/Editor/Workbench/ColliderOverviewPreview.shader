@@ -1,4 +1,4 @@
-Shader "Hidden/July/ColliderOverviewPreview"
+Shader "Hidden/JulyGF/ColliderOverviewPreview"
 {
     Properties
     {

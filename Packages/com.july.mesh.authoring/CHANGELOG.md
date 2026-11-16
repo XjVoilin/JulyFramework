@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- 将网格预览 Shader 统一为 Hidden/JulyGF/MeshAuthoringPreview，同步缩略图材质查找；保留 Shader GUID 和绘制行为。
+
 ## 0.2.0 - 2026-11-10
 
 - Remove unused legacy MeshEditRecord and MeshBinding types.

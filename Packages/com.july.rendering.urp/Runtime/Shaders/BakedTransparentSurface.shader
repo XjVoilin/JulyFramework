@@ -1,4 +1,4 @@
-Shader "July/URP/Baked Transparent Surface"
+Shader "JulyGF/URP/Baked Transparent Surface"
 {
     Properties
     {

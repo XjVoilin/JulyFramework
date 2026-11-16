@@ -1,4 +1,4 @@
-Shader "Hidden/July/MeshAuthoringPreview"
+Shader "Hidden/JulyGF/MeshAuthoringPreview"
 {
     SubShader
     {

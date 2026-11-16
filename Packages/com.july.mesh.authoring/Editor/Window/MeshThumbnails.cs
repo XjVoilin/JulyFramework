@@ -12,7 +12,7 @@ namespace July.Mesh.Authoring
 
         internal MeshThumbnails()
         {
-            fallback = new Material(Shader.Find("Hidden/July/MeshAuthoringPreview")) { hideFlags = HideFlags.HideAndDontSave };
+            fallback = new Material(Shader.Find("Hidden/JulyGF/MeshAuthoringPreview")) { hideFlags = HideFlags.HideAndDontSave };
             preview.camera.fieldOfView = 30;
             preview.camera.clearFlags = CameraClearFlags.Color;
             preview.camera.backgroundColor = EditorGUIUtility.isProSkin ? new Color(.20f, .20f, .20f) : new Color(.72f, .72f, .72f);

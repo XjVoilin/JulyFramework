@@ -1,4 +1,4 @@
-Shader "July/URP/Baked Surface"
+Shader "JulyGF/URP/Baked Surface"
 {
     Properties
     {

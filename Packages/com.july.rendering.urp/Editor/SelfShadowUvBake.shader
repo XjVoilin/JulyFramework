@@ -1,4 +1,4 @@
-Shader "Hidden/July/Self Shadow UV Bake"
+Shader "Hidden/JulyGF/Self Shadow UV Bake"
 {
     SubShader
     {

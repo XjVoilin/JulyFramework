@@ -1,4 +1,4 @@
-Shader "Hidden/July/URP/Depth Reference"
+Shader "Hidden/JulyGF/URP/Depth Reference"
 {
     Properties { _DepthDelta("Controlled depth difference", Float) = 0 }
     SubShader

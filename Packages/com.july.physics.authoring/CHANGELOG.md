@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- 将碰撞体预览 Shader 统一为 Hidden/JulyGF/ColliderOverviewPreview，同步预览材质查找；保留 Shader GUID 和绘制行为。
+
 ## 0.6.1 - 2026-11-12
 
 - Let project windows add custom sort menu actions and comparators; keep the shared natural-name tie-breaker and replace custom ordering when a built-in sort is selected.

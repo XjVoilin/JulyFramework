@@ -128,7 +128,7 @@ namespace July.Rendering.URP.Editor
                 rendererData = Instantiate(sourceRenderer); rendererData.hideFlags = HideFlags.HideAndDontSave;
                 rendererData.rendererFeatures.Clear();
                 feature = CreateInstance<SelfShadowBakeRendererFeature>(); feature.hideFlags = HideFlags.HideAndDontSave;
-                bakeMaterial = new Material(Shader.Find("Hidden/July/Self Shadow UV Bake")) { hideFlags = HideFlags.HideAndDontSave };
+                bakeMaterial = new Material(Shader.Find("Hidden/JulyGF/Self Shadow UV Bake")) { hideFlags = HideFlags.HideAndDontSave };
                 minimum = RenderTexture.GetTemporary(texture.width, texture.height, 0, RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear);
                 maximum = RenderTexture.GetTemporary(texture.width, texture.height, 0, RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear);
                 feature.Mesh = _receiver.GetComponent<MeshFilter>().sharedMesh;

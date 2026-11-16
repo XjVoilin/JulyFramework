@@ -19,7 +19,7 @@ namespace July.Rendering.URP.Tests
             first.transform.SetParent(root.transform, false);
             second.transform.SetParent(root.transform, false);
             var target = root.AddComponent<MeshHighlightTarget>();
-            var material = new Material(Shader.Find("July/URP/Mesh Highlight")) { enableInstancing = true };
+            var material = new Material(Shader.Find("JulyGF/URP/Mesh Highlight")) { enableInstancing = true };
             var renderers = new[] { first.GetComponent<MeshRenderer>(), second.GetComponent<MeshRenderer>() };
             var mesh = first.GetComponent<MeshFilter>().sharedMesh;
             var surfaceMaterial = renderers[0].sharedMaterial;

@@ -6,7 +6,7 @@ URP 正交相机的静态网格高亮：表面着色、黑色描边、黄色外�
 
 1. 在相机使用的 Universal Renderer Data 中添加 `MeshHighlightRendererFeature`。包程序集属于普通主包/AOT，不依赖游戏热更程序集。
 2. 在正交 Base 相机上添加 `MeshHighlightCamera`。每个相机保存一个候选目标；没有有效选中目标时不提交高亮 Pass。
-3. 在物品显示节点上添加 `MeshHighlightTarget`，配置静态 MeshRenderer 列表和使用 `July/URP/Mesh Highlight` Shader 的共享高亮材质。初始化后不替换列表或网格。
+3. 在物品显示节点上添加 `MeshHighlightTarget`，配置静态 MeshRenderer 列表和使用 `JulyGF/URP/Mesh Highlight` Shader 的共享高亮材质。初始化后不替换列表或网格。
 4. 选中和取消时由业务方更新相机候选及目标状态：
 
 ```csharp
@@ -70,7 +70,7 @@ cameraHighlight.Target = null;
 入口：**JulyGF → 渲染 → 场景出图**。选择当前场景的正交相机和目标BG的MeshRenderer，点击“导出PNG”。
 
 - BG应为平面网格，UV为连续矩形的仿射映射。工具读取实际网格与UV，自动确定完整取景、图片方向和比例；长边固定2048，短边自动计算。没有手动像素宽度或比例输入。
-- 默认路径Assets/场景名.png，可编辑或选择；存在则直接覆盖。项目内同时生成同目录的`场景名_Baked.mat`，处理原BG图集UV范围使用July/URP/Baked Surface，保持贴图原色并接收主光实时阴影，避免重复受光。
+- 默认路径Assets/场景名.png，可编辑或选择；存在则直接覆盖。项目内同时生成同目录的`场景名_Baked.mat`，处理原BG图集UV范围使用JulyGF/URP/Baked Surface，保持贴图原色并接收主光实时阴影，避免重复受光。
 - 回贴时将生成的`_Baked.mat`赋给原BG，并隐藏已经合成进图片的3D物件。不能只把PNG换进原来的受光材质；保存到项目外只输出PNG。
 - 使用当前已打开场景及未保存修改，不重新加载或保存源场景，不按物件名称/层级筛选，原有相机可见性仍生效。
 - 捕获使用临时相机与BG的UV投影，复制URP附加数据并渲染Base/Overlay相机栈；不复制业务相机脚本。完成或异常时释放临时资源。
@@ -80,7 +80,7 @@ cameraHighlight.Target = null;
 
 ### 烘焙贴图的实时阴影
 
-`July/URP/Baked Surface`直接显示烘焙贴图颜色，只叠加URP主光阴影衰减，不重新计算光照颜色、强度、高光或环境光。出图工具默认使用此Shader；已有材质保留原_BaseMap与UV缩放/偏移即可切换。
+`JulyGF/URP/Baked Surface`直接显示烘焙贴图颜色，只叠加URP主光阴影衰减，不重新计算光照颜色、强度、高光或环境光。出图工具默认使用此Shader；已有材质保留原_BaseMap与UV缩放/偏移即可切换。
 材质的`Receive Shadows`默认开启，保持现有效果；关闭时通过本地Shader关键字`_RECEIVE_SHADOWS_OFF`编译掉阴影坐标计算、主光阴影采样及衰减叠加。`Received Shadow Strength`默认0.5，0保持原图，1使用完整阴影衰减；仅将强度设为0不会关闭阴影采样。支持主光硬阴影、软阴影、级联及屏幕空间阴影关键字，提供DepthOnly Pass，不额外投射地板阴影。
 纹理中已有的静态阴影会保留；若对应3D投影物件继续存在，应避免重复烘入同一份阴影。阴影接收使用真实BG平面深度，不能恢复图中花盆或其他装饰原本的立体遮挡。
 
@@ -91,7 +91,7 @@ cameraHighlight.Target = null;
 1. 在Hierarchy选中要替换的节点，指定取景相机及Assets内的PNG路径。
 2. 默认开启“保留地板实际阴影”，将原地板Renderer拖入“接影地板”。地板需处于节点外部、当前可见、水平且不透明。无需更换地板材质，无需调阴影强度。
 3. 点击“导出并生成面片”。沿源相机视线将节点与主方向光投影范围映射到地板XZ平面，按世界宽长和原相机像素密度计算图片大小，不固定2048。旋转及透视烘入图片。
-4. 原节点同级创建或更新`节点名_Image`，配置July/URP/Baked Transparent Surface透明接影材质及持久网格，补偿父级旋转、非均匀/镜像缩放。隐藏原节点后对比。原地板保持原样。
+4. 原节点同级创建或更新`节点名_Image`，配置JulyGF/URP/Baked Transparent Surface透明接影材质及持久网格，补偿父级旋转、非均匀/镜像缩放。隐藏原节点后对比。原地板保持原样。
 
 阴影采用三次渲染：透明节点、原地板接收该节点投影、原地板不接收该节点投影。根据后两者实际颜色差异，在运行时混合所用的颜色空间中求解RGBA覆盖层，再合成节点图像。地板材质、纹理、环境光和光源的影响由渲染结果决定；不再使用模拟黑色接影Shader或手动强度。Unlit等本来不接影的地板不会被添加影子。PNG不包含原地板底色，需叠在该原地板上使用。
 
