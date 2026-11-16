@@ -1,4 +1,4 @@
-// UI/InvertedStencil
+// JulyGF/UI/InvertedStencil
 // 基于 Unity 内置 UI/Default 的反向 Stencil 版本。
 // 默认 _Stencil=1, _StencilComp=NotEqual(6), _StencilWriteMask=0,
 // 配合外层 UGUI Mask(写 stencil=1) + 本材质的 Image(maskable=false) 实现"反向遮罩"
@@ -6,7 +6,7 @@
 //
 // 典型用法: JulyToolkit.UIHoleMask 组件。
 // 任何需要"在某形状外铺色/铺图"的场景都可以用。
-Shader "UI/InvertedStencil"
+Shader "JulyGF/UI/InvertedStencil"
 {
     Properties
     {

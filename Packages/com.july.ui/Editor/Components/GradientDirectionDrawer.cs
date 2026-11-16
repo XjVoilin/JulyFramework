@@ -4,7 +4,7 @@ using UnityEngine;
 namespace July.UI.Editor
 {
     /// <summary>
-    /// Displays the eight UI/Gradient direction values without exceeding
+    /// Displays the eight JulyGF/UI/Gradient direction values without exceeding
     /// ShaderLab's argument limit for parameterized material drawers.
     /// </summary>
     public sealed class GradientDirectionDrawer : MaterialPropertyDrawer

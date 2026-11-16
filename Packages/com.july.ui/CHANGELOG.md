@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Move the project-local UIAntiAliased shader into Runtime/Shaders, preserving its
+  asset GUID and algorithm; project material instances remain in the consuming game.
+- Standardize all seven runtime UI shader menu names under JulyGF/UI. Preserve
+  existing shader GUIDs and update grayscale Shader.Find and shader inclusion setup.
+
 - Fix UIArtNumber automatic alignment to use the owner RectTransform left edge, center and right edge. Remove anchor-origin offset and account for slot anchors and owner pivot.
 
 - Replace UIArtNumber Center Align with Manual / Left / Center / Right Layout. Apply Spacing to all automatic layouts, respect slot pivots, and preserve live Inspector preview and Undo. Existing serialized Center Align values require the documented migration.

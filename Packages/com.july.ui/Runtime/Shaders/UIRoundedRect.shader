@@ -1,6 +1,6 @@
 // UI 圆角矩形软裁切 Shader。
 // 使用片元距离场生成平滑边缘，可以在矩形、小圆角、大圆角和最大圆角之间连续变化。
-Shader "UI/RoundedRect"
+Shader "JulyGF/UI/RoundedRect"
 {
     Properties
     {

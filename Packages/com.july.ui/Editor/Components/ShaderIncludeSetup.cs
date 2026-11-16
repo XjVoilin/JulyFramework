@@ -6,13 +6,13 @@ using UnityEngine.Rendering;
 namespace July.UI.Editor
 {
     /// <summary>
-    /// 自动将 UIGrayGroup 依赖的 UI/Grayscale shader 加入 Always Included Shaders，
+    /// 自动将 UIGrayGroup 依赖的 JulyGF/UI/Grayscale shader 加入 Always Included Shaders，
     /// 防止真机打包时被 shader stripping 裁剪导致 Shader.Find 返回 null。
     /// </summary>
     [InitializeOnLoad]
     static class ShaderIncludeSetup
     {
-        private static readonly string[] RequiredShaders = { "UI/Grayscale" };
+        private static readonly string[] RequiredShaders = { "JulyGF/UI/Grayscale" };
 
         static ShaderIncludeSetup()
         {

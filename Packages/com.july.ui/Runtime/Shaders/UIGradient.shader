@@ -1,4 +1,4 @@
-Shader "UI/Gradient"
+Shader "JulyGF/UI/Gradient"
 {
     Properties
     {

@@ -1,8 +1,8 @@
-// UI/Grayscale
+// JulyGF/UI/Grayscale
 // 基于 UI/Default，在 fragment 中将 RGB 转为灰度。
 // 用法：将挂有此 shader 的 material 赋给 Image 等 Graphic.material，
 //       由 UIGrayGroup 组件自动管理替换和还原。
-Shader "UI/Grayscale"
+Shader "JulyGF/UI/Grayscale"
 {
     Properties
     {

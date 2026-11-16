@@ -59,9 +59,37 @@ Shutdown also tolerates Unity destroying the persistent UI camera before the sys
 
 ## UI shaders
 
-All runtime UI shaders live under `Runtime/Shaders`. The move from
-`Runtime/Components/Shaders` preserves shader names and `.meta` GUIDs; existing
-material references and `Shader.Find` callers continue to use the same names.
+All runtime UI shaders live under `Runtime/Shaders` and appear under
+`JulyGF/UI` in the material Shader menu:
+
+- `JulyGF/UI/AntiAliased`
+- `JulyGF/UI/Gradient`
+- `JulyGF/UI/Grayscale`
+- `JulyGF/UI/HollowMask`
+- `JulyGF/UI/InvertedStencil`
+- `JulyGF/UI/RoundedRect`
+- `JulyGF/UI/TextMeshPro Double Outline`
+
+The original `UI/...` shader names have moved to `JulyGF/UI/...`. Shader asset
+GUIDs are unchanged, so existing materials keep their references. Update any
+project-owned `Shader.Find` calls or shader-name comparisons to the new names.
+The package's grayscale lookup and Always Included Shaders setup use the new name.
+
+### Local UI anti-aliasing
+
+Choose `JulyGF/UI/AntiAliased` on an Image material; no additional component or
+Canvas vertex channel is required. Project-specific material instances remain in
+the consuming project. Anti-aliasing Strength defaults to 1; use 0 for comparison.
+
+The shader combines four texture samples per pixel with a screen-scaled rectangle
+edge transition and premultiplied-alpha blending. It preserves Image tint/opacity,
+stencil masking, RectMask2D softness and UI alpha clipping. It uses the full 0-1 UV
+range of a standalone image, not an atlas subregion, Filled image or tight mesh.
+Edges transition inward by approximately one screen pixel at the default strength;
+fine texture detail may soften. This is a local approximation, not full MSAA.
+
+The shader and its original `.meta` were migrated from GooseMarketSort. Remove the
+project-local copy when consuming this version; never import both with the same GUID.
 
 ### TextMeshPro double outline
 

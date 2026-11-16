@@ -10,7 +10,7 @@ namespace July.UI
     [DisallowMultipleComponent]
     public class UIGrayGroup : MonoBehaviour
     {
-        private const string GrayscaleShaderName = "UI/Grayscale";
+        private const string GrayscaleShaderName = "JulyGF/UI/Grayscale";
 
         [SerializeField] private bool _gray;
         [SerializeField] private Color _tmpGrayColor = new(0.267f, 0.267f, 0.267f, 1f);

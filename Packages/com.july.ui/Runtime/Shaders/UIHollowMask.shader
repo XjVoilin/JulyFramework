@@ -1,4 +1,4 @@
-// UI/HollowMask
+// JulyGF/UI/HollowMask
 // Alpha-based 镂空遮罩，替代 Mask(Stencil) + InvertedStencil 组合。
 //
 // 原方案问题：Stencil Buffer 二值化裁切，叠加 ASTC/ETC2 压缩后
@@ -13,7 +13,7 @@
 //   2. Material 上设 _UVScale = childSize / parentSize
 //   3. overlay 颜色来自 Image.color（vertex color），不使用纹理 RGB
 //   4. 纹理不透明处 = 镂空洞口，与 Mask + InvertedStencil 语义一致
-Shader "UI/HollowMask"
+Shader "JulyGF/UI/HollowMask"
 {
     Properties
     {
