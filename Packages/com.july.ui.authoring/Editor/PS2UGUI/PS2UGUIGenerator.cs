@@ -35,7 +35,7 @@ namespace July.UI.Authoring.Editor
         private static readonly string[] SupportedJsonFileSuffixes = { "_ui_data.json", "_ps_data.json", "_figma_data.json" };
         private static readonly string[] PrefabNameSuffixes = { "_ui_data", "_ps_data", "_figma_data" };
 
-        private const string FontMaterialPrefix = "Font_Main Material ";
+        private const string FontMaterialPrefix = "Font_Main ";
 
 
         // 运行时缓存：当前 JSON 所在目录（末尾含 /）
@@ -490,13 +490,7 @@ namespace July.UI.Authoring.Editor
 
             if (!string.IsNullOrEmpty(nodeData.strokeColor) && nodeData.strokeWidth > 0)
             {
-                var colorHex = nodeData.strokeColor.TrimStart('#').ToUpper();
-                var widthStr = FormatStrokeWidth(nodeData.strokeWidth);
-                var matFileName = $"{FontMaterialPrefix}{colorHex} {widthStr}.mat";
-                var matPath = FontMaterialPath + matFileName;
-                var mat = AssetDatabase.LoadAssetAtPath<Material>(matPath);
-                if (mat == null)
-                    mat = CreateOutlineMaterial(matPath, tmp.font, nodeData.strokeColor, nodeData.strokeWidth);
+                var mat = GetOrCreateOutlineMaterial(tmp.font, nodeData.strokeColor, nodeData.strokeWidth, tmp.fontSize);
                 if (mat != null)
                     tmp.fontSharedMaterial = mat;
             }
@@ -755,7 +749,7 @@ namespace July.UI.Authoring.Editor
             }
         }
 
-        private static Material CreateOutlineMaterial(string matPath, TMP_FontAsset font, string strokeColorHex, float strokeWidth)
+        private static Material GetOrCreateOutlineMaterial(TMP_FontAsset font, string strokeColorHex, float strokeWidth, float fontSize)
         {
             if (font == null || font.material == null) return null;
 
@@ -764,28 +758,63 @@ namespace July.UI.Authoring.Editor
             mat.SetFloat("_UnderlayOffsetX", 0);
             mat.SetFloat("_UnderlayOffsetY", 0);
             mat.SetFloat("_UnderlaySoftness", 0);
-            mat.SetFloat("_UnderlayDilate", strokeWidth * 0.1f);
+            mat.SetFloat("_UnderlayDilate", 0);
+            ShaderUtilities.UpdateShaderRatios(mat);
+            var fontScale = fontSize / font.faceInfo.pointSize * font.faceInfo.scale;
+            var sdfPixelRange = mat.GetFloat("_GradientScale") * mat.GetFloat("_ScaleRatioC") * fontScale;
+            var dilate = strokeWidth / sdfPixelRange;
+            // Use the same precision for the displayed name and the shared material value.
+            mat.SetFloat("_UnderlayDilate", Mathf.Round(Mathf.Clamp01(dilate) * 1000f) / 1000f);
+            if (dilate > 1f)
+                Debug.LogWarning($"PS2UGUI: 描边 {strokeWidth}px 超出字体 {font.name} 在字号 {fontSize} 下的 SDF 范围 {sdfPixelRange}px；请增大字体图集留边以完整还原描边。");
 
             if (ColorUtility.TryParseHtmlString(strokeColorHex, out Color color))
                 mat.SetColor("_UnderlayColor", new Color(color.r, color.g, color.b, 1f));
 
-            var dir = Path.GetDirectoryName(matPath);
-            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-                Directory.CreateDirectory(dir);
-
-            AssetDatabase.CreateAsset(mat, matPath);
-            AssetDatabase.SaveAssets();
-            Debug.Log($"PS2UGUI: 自动创建描边 Material (Underlay) → {matPath}");
-            return AssetDatabase.LoadAssetAtPath<Material>(matPath);
+            var colorHex = strokeColorHex.TrimStart('#').ToUpperInvariant();
+            var parameter = mat.GetFloat("_UnderlayDilate").ToString("0.0##", System.Globalization.CultureInfo.InvariantCulture).Replace(".", "");
+            var baseName = $"{FontMaterialPrefix}{colorHex} {parameter}";
+            try
+            {
+                for (var suffix = 0; ; suffix++)
+                {
+                    var name = suffix == 0 ? baseName : $"{baseName} {suffix}";
+                    var matPath = FontMaterialPath + name + ".mat";
+                    var existing = AssetDatabase.LoadAssetAtPath<Material>(matPath);
+                    if (existing != null)
+                    {
+                        if (MatchesOutlineMaterial(existing, mat)) return existing;
+                        continue;
+                    }
+                    var dir = Path.GetDirectoryName(matPath);
+                    if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                        Directory.CreateDirectory(dir);
+                    AssetDatabase.CreateAsset(mat, matPath);
+                    var result = mat;
+                    mat = null; // AssetDatabase now owns the persistent material.
+                    AssetDatabase.SaveAssets();
+                    Debug.Log($"PS2UGUI: 自动创建描边 Material (Underlay) → {matPath}");
+                    return result;
+                }
+            }
+            finally
+            {
+                if (mat != null) UnityEngine.Object.DestroyImmediate(mat);
+            }
         }
 
-        private static string FormatStrokeWidth(float width)
+        private static bool MatchesOutlineMaterial(Material existing, Material expected)
         {
-            int intVal = (int)width;
-            if (Mathf.Approximately(width, intVal))
-                return intVal.ToString("D2");
-            var s = width.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
-            return s.Replace(".", "").PadLeft(2, '0');
+            if (existing.shader != expected.shader || existing.mainTexture != expected.mainTexture ||
+                existing.GetColor("_UnderlayColor") != expected.GetColor("_UnderlayColor") ||
+                existing.GetColor("_FaceColor") != expected.GetColor("_FaceColor") ||
+                !new HashSet<string>(existing.shaderKeywords).SetEquals(expected.shaderKeywords)) return false;
+            foreach (var property in new[] { "_UnderlayDilate", "_UnderlayOffsetX", "_UnderlayOffsetY", "_UnderlaySoftness",
+                "_GradientScale", "_FaceDilate", "_OutlineWidth", "_OutlineSoftness", "_WeightNormal", "_WeightBold", "_ScaleRatioA", "_ScaleRatioC" })
+            {
+                if (!Mathf.Approximately(existing.GetFloat(property), expected.GetFloat(property))) return false;
+            }
+            return true;
         }
 
         private static int MapOpacity(int psOpacity)

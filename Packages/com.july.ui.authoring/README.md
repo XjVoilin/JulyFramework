@@ -39,3 +39,15 @@ JSON 根的 `schemaVersion` 为 2。图片位置与宽高是可带小数的 PNG 
 PS 节点可用 img_prop[240x240] 指定固定逻辑画布。小图不放大，大图等比缩小，居中补透明，面板留边包含在画布内；原设计中心不变。若使用 ^0.5，PNG 为 120×120，逻辑矩形仍为 240×240。JSON fixedCanvas=true 才移除尺寸后缀，其他来源的方括号名称保持原样；导入器按 JSON 矩形布局，Scale=1，不再进行第二次尺寸调整。固定尺寸仅作用于当前图片，不继承给独立子节点或文字。
 
 本地包已同步解析，未更改包版本、未发布远端；原 0.2.2 Git 标签不包含本次功能。独立 Unity 30 项检查全部通过，包括原生 PS 240×240 PNG 的资源查找、布局及 Scale；ART2UGUI_TEST_FIXED_EXPORT 可指定 FixedCanvasCase0 目录运行跨工具用例。
+
+## 文字描边像素换算（2026-11-17）
+
+`strokeWidth` 表示布局中的像素宽度。生成 TMP 外描边材质时，按字号、字体采样字号与缩放、SDF GradientScale 和 ScaleRatioC 换算 UnderlayDilate，不再固定乘 0.1。超过字体 SDF 可表示范围时限制到可用范围并提示增加字体图集留边。
+
+自动生成材质按用户确定的 `Font_Main 颜色 参数` 命名，不带 Material、GUID 或字号。例如实际 UnderlayDilate 为 0.4 时命名 `Font_Main 000000 04`，0.45 对应 `045`；参数最多保留三位小数，名称与材质实际使用的值一致。仅在字体图集、Shader、颜色和描边设置均一致时复用同名材质；同名但设置不同则增加短序号，不覆盖已有材质。不同字号通过像素换算得到各自参数，不再依赖字号写入文件名。重新生成 Prefab 后生效；已有 Prefab 及旧材质不会自动改名。维护源码更新未发布为新 UPM 标签。
+
+`TextStrokeRenderingTests` 通过真实相机、Canvas、游戏 SDF 字体和 RenderTexture 测量描边宽度。设置 `ART2UGUI_TEST_FONT_ASSET` 指向字体 Asset 路径，运行 EditMode 检查时省略 `-nographics`；缺少字体或图形设备时明确跳过像素检查。
+
+2026-11-17 实测：独立 Unity 工程 36 项 EditMode 检查全部通过，无跳过。游戏字体在 42/88/140/170.32px 字号下，3/8/6/16px 描边分别渲染为 3/8/6/15.5px；验证不同字号及 1px、0.1px 不会误用同一材质。GooseMarketSort 按用户选择临时接入本地维护源码，包已解析为 local 且完成编译；尚未重新生成业务 Prefab。
+
+随后按用户要求简化为 Font_Main 颜色 参数，去除 Material、GUID、字号；参数与材质实际值统一保留最多三位小数。37 项 EditMode 检查全部通过，无跳过，覆盖像素宽度、名称、同名复用与旧资产保护；游戏已完成新代码编译。旧材质不自动改名，重新生成 Prefab 后采用新命名。
