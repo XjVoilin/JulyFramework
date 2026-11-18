@@ -62,6 +62,31 @@ namespace July.UI.Authoring.Editor.Tests
             Assert.That(node.imageType, Is.EqualTo("sliced"));
         }
 
+        [TestCase("img_gray!", "\"fullImage\":true,", 0f)]
+        [TestCase("img_gray", "\"keepRotation\":true,", 1.1f)]
+        [TestCase("img_gray[rot]", "\"keepRotation\":true,", 1.1f)]
+        [TestCase("img_gray[full][rot]%~^0.5", "\"fullImage\":true,\"keepRotation\":true,", 1.1f)]
+        public void PhotoshopImageFlagsUseCleanSpritePathsAndRetainExportedRotation(string name, string flags, float rotation)
+        {
+            var path = WriteJson(name);
+            File.WriteAllText(path, File.ReadAllText(path).Replace("\"type\":\"image\"", flags + "\"type\":\"image\"")
+                .Replace("\"rotationZ\":0", "\"rotationZ\":" + rotation.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            var node = PS2UGUITranslate.Translate(path).children.Single();
+            Assert.That(node.spritePath, Is.EqualTo("img_gray"));
+            Assert.That(node.rotationZ, Is.EqualTo(rotation).Within(0.0001f));
+            Assert.That(node.scaleX, Is.EqualTo(1f));
+        }
+
+        [Test]
+        public void ImageFlagsComposeWithFixedCanvasWhileLiteralBracketNamesStayLiteral()
+        {
+            var path = WriteJson("img_gray[full][240x240][rot]%~^0.5");
+            File.WriteAllText(path, File.ReadAllText(path).Replace("\"type\":\"image\"", "\"fixedCanvas\":true,\"fullImage\":true,\"keepRotation\":true,\"type\":\"image\""));
+            Assert.That(PS2UGUITranslate.Translate(path).children.Single().spritePath, Is.EqualTo("img_gray"));
+            Assert.That(PS2UGUITranslate.Translate(WriteJson("img_gray[full]")).children.Single().spritePath, Is.EqualTo("img_gray[full]"));
+            Assert.That(PS2UGUITranslate.Translate(WriteJson("img_gray!")).children.Single().spritePath, Is.EqualTo("img_gray!"));
+        }
+
         [TestCase("img_gray[240x240]^0.5", false)]
         [TestCase("img_gray~[240x240]^0.5", true)]
         [TestCase("img_gray[240x240]~^0.5", true)]
@@ -301,8 +326,30 @@ namespace July.UI.Authoring.Editor.Tests
             Assert.That(image.sprite.rect.size, Is.EqualTo(new Vector2(102, 102)));
         }
 
+        [TestCase("HandLeft", "img_hand_left", 0f)]
+        [TestCase("HandRight", "img_hand_right", 0f)]
+        [TestCase("Banner", "img_banner", 1.1033f)]
+        public void NativeImageFlagsImportTheirPngAndRestoreTheExportedPose(string name, string spriteName, float rotation)
+        {
+            var root = Environment.GetEnvironmentVariable("ART2UGUI_TEST_IMAGE_FLAGS");
+            if (string.IsNullOrEmpty(root)) Assert.Ignore("Set ART2UGUI_TEST_IMAGE_FLAGS to the native image flag fixtures.");
+            var folder = Path.Combine(root, name);
+            var json = Path.Combine(folder, name + "_ui_data.json");
+            var expected = PS2UGUITranslate.Translate(json).children.Single();
+            Directory.CreateDirectory(AssetsRoot + "/Res"); AssetDatabase.Refresh();
+            var imported = ArtImporter.Import(folder, AssetsRoot + "/Art/Textures");
+            Assert.That(imported.success, Is.True, imported.error);
+            var image = AssetDatabase.LoadAssetAtPath<GameObject>(imported.prefabPath).GetComponentInChildren<Image>();
+            Assert.That(image.sprite.name, Is.EqualTo(spriteName));
+            Assert.That(image.rectTransform.sizeDelta, Is.EqualTo(new Vector2(expected.width, expected.height)));
+            Assert.That(Mathf.DeltaAngle(0, image.rectTransform.localEulerAngles.z), Is.EqualTo(rotation).Within(0.0002f));
+            Assert.That(image.rectTransform.localScale, Is.EqualTo(Vector3.one));
+            Assert.That(image.rectTransform.anchoredPosition.x, Is.EqualTo(expected.x).Within(0.0001f));
+            Assert.That(image.rectTransform.anchoredPosition.y, Is.EqualTo(expected.y).Within(0.0001f));
+        }
+
         [Test]
-        public void NativeRotatedPhotoshopExportKeepsRenderedSizeWithoutSecondRotation()
+        public void NativeSmartObjectExportUsesUprightPixelsAndRestoresItsRotation()
         {
             var folder = Environment.GetEnvironmentVariable("ART2UGUI_TEST_EXPORT");
             if (string.IsNullOrEmpty(folder)) Assert.Ignore("Set ART2UGUI_TEST_EXPORT to the native Photoshop fixture directory.");
@@ -314,10 +361,11 @@ namespace July.UI.Authoring.Editor.Tests
             Assert.That(imported.success, Is.True, imported.error);
             var image = AssetDatabase.LoadAssetAtPath<GameObject>(imported.prefabPath).GetComponentInChildren<Image>();
             Assert.That(image.rectTransform.sizeDelta, Is.EqualTo(new Vector2(expected.width, expected.height)));
-            Assert.That(image.rectTransform.localEulerAngles.z, Is.EqualTo(0));
+            Assert.That(Mathf.DeltaAngle(0,image.rectTransform.localEulerAngles.z), Is.EqualTo(expected.rotationZ).Within(0.0002f));
             Assert.That(image.rectTransform.localScale, Is.EqualTo(Vector3.one));
             Assert.That(image.color.a, Is.EqualTo(0.5f));
-            Assert.That(image.sprite.rect.size, Is.EqualTo(new Vector2(59, 50)));
+            Assert.That(image.sprite.rect.width, Is.InRange(52,55));
+            Assert.That(image.sprite.rect.height, Is.InRange(27,30));
         }
     }
 }

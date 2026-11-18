@@ -6,13 +6,12 @@ JulyFramework 下的引导执行模块。只负责计划、开始条件、步骤
 ## 接入
 
 注册 GuideStore 和项目 GuideSystemBase 派生类。保存仍使用 July Arch 的 Store 持久化能力。
-项目实现 CreatePlans、CreateStartConditions、CreateStepProcedure。
+项目实现 CreatePlans 和 CreateStepProcedure。
 
-- GuidePlan 包含 Id、Steps、StartConditionType、StartConditionParamId、Priority、CanSkip。
-- 条件按 int Type 注册，同类型复用一个 IGuideStartCondition；CanStart(int paramId) 读取最新业务状态。
-- ParamId 是项目配置记录引用，不是通用参数值；无参数策略可显式约定 0。
+- GuidePlan 包含 Id、Steps、StartCondition、Priority、CanSkip。
+- 项目在 CreatePlans 中构造带参数的 IGuideStartCondition。框架调用 CanStart()，由条件读取当前业务状态。
 - GuideStep 包含 Id、Type、ParamId，项目在 Procedure 执行位置读取具体参数。
-- 初始化拒绝重复条件类型、重复计划和未注册条件引用。配置内容由项目边界负责。
+- 计划要求有效的开始条件，初始化拒绝重复计划。配置解析和条件参数校验由项目负责。
 
 ## 执行合同
 

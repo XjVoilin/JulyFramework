@@ -11,7 +11,7 @@ Shader "JulyGF/UI/TextMeshPro Double Outline"
 
         [Header(Outer Outline)]
         _OuterOutlineColor("Outer Outline Color", Color) = (0.72, 0.04, 0.08, 1)
-        _OuterOutlineWidth("Outer Outline Width", Range(0, 0.4)) = 0.18
+        _OuterOutlineWidth("Outer Outline Width", Range(0, 0.5)) = 0.18
 
         // TMP only reads its standard properties when sizing glyph quads.
         // Reserve space for both rings at their maximum supported widths.

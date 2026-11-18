@@ -248,3 +248,25 @@ Migration: replace serialized `_centerAlign: 0` with `_layout: 0` (Manual), and
 `_centerAlign: 1` with `_layout: 2` (Center), including any prefab property overrides.
 The consuming GooseMarketSort project's four existing bindings have been migrated
 explicitly. No legacy boolean field is retained.
+
+
+## Scrolling UI backgrounds
+
+Assign a material using `JulyGF/UI/Scrolling` to a Tiled Image or RawImage.
+Use a seamless, standalone texture with Repeat wrapping and no sprite borders;
+SpriteAtlas subregions are unsupported. Tiled Image retains its authored tile
+size and automatically adapts its coverage to the RectTransform.
+
+`_ScrollVelocity.xy` specifies visible movement in texture periods per second.
+Negative X and Y move the pattern down and left; zero stops scrolling. Keep
+Image.color for tint and opacity. For a non-square texture, equal UV velocities
+produce unequal UI distances; adjust each axis if an exact 45-degree path is needed.
+
+The package publishes `_JulyUIUnscaledTime` before Canvas rendering. Animation
+continues at timeScale = 0 without per-Graphic scripts, material instances, or
+mesh updates. The clock is shared: reopening a window continues the global phase.
+It initializes before the first scene, removes old subscriptions on Play Mode
+entry (including disabled domain reload), and unregisters on application quit.
+Edit Mode displays a static phase; preview the animation in Play Mode.
+The shader supports UI tint/CanvasGroup alpha, stencil Mask, RectMask2D clipping,
+and optional alpha clipping, following the package's existing UI shader conventions.

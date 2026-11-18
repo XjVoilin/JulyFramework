@@ -1,7 +1,7 @@
 # Luban 配置适配示例
 
 复制作者表、Defines 和配置文件到项目的 Luban 流程，生成 `guide_sample.Tables`。
-`SampleGuideSystem.cs.txt` 演示计划与条件注册，复制后由项目派生类实现 CreateStepProcedure。
+`SampleGuideSystem.cs.txt` 演示在 CreatePlans 中为每条计划组装开始条件，复制后由项目派生类实现 CreateStepProcedure。
 
 作者表中的 Confirm、ClickTarget、表现参数表均为示例项目自定义内容，不是 Guide 核心协议。
 项目 Procedure 在执行时读取 ParamId 对应配置；WindowId、文字键和 TargetId 如何解释由项目决定。

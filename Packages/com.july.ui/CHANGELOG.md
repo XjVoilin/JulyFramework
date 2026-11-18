@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add JulyGF/UI/Scrolling for repeating UI backgrounds, driven by a shared
+  unscaled Canvas render clock; preserve Tiled Image geometry and support UI masks.
+
 - Move the project-local UIAntiAliased shader into Runtime/Shaders, preserving its
   asset GUID and algorithm; project material instances remain in the consuming game.
 - Standardize all seven runtime UI shader menu names under JulyGF/UI. Preserve

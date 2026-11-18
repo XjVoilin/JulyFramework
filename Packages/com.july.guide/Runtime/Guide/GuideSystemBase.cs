@@ -16,7 +16,6 @@ namespace July.Guide
     public abstract class GuideSystemBase : SystemBase, IGuideSystem
     {
         private readonly Dictionary<int, GuidePlan> _guides = new();
-        private readonly Dictionary<int, IGuideStartCondition> _startConditions = new();
         private GuideStore _store;
         private GuidePlan _current;
         private CancellationTokenSource _runCancellation;
@@ -35,35 +34,20 @@ namespace July.Guide
         protected sealed override UniTask OnInitializeAsync()
         {
             _store = GetStore<GuideStore>();
-            foreach (var condition in CreateStartConditions())
-            {
-                if (condition == null)
-                    throw new InvalidOperationException("开始条件策略不能为空。");
-                var type = condition.Type;
-                if (!_startConditions.TryAdd(type, condition))
-                    throw new InvalidOperationException($"开始条件类型 {type} 重复注册。");
-            }
-
             foreach (var guide in CreatePlans())
             {
                 if (guide == null || !_guides.TryAdd(guide.Id, guide))
                     throw new InvalidOperationException("Guide definitions must be non-null and have unique ids.");
-                if (!_startConditions.ContainsKey(guide.StartConditionType))
-                    throw new InvalidOperationException(
-                        $"引导 {guide.Id} 引用了未注册的开始条件类型 {guide.StartConditionType}。");
             }
 
             // System 初始化期间，ArchContext 与场景/UI 目标尚未就绪。
             return UniTask.CompletedTask;
         }
 
-        protected abstract IEnumerable<GuidePlan> CreatePlans();
-
         /// <summary>
-        /// 初始化时调用一次，按 Type 注册项目支持的条件策略；每种类型只注册一个实例。
-        /// 此时只绑定依赖，实际准入在 RunAsync 中按计划的参数引用读取最新业务状态。
+        /// 初始化时构造步骤和附带参数的开始条件。实际准入在 RunAsync 中评估。
         /// </summary>
-        protected abstract IEnumerable<IGuideStartCondition> CreateStartConditions();
+        protected abstract IEnumerable<GuidePlan> CreatePlans();
 
         protected abstract ProcedureBase CreateStepProcedure(GuideStepContext context);
 
@@ -84,8 +68,7 @@ namespace July.Guide
             foreach (var guide in _guides.Values)
             {
                 if (_store.IsFinished(guide.Id)) continue;
-                var condition = _startConditions[guide.StartConditionType];
-                if (!condition.CanStart(guide.StartConditionParamId)) continue;
+                if (!guide.StartCondition.CanStart()) continue;
                 if (selected == null || guide.Priority > selected.Priority ||
                     guide.Priority == selected.Priority && guide.Id < selected.Id)
                     selected = guide;

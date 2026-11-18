@@ -51,6 +51,8 @@ namespace July.UI.Authoring.Editor
             public string textAlignment;
             public bool wordWrap = true;
             public bool fixedCanvas;
+            public bool fullImage;
+            public bool keepRotation;
             public float scaleX;
             public float scaleY;
             public float rotationZ;
@@ -149,6 +151,9 @@ namespace July.UI.Authoring.Editor
                 if (!isTextLayer)
                 {
                     fullName = StripRasterScale(fullName);
+                    if (layer.fullImage || layer.keepRotation)
+                        fullName = System.Text.RegularExpressions.Regex.Replace(fullName,
+                            @"(?:!|\[(?:full|rot)\])(?=(?:!|\[(?:full|rot)\]|\[\d+[xX×]\d+\]|[$%@~])*$)", "");
                     if (layer.fixedCanvas) fullName = StripFixedCanvasSuffix(fullName);
                 }
                 var info = new LayerInfo { Source = layer };

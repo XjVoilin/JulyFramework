@@ -19,7 +19,6 @@ namespace July.Guide.Validation
     {
         private const int FirstGuide = 7101;
         private const int SecondGuide = 7102;
-        private const int DefaultConditionType = 51;
         private ArchContext architecture;
         private GuideStore store;
         private IGuideSystem guide;
@@ -59,106 +58,63 @@ namespace July.Guide.Validation
         }
 
         [Test]
-        public void StartConditions_AreRegisteredOnce_AndReadLatestStateOnEachTrigger()
+        public void StartCondition_ReadsLatestStateOnEachTrigger_UntilCompleted()
         {
             var allowed = false;
-            var condition = new TestStartCondition { Evaluate = _ => allowed };
-            var registrations = 0;
+            var condition = new TestStartCondition(() => allowed);
             var executions = 0;
-            IEnumerable<IGuideStartCondition> Conditions()
-            {
-                registrations++;
-                yield return condition;
-            }
-            Initialize(new[] { Definition(FirstGuide, 1) }, (_, __) =>
+            Initialize(new[] { new GuidePlan(FirstGuide, new[] { new GuideStep(1, 9001) }, condition) }, (_, __) =>
             {
                 executions++;
                 return UniTask.CompletedTask;
-            }, Conditions());
+            });
 
-            Assert.That(registrations, Is.EqualTo(1));
-            Assert.That(condition.EvaluatedParams, Is.Empty, "初始化只注册策略，不评估业务状态。");
+            Assert.That(condition.Evaluations, Is.Zero, "初始化期间不评估业务状态。");
             Assert.That(guide.RunAsync().GetAwaiter().GetResult(), Is.Null);
             Assert.That(executions, Is.Zero);
 
             allowed = true;
             Assert.That(guide.RunAsync().GetAwaiter().GetResult(), Is.EqualTo(GuideExitReason.Completed));
             Assert.That(executions, Is.EqualTo(1));
-            Assert.That(condition.EvaluatedParams.Count, Is.EqualTo(2));
-            Assert.That(registrations, Is.EqualTo(1));
+            Assert.That(condition.Evaluations, Is.EqualTo(2));
             Assert.That(guide.RunAsync().GetAwaiter().GetResult(), Is.Null);
-            Assert.That(condition.EvaluatedParams.Count, Is.EqualTo(2), "已完成计划不再评估条件。");
+            Assert.That(condition.Evaluations, Is.EqualTo(2), "已完成计划不再评估条件。");
         }
 
         [Test]
-        public void StartConditions_DispatchByType_WithTheSameParameterId()
+        public void PlansUsingTheSameConditionClass_EvaluateTheirOwnBoundRules()
         {
-            const int secondType = 52;
-            const int paramId = 201;
-            var firstAllowed = false;
-            var firstCondition = new TestStartCondition { Evaluate = _ => firstAllowed };
-            var secondCondition = new TestStartCondition(secondType);
+            var scene = "Home";
+            var firstCondition = new TestStartCondition(() => scene == "Main");
+            var secondCondition = new TestStartCondition(() => scene == "Home");
             var started = new List<int>();
             Initialize(new[]
             {
                 new GuidePlan(FirstGuide, new[] { new GuideStep(1, 9001) },
-                    DefaultConditionType, paramId, priority: 10),
-                new GuidePlan(SecondGuide, new[] { new GuideStep(1, 9001) }, secondType, paramId)
-            }, (_, __) => UniTask.CompletedTask, new[] { firstCondition, secondCondition });
+                    firstCondition, priority: 10),
+                new GuidePlan(SecondGuide, new[] { new GuideStep(1, 9001) }, secondCondition)
+            }, (_, __) => UniTask.CompletedTask);
             architecture.Event.Subscribe<GuideStartedEvent>(e => started.Add(e.GuideId), this);
 
             Assert.That(guide.RunAsync().GetAwaiter().GetResult(), Is.EqualTo(GuideExitReason.Completed));
             CollectionAssert.AreEqual(new[] { SecondGuide }, started);
             Assert.That(store.IsFinished(FirstGuide), Is.False);
-            CollectionAssert.AreEqual(new[] { paramId }, firstCondition.EvaluatedParams);
-            CollectionAssert.AreEqual(new[] { paramId }, secondCondition.EvaluatedParams);
+            Assert.That(firstCondition.Evaluations, Is.EqualTo(1));
+            Assert.That(secondCondition.Evaluations, Is.EqualTo(1));
 
-            firstAllowed = true;
+            scene = "Main";
             Assert.That(guide.RunAsync().GetAwaiter().GetResult(), Is.EqualTo(GuideExitReason.Completed));
             CollectionAssert.AreEqual(new[] { SecondGuide, FirstGuide }, started);
+            Assert.That(firstCondition.Evaluations, Is.EqualTo(2));
+            Assert.That(secondCondition.Evaluations, Is.EqualTo(1));
         }
 
         [Test]
-        public void StartConditions_ReuseOneStrategy_WithDifferentParameterRecords()
+        public void GuidePlan_RequiresStartCondition()
         {
-            var parameters = new Dictionary<int, bool> { [201] = false, [202] = true };
-            var condition = new TestStartCondition { Evaluate = id => parameters[id] };
-            var started = new List<int>();
-            Initialize(new[]
-            {
-                new GuidePlan(FirstGuide, new[] { new GuideStep(1, 9001) },
-                    DefaultConditionType, 201, priority: 10),
-                new GuidePlan(SecondGuide, new[] { new GuideStep(1, 9001) }, DefaultConditionType, 202)
-            }, (_, __) => UniTask.CompletedTask, new[] { condition });
-            architecture.Event.Subscribe<GuideStartedEvent>(e => started.Add(e.GuideId), this);
-
-            Assert.That(guide.RunAsync().GetAwaiter().GetResult(), Is.EqualTo(GuideExitReason.Completed));
-            CollectionAssert.AreEqual(new[] { SecondGuide }, started);
-            CollectionAssert.AreEquivalent(new[] { 201, 202 }, condition.EvaluatedParams);
-
-            parameters[201] = true;
-            Assert.That(guide.RunAsync().GetAwaiter().GetResult(), Is.EqualTo(GuideExitReason.Completed));
-            CollectionAssert.AreEqual(new[] { SecondGuide, FirstGuide }, started);
-            Assert.That(condition.EvaluatedParams.Count, Is.EqualTo(3));
-        }
-
-        [Test]
-        public void StartConditions_RejectDuplicateTypesDuringInitialization()
-        {
-            var error = Assert.Throws<InvalidOperationException>(() => Initialize(
-                new[] { Definition(FirstGuide, 1) }, (_, __) => UniTask.CompletedTask,
-                new[] { new TestStartCondition(), new TestStartCondition() }));
-            StringAssert.Contains(DefaultConditionType.ToString(), error.Message);
-        }
-
-        [Test]
-        public void StartConditions_RejectUnregisteredTypeDuringInitialization()
-        {
-            var error = Assert.Throws<InvalidOperationException>(() => Initialize(
-                new[] { Definition(FirstGuide, 1) }, (_, __) => UniTask.CompletedTask,
-                Array.Empty<IGuideStartCondition>()));
-            StringAssert.Contains(FirstGuide.ToString(), error.Message);
-            StringAssert.Contains(DefaultConditionType.ToString(), error.Message);
+            var error = Assert.Throws<ArgumentNullException>(() =>
+                new GuidePlan(FirstGuide, new[] { new GuideStep(1, 9001) }, null));
+            Assert.That(error.ParamName, Is.EqualTo("startCondition"));
         }
 
         [Test]
@@ -412,14 +368,12 @@ namespace July.Guide.Validation
         }
 
         private void Initialize(IEnumerable<GuidePlan> definitions,
-            Func<GuideStepContext, CancellationToken, UniTask> execute,
-            IEnumerable<IGuideStartCondition> startConditions = null)
+            Func<GuideStepContext, CancellationToken, UniTask> execute)
         {
             architecture = new ArchContext();
             store = new GuideStore();
             architecture.RegisterStore(store);
-            architecture.RegisterSystem(new ConsumerGuideSystem(definitions, execute,
-                startConditions ?? new[] { new TestStartCondition() }));
+            architecture.RegisterSystem(new ConsumerGuideSystem(definitions, execute));
             architecture.InitializeAsync().GetAwaiter().GetResult();
             guide = architecture.GetSystem<IGuideSystem>();
         }
@@ -435,7 +389,7 @@ namespace July.Guide.Validation
         {
             var steps = new List<GuideStep>();
             foreach (var stepId in stepIds) steps.Add(new GuideStep(stepId, 9001));
-            return new GuidePlan(guideId, steps, DefaultConditionType, 0, canSkip: true);
+            return new GuidePlan(guideId, steps, new TestStartCondition(() => true), canSkip: true);
         }
 
         private GuideStore RestoreSavedOutcomes()
@@ -498,17 +452,15 @@ namespace July.Guide.Validation
 
         private sealed class TestStartCondition : IGuideStartCondition
         {
-            internal Func<int, bool> Evaluate = _ => true;
-            internal readonly List<int> EvaluatedParams = new();
+            private readonly Func<bool> evaluate;
+            internal int Evaluations { get; private set; }
 
-            public int Type { get; }
+            internal TestStartCondition(Func<bool> evaluate) => this.evaluate = evaluate;
 
-            internal TestStartCondition(int type = DefaultConditionType) => Type = type;
-
-            public bool CanStart(int paramId)
+            public bool CanStart()
             {
-                EvaluatedParams.Add(paramId);
-                return Evaluate(paramId);
+                Evaluations++;
+                return evaluate();
             }
         }
 
@@ -516,19 +468,14 @@ namespace July.Guide.Validation
         {
             private readonly IEnumerable<GuidePlan> definitions;
             private readonly Func<GuideStepContext, CancellationToken, UniTask> execute;
-            private readonly IEnumerable<IGuideStartCondition> startConditions;
-
             internal ConsumerGuideSystem(IEnumerable<GuidePlan> definitions,
-                Func<GuideStepContext, CancellationToken, UniTask> execute,
-                IEnumerable<IGuideStartCondition> startConditions)
+                Func<GuideStepContext, CancellationToken, UniTask> execute)
             {
                 this.definitions = definitions;
                 this.execute = execute;
-                this.startConditions = startConditions;
             }
 
             protected override IEnumerable<GuidePlan> CreatePlans() => definitions;
-            protected override IEnumerable<IGuideStartCondition> CreateStartConditions() => startConditions;
             protected override ProcedureBase CreateStepProcedure(GuideStepContext context)
                 => new ConsumerTeachingProcedure(context, execute);
         }

@@ -1,5 +1,10 @@
 # 更新记录
 
+## 未发布
+
+- GuidePlan 直接持有 IGuideStartCondition。项目在 CreatePlans 中组装条件与参数，条件通过 CanStart() 判断当前业务状态。
+- 移除 CreateStartConditions、开始条件类型和配置记录编号。同步迁移 Luban 示例与生命周期测试。
+
 ## 0.4.1 - 2026-10-25
 
 - Route unhandled guide-run exceptions through JLogger and declare the logging dependency.
