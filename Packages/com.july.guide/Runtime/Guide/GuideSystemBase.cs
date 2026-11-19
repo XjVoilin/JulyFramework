@@ -40,9 +40,14 @@ namespace July.Guide
                     throw new InvalidOperationException("Guide definitions must be non-null and have unique ids.");
             }
 
-            // System 初始化期间，ArchContext 与场景/UI 目标尚未就绪。
+            OnGuideInitialized();
             return UniTask.CompletedTask;
         }
+
+        /// <summary>
+        /// GuideStore 和引导计划已初始化；可注册监听。场景和 UI 尚未就绪。
+        /// </summary>
+        protected virtual void OnGuideInitialized() { }
 
         /// <summary>
         /// 初始化时构造步骤和附带参数的开始条件。实际准入在 RunAsync 中评估。

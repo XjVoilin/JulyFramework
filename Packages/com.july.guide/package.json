@@ -1,6 +1,6 @@
 {
   "name": "com.july.guide",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "displayName": "July Guide",
   "description": "July 引导种子，提供完整教学流程、显式执行和资源清理管理。",
   "unity": "2022.3",
