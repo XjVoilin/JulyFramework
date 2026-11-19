@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 为 Mesh Renderer 组件菜单添加 **修改 Order in Layer**，支持单选、多选和撤销。
+
 - 统一框架 Shader 前缀为 JulyGF：公开菜单使用 JulyGF/URP，内部及测试 Shader 使用 Hidden/JulyGF；同步高亮材质名称校验、Shader.Find、包测试和使用文档。Shader GUID、属性、Pass 和绘制行为保持。
 
 - 新增 Game 视图截图菜单：保存当前已渲染画面到项目 Library/July，按时间戳命名，成功后自动打开文件夹并选中 PNG；不推进游戏帧，Editor 纹理和图形状态在失败后释放/恢复。

@@ -84,6 +84,10 @@ cameraHighlight.Target = null;
 材质的`Receive Shadows`默认开启，保持现有效果；关闭时通过本地Shader关键字`_RECEIVE_SHADOWS_OFF`编译掉阴影坐标计算、主光阴影采样及衰减叠加。`Received Shadow Strength`默认0.5，0保持原图，1使用完整阴影衰减；仅将强度设为0不会关闭阴影采样。支持主光硬阴影、软阴影、级联及屏幕空间阴影关键字，提供DepthOnly Pass，不额外投射地板阴影。
 纹理中已有的静态阴影会保留；若对应3D投影物件继续存在，应避免重复烘入同一份阴影。阴影接收使用真实BG平面深度，不能恢复图中花盆或其他装饰原本的立体遮挡。
 
+## Editor 网格渲染排序
+
+选中一个或多个场景对象，在 Mesh Renderer 组件的菜单中选择 **修改 Order in Layer**，输入数值后点击 **应用**。多选时统一设置选中对象上的 Mesh Renderer。改动支持撤销，并随场景或 Prefab 编辑内容保存。
+
 ## Editor 节点出图
 
 独立入口：**JulyGF → 渲染 → 节点出图**。场景/BG出图仍用于按原BG边界和UV回贴，不合并入口。
