@@ -1,0 +1,10 @@
+{
+    "name": "July.Diagnostics.Editor",
+    "rootNamespace": "July.Diagnostics.Editor",
+    "references": [
+        "July.Diagnostics"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ]
+}
