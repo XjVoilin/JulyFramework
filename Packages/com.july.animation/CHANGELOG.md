@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Added `ScaleIn` for one-shot Transform entrance animations, with a fixed 70% → 120% → 100% scale sequence, independently editable expansion and settling durations, and an optional delay with hiding. Interrupting playback restores the original scale.
+
 ## 0.2.7 - 2026-10-25
 
 - Route runtime sprite animation diagnostics through JLogger; keep editor authoring diagnostics independent of JULYGF_DEBUG.

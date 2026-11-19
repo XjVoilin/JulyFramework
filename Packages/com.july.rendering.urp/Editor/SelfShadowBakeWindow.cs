@@ -246,7 +246,12 @@ namespace July.Rendering.URP.Editor
             var material = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
             Undo.IncrementCurrentGroup(); int group = Undo.GetCurrentGroup(); const string action = "应用自阴影烘焙"; Undo.SetCurrentGroupName(action);
             if (material == null) { material = new Material(original) { name = Path.GetFileNameWithoutExtension(materialPath) }; AssetDatabase.CreateAsset(material, materialPath); }
-            Undo.RecordObject(material, action); material.shader = original.shader; material.CopyPropertiesFromMaterial(original);
+            Undo.RecordObject(material, action);
+            if (material != original)
+            {
+                material.shader = original.shader;
+                material.CopyPropertiesFromMaterial(original);
+            }
             material.SetTexture(_textureProperty, texture); material.SetFloat("_BakedSelfShadow", 1); material.EnableKeyword("_BAKED_SELF_SHADOW");
             EditorUtility.SetDirty(material); AssetDatabase.SaveAssetIfDirty(material);
             Undo.RecordObject(_receiver, action); _receiver.sharedMaterial = material; _receiver.receiveShadows = true;
