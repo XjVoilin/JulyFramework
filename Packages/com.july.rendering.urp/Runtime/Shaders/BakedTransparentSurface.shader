@@ -6,6 +6,7 @@ Shader "JulyGF/URP/Baked Transparent Surface"
         [MainColor] _BaseColor ("Color", Color) = (1, 1, 1, 1)
         [ToggleOff(_RECEIVE_SHADOWS_OFF)] _ReceiveShadows ("Receive Shadows", Float) = 1
         _ShadowStrength ("Received Shadow Strength", Range(0, 1)) = 1
+        _AlphaGamma ("Alpha Gamma (1 = Off)", Range(0.5, 4)) = 1
     }
     SubShader
     {
@@ -31,6 +32,7 @@ Shader "JulyGF/URP/Baked Transparent Surface"
                 float4 _BaseMap_ST;
                 half4 _BaseColor;
                 half _ShadowStrength;
+                float _AlphaGamma;
             CBUFFER_END
             struct Attributes { float4 positionOS : POSITION; float2 uv : TEXCOORD0; };
             struct Varyings
@@ -53,6 +55,10 @@ Shader "JulyGF/URP/Baked Transparent Surface"
                 #if !defined(_RECEIVE_SHADOWS_OFF)
                     Light mainLight = GetMainLight(TransformWorldToShadowCoord(input.positionWS), input.positionWS, half4(1, 1, 1, 1));
                     color.rgb *= lerp(1.0h, mainLight.shadowAttenuation, _ShadowStrength);
+                #endif
+                #if !defined(UNITY_COLORSPACE_GAMMA)
+                    if (_AlphaGamma != 1.0)
+                        color.a = pow(saturate(color.a), 1.0 / _AlphaGamma);
                 #endif
                 return color;
             }
