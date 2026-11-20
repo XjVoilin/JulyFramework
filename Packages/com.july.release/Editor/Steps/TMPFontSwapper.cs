@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
@@ -24,6 +25,68 @@ namespace July.Release.Editor
                 while (_depth > _initialDepth) RestoreFont();
             }
         }
+        internal static IDisposable WithoutStaticSourceFonts()
+        {
+            var scope = new StaticSourceScope();
+            try
+            {
+                foreach (var guid in AssetDatabase.FindAssets("t:TMP_FontAsset", new[] { "Assets" }))
+                {
+                    var font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(AssetDatabase.GUIDToAssetPath(guid));
+                    if (font != null && font.atlasPopulationMode == AtlasPopulationMode.Static && font.sourceFontFile == null)
+                        scope.RemoveSource(font);
+                }
+                return scope;
+            }
+            catch
+            {
+                scope.Dispose();
+                throw;
+            }
+        }
+
+        sealed class StaticSourceScope : IDisposable
+        {
+            const string EditorSourceField = "m_SourceFontFile_EditorRef";
+            readonly List<(GlobalObjectId Font, GlobalObjectId Source)> _sources = new();
+
+            internal void RemoveSource(TMP_FontAsset font)
+            {
+                using var serialized = new SerializedObject(font);
+                var source = serialized.FindProperty(EditorSourceField);
+                if (source.objectReferenceValue == null) return;
+
+                _sources.Add((GlobalObjectId.GetGlobalObjectIdSlow(font),
+                    GlobalObjectId.GetGlobalObjectIdSlow(source.objectReferenceValue)));
+                source.objectReferenceValue = null;
+                SaveSourceChange(font, serialized);
+            }
+
+            public void Dispose()
+            {
+                foreach (var (fontId, sourceId) in _sources)
+                {
+                    // Reimport can invalidate the object instances captured before the build.
+                    var font = (TMP_FontAsset)GlobalObjectId.GlobalObjectIdentifierToObjectSlow(fontId);
+                    var sourceFont = GlobalObjectId.GlobalObjectIdentifierToObjectSlow(sourceId);
+                    if (font == null || sourceFont == null)
+                        throw new InvalidOperationException($"无法恢复静态 TMP 字体 {fontId} 的编辑器源字体 {sourceId}。");
+
+                    using var serialized = new SerializedObject(font);
+                    serialized.FindProperty(EditorSourceField).objectReferenceValue = sourceFont;
+                    SaveSourceChange(font, serialized);
+                }
+                _sources.Clear();
+            }
+
+            static void SaveSourceChange(TMP_FontAsset font, SerializedObject serialized)
+            {
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+                AssetDatabase.SaveAssetIfDirty(font);
+                AssetDatabase.ImportAsset(AssetDatabase.GetAssetPath(font), ImportAssetOptions.ForceSynchronousImport);
+            }
+        }
+
         public static void SwapToLaunchFont()
         {
             if (_depth > 0) { _depth++; return; }

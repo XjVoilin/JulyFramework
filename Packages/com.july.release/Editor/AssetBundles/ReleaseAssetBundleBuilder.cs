@@ -94,6 +94,7 @@ namespace July.Release.Editor
             try
             {
                 using (TMPFontSwapper.UseLaunchFont())
+                using (TMPFontSwapper.WithoutStaticSourceFonts())
                     return new AssetBundleBuilder().Run(parameters, CreateTasks(merge, collector), true);
             }
             finally { IsBuilding = false; }
