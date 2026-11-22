@@ -171,10 +171,22 @@ namespace July.AssetCheck
 
     internal sealed class TextureCheckModule : IAssetCheckModule
     {
+        internal static readonly AssetCheckRegistration Registration = new AssetCheckRegistration(
+            AssetCheckKind.Texture, () => new TextureCheckModule(), "贴图",
+            "格式和尺寸修改仅处理目标平台；Read/Write 影响所有平台。图集尺寸检查配置上限。",
+            standards => standards.texture, TextureStandardsView.Build, fitStandardsToContent: true,
+            fixBatchSize: 20, isAdditionalInput: IsAdditionalInput);
+
         private readonly IAssetCheckRule<TextureCheckContext>[] _rules = AssetCheckRules<TextureCheckContext>.Create();
         public AssetCheckKind Kind => AssetCheckKind.Texture;
         public string RulesFingerprint => AssetCheckRules<TextureCheckContext>.Fingerprint;
         private AtlasSourceTextures _atlasSources;
+
+        // 目录外的图集也可能决定目录内的 Sprite 是否为图集源图。
+        private static bool IsAdditionalInput(string path, PlatformStandards standards) =>
+            standards.texture.requireUncompressedAtlasSources &&
+            (path.EndsWith(".spriteatlas", StringComparison.OrdinalIgnoreCase) ||
+             path.EndsWith(".spriteatlasv2", StringComparison.OrdinalIgnoreCase));
 
         public string[] Collect(string scope)
         {

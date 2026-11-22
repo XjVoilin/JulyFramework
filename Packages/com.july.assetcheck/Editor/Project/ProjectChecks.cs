@@ -1,37 +1,34 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using UnityEditor;
-using UnityEngine;
 
 namespace July.AssetCheck
 {
     internal sealed class ProjectColorSpaceRule : IAssetCheckRule<ProjectCheckContext>
     {
-        public string File => "ProjectSettings/ProjectSettings.asset";
         public void Check(ProjectCheckContext context)
         {
-            if (context.AssetPath != File) return;
+            var path = context.AssetPath;
+            if (path != AssetCheckTarget.PlayerSettingsPath) return;
             var standards = context.Standards;
-            if (PlayerSettings.colorSpace != standards.colorSpace)
-                context.Add(new AssetCheckIssue(File, File, AssetCheckKind.Project, "project.color-space",
-                    "Color Space", PlayerSettings.colorSpace.ToString(), standards.colorSpace.ToString(), false));
+            if (context.ColorSpace != standards.colorSpace)
+                context.Add(new AssetCheckIssue(path, path, AssetCheckKind.Project, "project.color-space",
+                    "Color Space", context.ColorSpace.ToString(), standards.colorSpace.ToString(), false));
         }
     }
 
     internal sealed class ProjectGraphicsApiRule : IAssetCheckRule<ProjectCheckContext>
     {
-        public string File => "ProjectSettings/ProjectSettings.asset";
         public void Check(ProjectCheckContext context)
         {
-            if (context.AssetPath != File) return;
+            var path = context.AssetPath;
+            if (path != AssetCheckTarget.PlayerSettingsPath) return;
             var standards = context.Standards;
-            var target = ProjectRenderConfiguration.Target;
-            var automatic = PlayerSettings.GetUseDefaultGraphicsAPIs(target);
-            var apis = PlayerSettings.GetGraphicsAPIs(target);
+            var automatic = context.AutomaticGraphicsApi;
+            var apis = context.GraphicsApis;
             if (automatic != standards.automaticGraphicsApi ||
                 (!standards.automaticGraphicsApi && !apis.SequenceEqual(standards.graphicsApis)))
-                context.Add(new AssetCheckIssue(File, File, AssetCheckKind.Project, "project.graphics-api",
+                context.Add(new AssetCheckIssue(path, path, AssetCheckKind.Project, "project.graphics-api",
                     "目标平台 Graphics API", automatic ? "自动选择" : string.Join(", ", apis),
                     standards.automaticGraphicsApi ? "自动选择" : string.Join(", ", standards.graphicsApis), false));
         }
@@ -39,34 +36,21 @@ namespace July.AssetCheck
 
     internal sealed class ProjectQualityRule : IAssetCheckRule<ProjectCheckContext>
     {
-        public string File => "ProjectSettings/QualitySettings.asset";
         public void Check(ProjectCheckContext context)
         {
-            if (context.AssetPath != File) return;
-            var standards = context.Standards;
-            using (var serialized = new SerializedObject(ProjectRenderConfiguration.LoadSettings(File)))
+            var path = context.AssetPath;
+            if (path != AssetCheckTarget.QualitySettingsPath) return;
+            if (context.DefaultQualityUnverified != null)
             {
-                var defaults = serialized.FindProperty("m_PerPlatformDefaultQuality");
-                if (defaults == null)
-                {
-                    context.Add(Issue("无法读取默认质量档结构", true));
-                    return;
-                }
-                foreach (SerializedProperty entry in defaults)
-                {
-                    if (entry.FindPropertyRelative("first").stringValue != ProjectRenderConfiguration.PlatformName)
-                        continue;
-                    var index = entry.FindPropertyRelative("second").intValue;
-                    if (index < 0 || index >= QualitySettings.names.Length ||
-                        !ProjectRenderConfiguration.QualityLevels.Contains(index))
-                        context.Add(Issue("默认质量档索引 " + index + " 无效或已排除目标平台", false));
-                    return;
-                }
-                context.Add(Issue("未找到目标平台默认质量档条目", true));
+                context.Add(Issue(path, context.DefaultQualityUnverified, true));
+                return;
             }
+            var index = context.DefaultQualityLevel;
+            if (index < 0 || index >= context.QualityLevelCount || !context.ActiveQualityLevels.Contains(index))
+                context.Add(Issue(path, "默认质量档索引 " + index + " 无效或已排除目标平台", false));
         }
 
-        private AssetCheckIssue Issue(string actual, bool unverified) => new AssetCheckIssue(File, File,
+        private static AssetCheckIssue Issue(string path, string actual, bool unverified) => new AssetCheckIssue(path, path,
             AssetCheckKind.Project, "project.default-quality", "默认质量档", actual,
             "有效且适用于目标平台", false, unverified);
     }
@@ -76,18 +60,18 @@ namespace July.AssetCheck
         public void Check(ProjectCheckContext context)
         {
             var path = context.AssetPath;
-            if (path != "ProjectSettings/GraphicsSettings.asset" && path != "ProjectSettings/QualitySettings.asset") return;
-            var target = ProjectRenderConfiguration.LoadSettings(path);
-            var levels = new HashSet<int>(ProjectRenderConfiguration.QualityLevels);
-            SerializedReferenceChecks.Check(target, context, include: property =>
+            if (path == AssetCheckTarget.GraphicsSettingsPath)
             {
-                if (path.EndsWith("GraphicsSettings.asset", StringComparison.Ordinal))
-                    return property.propertyPath == "m_CustomRenderPipeline";
-                foreach (var level in levels)
-                    if (property.propertyPath == "m_QualitySettings.Array.data[" + level + "].customRenderPipeline")
-                        return true;
-                return false;
-            });
+                SerializedReferenceChecks.Check(context.SettingsAsset, context,
+                    include: property => property.propertyPath == "m_CustomRenderPipeline");
+            }
+            else if (path == AssetCheckTarget.QualitySettingsPath)
+            {
+                var properties = new HashSet<string>(context.ActiveQualityLevels.Select(level =>
+                    "m_QualitySettings.Array.data[" + level + "].customRenderPipeline"), StringComparer.Ordinal);
+                SerializedReferenceChecks.Check(context.SettingsAsset, context,
+                    include: property => properties.Contains(property.propertyPath));
+            }
         }
     }
 

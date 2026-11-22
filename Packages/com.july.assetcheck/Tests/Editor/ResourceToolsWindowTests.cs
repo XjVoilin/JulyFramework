@@ -52,7 +52,7 @@ namespace July.AssetCheck.Tests
             Open();
             var root = _window.rootVisualElement;
             var check = root.Q<AssetCheckResultsView>();
-            var copy = root.Q<WebGLTextureSettingsCopyPanel>();
+            var copy = root.Q<WebGLPlatformSettingsCopyPanel>();
             Assert.That(root.Query<ObjectField>().ToList().Count(field => field.objectType == typeof(DefaultAsset)), Is.EqualTo(1));
             Assert.That(AssetDatabase.GetAssetPath(root.Q<ObjectField>("shared-scope").value), Is.EqualTo(_root));
             Submit(root.Q<Button>("tab-Texture"));
@@ -91,7 +91,7 @@ namespace July.AssetCheck.Tests
             Open();
             _window.SelectTool(AssetCheckWindow.ToolPage.PlatformCopy);
             var root = _window.rootVisualElement;
-            var copy = root.Q<WebGLTextureSettingsCopyPanel>();
+            var copy = root.Q<WebGLPlatformSettingsCopyPanel>();
             copy.StartScan();
             Assert.That(root.Q<ObjectField>("shared-scope").enabledInHierarchy, Is.False);
             Assert.That(root.Q<Button>("tool-check").enabledInHierarchy, Is.False);
@@ -101,12 +101,12 @@ namespace July.AssetCheck.Tests
             Assert.That(root.Q<Button>("tool-check").enabledInHierarchy, Is.True);
             copy.StartCopy(false);
             copy.Pump();
-            Assert.That(paths.Count(path => !WebGLTextureSettingsCopy.Inspect(path).NeedsCopy), Is.EqualTo(20));
+            Assert.That(paths.Count(path => !WebGLPlatformSettingsCopy.Inspect(path).NeedsCopy), Is.EqualTo(20));
             Object.DestroyImmediate(_window);
             _window = null;
             copy.Pump();
             Assert.That(copy.Running, Is.False);
-            Assert.That(paths.Count(path => !WebGLTextureSettingsCopy.Inspect(path).NeedsCopy), Is.EqualTo(20));
+            Assert.That(paths.Count(path => !WebGLPlatformSettingsCopy.Inspect(path).NeedsCopy), Is.EqualTo(20));
             Assert.That(AssetDatabase.LoadAssetAtPath<Texture2D>(Texture("afterClose")), Is.Not.Null);
         }
 
@@ -116,7 +116,7 @@ namespace July.AssetCheck.Tests
             Texture("invalidation");
             Open();
             var root = _window.rootVisualElement;
-            var copy = root.Q<WebGLTextureSettingsCopyPanel>();
+            var copy = root.Q<WebGLPlatformSettingsCopyPanel>();
             Submit(root.Q<Button>("tab-Texture"));
             _window.CheckAll();
             Assert.That(copy.Q<Button>("scan").enabledInHierarchy, Is.False);
@@ -162,14 +162,14 @@ namespace July.AssetCheck.Tests
             Assert.That(check.IgnoredFiles, Is.EqualTo(3));
             Assert.That(check.CheckedFiles, Is.EqualTo(1));
             _window.SelectTool(AssetCheckWindow.ToolPage.PlatformCopy);
-            var copy = _window.rootVisualElement.Q<WebGLTextureSettingsCopyPanel>();
+            var copy = _window.rootVisualElement.Q<WebGLPlatformSettingsCopyPanel>();
             copy.StartScan(); Drain(copy);
             var rows = copy.Q<MultiColumnListView>("results").itemsSource;
             Assert.That(rows.Count, Is.EqualTo(1));
-            Assert.That(((WebGLTextureSettingsCopyEntry)rows[0]).Path, Is.EqualTo(included));
+            Assert.That(((WebGLPlatformSettingsCopyEntry)rows[0]).Path, Is.EqualTo(included));
             Assert.That(copy.Q<Label>("counts").text, Does.Contain("忽略 3 个"));
             copy.StartCopy(false); Drain(copy);
-            Assert.That(WebGLTextureSettingsCopy.Inspect(included).NeedsCopy, Is.False);
+            Assert.That(WebGLPlatformSettingsCopy.Inspect(included).NeedsCopy, Is.False);
             for (var index = 0; index < ignoredPaths.Length; index++)
                 Assert.That(File.ReadAllBytes(ignoredPaths[index]), Is.EqualTo(before[index]), ignoredPaths[index]);
         }
@@ -243,6 +243,59 @@ namespace July.AssetCheck.Tests
             _window.SetScope(_root);
         }
 
+        [UnityTest]
+        public IEnumerator AudioStandardsUseLabeledFieldsAndFitTheForm()
+        {
+            Open();
+            _window.position = new Rect(80, 80, 1050, 600);
+            var root = _window.rootVisualElement;
+            Submit(root.Q<Button>("tab-Audio"));
+            var foldout = root.Q<Foldout>(className: "standards");
+            foldout.SetValueWithoutNotify(true);
+            for (var frame = 0; frame < 5; frame++) yield return null;
+            var form = foldout.Q<ScrollView>();
+            var content = form.Q<VisualElement>(className: "standard-fields");
+            var fields = content.Query<EnumFlagsField>().ToList();
+            Assert.That(fields.Count, Is.EqualTo(2));
+            Assert.That(fields.All(field => field.ClassListContains("standard-field")), Is.True);
+            Assert.That(fields.All(field => field.worldBound.xMax <= form.worldBound.xMax + 1), Is.True);
+            Assert.That(form.worldBound.height, Is.EqualTo(content.worldBound.height).Within(3));
+        }
+
+        [UnityTest]
+        public IEnumerator TextureStandardsFitTheFormAndSeparateTexturesFromAtlases()
+        {
+            Open();
+            _window.position = new Rect(80, 80, 1050, 600);
+            var root = _window.rootVisualElement;
+            Submit(root.Q<Button>("tab-Texture"));
+            var foldout = root.Q<Foldout>(className: "standards");
+            foldout.SetValueWithoutNotify(true);
+            for (var frame = 0; frame < 5; frame++) yield return null;
+            var form = foldout.Q<ScrollView>();
+            var content = form.Q<VisualElement>(className: "standard-fields");
+            Assert.That(form.worldBound.height, Is.EqualTo(Mathf.Min(190, content.worldBound.height)).Within(3),
+                $"standards viewport is {form.worldBound.height}px, form content is {content.worldBound.height}px");
+            var groups = content.Query<VisualElement>(className: "format-standard").ToList();
+            Assert.That(groups.Count, Is.EqualTo(2));
+            Assert.That(groups[0].worldBound.yMin, Is.EqualTo(groups[1].worldBound.yMin).Within(1));
+            Assert.That(groups[0].Query<PopupField<string>>().ToList().Select(field => field.label),
+                Is.EquivalentTo(new[] { "Sprite MipMap", "贴图 Read/Write" }));
+            Assert.That(groups[1].Query<PopupField<string>>().ToList().Select(field => field.label),
+                Is.EquivalentTo(new[] { "图集 MipMap", "图集 Read/Write" }));
+            var formats = content.Query<VisualElement>(className: "format-options").ToList()
+                .SelectMany(options => options.Query<Toggle>().ToList()).ToArray();
+            Assert.That(formats.Select(format => format.text),
+                Is.EquivalentTo(MiniGameProfile.TextureFormats.Concat(MiniGameProfile.TextureFormats).Select(TextureFormatRule.FormatName)));
+
+            _window.position = new Rect(80, 80, 700, 600);
+            for (var frame = 0; frame < 5; frame++) yield return null;
+            Assert.That(groups[1].worldBound.yMin, Is.GreaterThanOrEqualTo(groups[0].worldBound.yMax));
+            Assert.That(form.worldBound.height, Is.EqualTo(190).Within(3));
+            Assert.That(form.verticalScroller.highValue, Is.GreaterThan(0));
+            Assert.That(root.Q<AssetCheckResultsView>().worldBound.height, Is.GreaterThanOrEqualTo(80));
+        }
+
         private string Texture(string name)
         {
             var path = _root + "/" + name + ".png";
@@ -253,7 +306,7 @@ namespace July.AssetCheck.Tests
             return path;
         }
 
-        private static void Drain(WebGLTextureSettingsCopyPanel panel)
+        private static void Drain(WebGLPlatformSettingsCopyPanel panel)
         {
             for (var index = 0; panel.Running && index < 100; index++) panel.Pump();
             Assert.That(panel.Running, Is.False);

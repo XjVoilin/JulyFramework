@@ -125,9 +125,10 @@ namespace July.AssetCheck.Tests
                 };
                 workspace.StartFix(AssetCheckKind.Texture, selected);
                 TextureBatchImportProbe.Batches.Clear();
-                LogAssert.Expect(LogType.Exception, new Regex("texture-batch-test-failure"));
+                LogAssert.Expect(LogType.Error, new Regex("^处理资源失败：" + Regex.Escape(paths[1])));
                 workspace.Step();
                 Assert.That(workspace.Running, Is.False);
+                Assert.That(workspace.Failure, Does.Contain(paths[1]));
                 Assert.That(workspace.Failure, Does.Contain("texture-batch-test-failure"));
                 Assert.That(workspace.LastFix.ModifiedFiles, Is.EqualTo(1));
                 Assert.That(workspace.LastFix.Rechecked, Is.False);

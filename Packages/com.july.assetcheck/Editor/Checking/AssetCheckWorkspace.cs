@@ -22,6 +22,7 @@ namespace July.AssetCheck
         private AssetCheckReport _activeReport;
         private bool _mutating;
         private bool _fixInProgress;
+        private string _fixAssetPath;
         private string _projectStamp;
         private bool _configurationChanged;
 
@@ -240,15 +241,17 @@ namespace July.AssetCheck
             catch (Exception exception)
             {
                 // 在操作边界暴露错误并停止执行，不掩盖检查规则失败。
-                Failure = exception.Message;
+                var assetContext = _fixAssetPath == null ? null : $"处理资源失败：{_fixAssetPath}\n";
+                Failure = assetContext + exception.Message;
                 if (_activeReport != null)
                 {
-                    _activeReport.Failure = exception.Message;
+                    _activeReport.Failure = Failure;
                     SaveReport(_activeReport);
                 }
                 if (_fixInProgress)
                     Activity = $"操作失败；已修改 {LastFix.ModifiedFiles} 个文件，跳过 {LastFix.SkippedFiles} 个，请重新检查。";
-                JLogger.LogException(exception);
+                if (assetContext == null) JLogger.LogException(exception);
+                else JLogger.LogError(assetContext + exception);
                 FinishTask();
             }
             Changed?.Invoke();
@@ -333,8 +336,8 @@ namespace July.AssetCheck
         {
             var module = _instances[kind];
             var groups = selection.GroupBy(issue => issue.TargetId).ToArray();
-            var batchImports = kind == AssetCheckKind.Texture;
-            var batchSize = batchImports ? 20 : 1;
+            var batchSize = AssetCheckCatalog.Get(kind).FixBatchSize;
+            var batchImports = batchSize > 1;
             for (var start = 0; start < groups.Length; start += batchSize)
             {
                 var end = Math.Min(start + batchSize, groups.Length);
@@ -346,6 +349,7 @@ namespace July.AssetCheck
                         _file.EnsureUnchanged();
                         var group = groups[index];
                         var path = AssetCheckTarget.RequirePath(group.Key);
+                        _fixAssetPath = path;
                         Activity = "修改 " + path;
                         Progress = (float)index / groups.Length;
                         var requested = group.ToDictionary(issue => issue.Key);
@@ -359,6 +363,7 @@ namespace July.AssetCheck
                         }
                         else
                             LastFix.SkippedFiles++;
+                        _fixAssetPath = null;
                     }
                 }
                 finally
@@ -402,6 +407,7 @@ namespace July.AssetCheck
             _activeReport = null;
             _mutating = false;
             _fixInProgress = false;
+            _fixAssetPath = null;
         }
 
         public void PollExternalChanges()
@@ -430,13 +436,12 @@ namespace July.AssetCheck
 
         private void AssetsChanged(string[] paths)
         {
+            var standards = Settings.CurrentStandards;
             foreach (var report in _reports.Values)
             {
                 var registration = _modules.Single(entry => entry.Kind == report.Kind);
-                // 源图可能由扫描目录外的图集收录；新增、移除或编辑图集会改变格式规则。
-                if (report.Kind == AssetCheckKind.Texture && Settings.CurrentStandards.texture.requireUncompressedAtlasSources &&
-                    paths.Any(path => path.EndsWith(".spriteatlas", StringComparison.OrdinalIgnoreCase) ||
-                                      path.EndsWith(".spriteatlasv2", StringComparison.OrdinalIgnoreCase)))
+                if (registration.IsAdditionalInput != null &&
+                    paths.Any(path => registration.IsAdditionalInput(path, standards)))
                 {
                     MarkStale(report);
                     continue;
@@ -522,7 +527,7 @@ namespace July.AssetCheck
 
         private void RecordSaveFailure(AssetCheckKind kind, Exception exception)
         {
-            var message = KindName(kind) + "结果保存失败：" + exception.Message;
+            var message = KindName(kind) + $"结果保存失败：{exception.Message}（{_reportStore.PathFor(kind)}，0x{exception.HResult:X8}）";
             // 共享报告保存失败时保留内存结果，并明确提示读写错误。
             if (!_saveFailures.TryGetValue(kind, out var previous) || previous != message)
                 JLogger.LogError(message);

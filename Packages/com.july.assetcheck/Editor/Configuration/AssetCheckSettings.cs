@@ -46,13 +46,6 @@ namespace July.AssetCheck
         public bool allowAtlasMipMaps;
     }
 
-    [Serializable]
-    public sealed class AudioStandards
-    {
-        public int maxSampleRate = 44100;
-        public int maxChannels = 2;
-    }
-
     public enum AdditionalLightStandard
     {
         Disabled,
@@ -217,8 +210,7 @@ namespace July.AssetCheck
             var current = standards[0];
             ValidateTextureSize(current.texture.maxTextureSize);
             ValidateTextureSize(current.texture.maxAtlasSize);
-            if (current.audio.maxSampleRate <= 0 || current.audio.maxChannels < 1 || current.audio.maxChannels > 8)
-                throw new InvalidDataException("音频采样率必须为正数，声道上限必须在 1 到 8 之间。");
+            current.audio.Validate();
             var urp = current.urp;
             if (!new[] { 1, 2, 4, 8 }.Contains(urp.maxMsaa) ||
                 !new[] { 256, 512, 1024, 2048, 4096 }.Contains(urp.maxMainShadowResolution) ||

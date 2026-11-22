@@ -9,27 +9,28 @@ using UnityEngine.UIElements;
 
 namespace July.AssetCheck
 {
-    internal sealed class WebGLTextureSettingsCopyPanel : VisualElement, IDisposable
+    internal sealed class WebGLPlatformSettingsCopyPanel : VisualElement, IDisposable
     {
         private readonly Func<AssetCheckWorkspace> _workspace;
         private readonly Action _changed;
         private string _observedScope;
         private string _observedExclusions;
-        private readonly List<WebGLTextureSettingsCopyEntry> _entries = new List<WebGLTextureSettingsCopyEntry>();
+        private readonly List<WebGLPlatformSettingsCopyEntry> _entries = new List<WebGLPlatformSettingsCopyEntry>();
         private readonly HashSet<string> _selected = new HashSet<string>();
         private string[] _scanPaths;
         private int _scanIndex, _ignoredCount;
         private bool _complete, _stale, _writing;
         private string _message = "选择文件夹后点击扫描，查看平台配置差异。";
         private string _copySummary = "";
-        private WebGLTextureSettingsCopy _operation;
+        private WebGLPlatformSettingsCopy _operation;
         private VisualElement _resultControls;
         private Button _scan;
         private MultiColumnListView _list;
-        private List<WebGLTextureSettingsCopyEntry> _visible = new List<WebGLTextureSettingsCopyEntry>();
+        private List<WebGLPlatformSettingsCopyEntry> _visible = new List<WebGLPlatformSettingsCopyEntry>();
         private Label _status, _counts;
         private Label _scannedCount, _differenceCount, _consistentCount, _selectionCount, _empty;
         private Toggle _onlyDifferences;
+        private DropdownField _kind;
         private Button _copyAll, _copySelected, _cancel;
         private ProgressBar _progress;
         private bool Scanning => _scanPaths != null;
@@ -37,13 +38,13 @@ namespace July.AssetCheck
         internal bool Running => Scanning || Copying;
         private bool CanCopy => _complete && !_stale && !Running;
 
-        internal WebGLTextureSettingsCopyPanel(Func<AssetCheckWorkspace> workspace, Action changed)
+        internal WebGLPlatformSettingsCopyPanel(Func<AssetCheckWorkspace> workspace, Action changed)
         {
             _workspace = workspace;
             _changed = changed;
             name = "platform-copy-page";
             AddToClassList("platform-copy");
-            styleSheets.Add(AssetDatabase.LoadAssetAtPath<StyleSheet>("Packages/com.july.assetcheck/Editor/Textures/WebGLTextureSettingsCopyPanel.uss"));
+            styleSheets.Add(AssetDatabase.LoadAssetAtPath<StyleSheet>("Packages/com.july.assetcheck/Editor/Textures/WebGLPlatformSettingsCopyPanel.uss"));
             style.flexGrow = 1;
             Build();
             AssetCheckAssetChanges.Changed += OnAssetsChanged;
@@ -63,7 +64,7 @@ namespace July.AssetCheck
             var heading = Row("copy-heading");
             var title = new VisualElement { name = "copy-title-group" };
             title.Add(new Label("平台配置复制") { name = "copy-title" });
-            title.Add(new Label("以 WebGL 为来源，对照 MiniGame 与 WeixinMiniGame 的贴图和图集配置。") { name = "copy-subtitle" });
+            title.Add(new Label("以 WebGL 为来源，对照小游戏平台的贴图、图集和音频配置。") { name = "copy-subtitle" });
             heading.Add(title);
             _scan = new Button(() => RunUi(StartScan)) { name = "scan", text = "扫描平台配置" };
             _scan.AddToClassList("copy-primary"); heading.Add(_scan); root.Add(heading);
@@ -74,16 +75,19 @@ namespace July.AssetCheck
             _selectionCount = Metric(metrics, "已选择");
             root.Add(metrics);
             var rules = new Foldout { text = "复制规则与范围", value = false, name = "copy-rules" };
-            rules.Add(new HelpBox("WebGL 未启用覆盖时复制 Default 配置；两个目标启用覆盖，Automatic 保持原值。" +
+            rules.Add(new HelpBox("贴图和图集保留两种小游戏平台名。音频使用 WebGL 的生效配置，复制到 MiniGame 与 WeixinMiniGame 共用的覆盖。" +
                 "与资源检查共用目录和忽略名单。取消或关闭窗口保留已保存的修改。", HelpBoxMessageType.Info));
             root.Add(rules);
             _resultControls = Row("copy-controls");
+            _kind = new DropdownField(new List<string> { "全部类型", "贴图和图集", "音频" }, 0) { name = "resource-kind" };
+            _kind.RegisterValueChangedCallback(_ => { _selected.Clear(); RebuildRows(); });
+            _resultControls.Add(_kind);
             _onlyDifferences = new Toggle("仅显示差异") { name = "only-differences", value = true };
             _onlyDifferences.RegisterValueChangedCallback(_ => RebuildRows());
             _resultControls.Add(_onlyDifferences);
             _resultControls.Add(new Button(() =>
             {
-                foreach (var entry in _entries.Where(entry => entry.NeedsCopy)) _selected.Add(entry.Guid);
+                foreach (var entry in EntriesForKind().Where(entry => entry.NeedsCopy)) _selected.Add(entry.Guid);
                 RebuildRows();
             }) { text = "全选差异" });
             _resultControls.Add(new Button(() => { _selected.Clear(); RebuildRows(); }) { text = "清空选择" });
@@ -108,12 +112,9 @@ namespace July.AssetCheck
                 makeCell = MakeResource, bindCell = (cell, index) => BindResource(cell, _visible[index]),
                 unbindCell = (cell, index) => cell.Q<AssetCheckThumbnail>().ResetPreview()
             });
-            AddColumn("source", "WebGL 来源", entry => (entry.Inherited ? "继承 Default\n" : "WebGL 覆盖\n") +
-                WebGLTextureSettingsCopyEntry.Summary(entry.Source), entry => WebGLTextureSettingsCopyEntry.Description(entry.Source));
-            AddColumn("minigame", "MiniGame", entry => TargetText(entry.MiniGame, entry.CopyMiniGame),
-                entry => WebGLTextureSettingsCopyEntry.Description(entry.MiniGame));
-            AddColumn("weixin", "WeixinMiniGame", entry => TargetText(entry.WeixinMiniGame, entry.CopyWeixinMiniGame),
-                entry => WebGLTextureSettingsCopyEntry.Description(entry.WeixinMiniGame));
+            AddColumn("source", "WebGL 来源", entry => entry.Source);
+            AddColumn("minigame", "MiniGame", entry => entry.MiniGame);
+            AddColumn("weixin", "WeixinMiniGame", entry => entry.WeixinMiniGame);
             root.Add(_list);
             _empty = new Label { name = "copy-empty" }; root.Add(_empty);
             var footer = Row("copy-footer");
@@ -135,8 +136,7 @@ namespace July.AssetCheck
             parent.Add(metric); return value;
         }
 
-        private void AddColumn(string name, string title, Func<WebGLTextureSettingsCopyEntry, string> text,
-            Func<WebGLTextureSettingsCopyEntry, string> tooltip)
+        private void AddColumn(string name, string title, Func<WebGLPlatformSettingsCopyEntry, PlatformSettingsCopyCell> preview)
         {
             _list.columns.Add(new Column
             {
@@ -150,17 +150,15 @@ namespace July.AssetCheck
                 },
                 bindCell = (cell, index) =>
                 {
-                    cell.userData = _visible[index];
-                    ((Label)cell).text = text(_visible[index]);
-                    cell.tooltip = tooltip(_visible[index]);
                     var entry = _visible[index];
-                    cell.EnableInClassList("copy-difference", name == "minigame" ? entry.CopyMiniGame : name == "weixin" && entry.CopyWeixinMiniGame);
+                    var value = preview(entry);
+                    cell.userData = entry;
+                    ((Label)cell).text = value.Text;
+                    cell.tooltip = value.Details;
+                    cell.EnableInClassList("copy-difference", value.NeedsCopy);
                 }
             });
         }
-
-        private static string TargetText(TextureImporterPlatformSettings settings, bool needsCopy) =>
-            (needsCopy ? "待复制" : "一致") + (settings.overridden ? "\n" : "（未启用覆盖）\n") + WebGLTextureSettingsCopyEntry.Summary(settings);
 
         private VisualElement MakeResource()
         {
@@ -171,7 +169,7 @@ namespace July.AssetCheck
             toggle.RegisterCallback<ClickEvent>(evt => evt.StopPropagation());
             toggle.RegisterValueChangedCallback(change =>
             {
-                var entry = (WebGLTextureSettingsCopyEntry)cell.userData;
+                var entry = (WebGLPlatformSettingsCopyEntry)cell.userData;
                 if (change.newValue) _selected.Add(entry.Guid); else _selected.Remove(entry.Guid);
                 Refresh();
             });
@@ -185,13 +183,13 @@ namespace July.AssetCheck
             return cell;
         }
 
-        private void BindResource(VisualElement cell, WebGLTextureSettingsCopyEntry entry)
+        private void BindResource(VisualElement cell, WebGLPlatformSettingsCopyEntry entry)
         {
             cell.userData = entry;
             var toggle = cell.Q<Toggle>();
             toggle.SetValueWithoutNotify(_selected.Contains(entry.Guid));
             toggle.SetEnabled(CanCopy && entry.NeedsCopy);
-            cell.Q<Label>("filename").text = Path.GetFileName(entry.Path) + (entry.IsAtlas ? "（图集）" : "");
+            cell.Q<Label>("filename").text = Path.GetFileName(entry.Path) + entry.NameSuffix;
             cell.Q<AssetCheckThumbnail>().BindPath(AssetDatabase.GUIDToAssetPath(entry.Guid));
             cell.Q<Label>("path").text = Path.GetDirectoryName(entry.Path)?.Replace('\\', '/');
             cell.tooltip = entry.Path;
@@ -201,11 +199,11 @@ namespace July.AssetCheck
         {
             cell.RegisterCallback<ClickEvent>(evt =>
             {
-                if (evt.button == 0) Locate((WebGLTextureSettingsCopyEntry)cell.userData);
+                if (evt.button == 0) Locate((WebGLPlatformSettingsCopyEntry)cell.userData);
             });
         }
 
-        private static void Locate(WebGLTextureSettingsCopyEntry entry)
+        private static void Locate(WebGLPlatformSettingsCopyEntry entry)
         {
             var path = AssetDatabase.GUIDToAssetPath(entry.Guid);
             if (string.IsNullOrEmpty(path)) return; // 扫描后删除的资源仍可能显示在过期列表中。
@@ -240,7 +238,7 @@ namespace July.AssetCheck
         {
             var settings = _workspace().ReadCurrentSettings();
             SynchronizeSettings();
-            _scanPaths = WebGLTextureSettingsCopy.Collect(new[] { settings.scope });
+            _scanPaths = WebGLPlatformSettingsCopy.Collect(new[] { settings.scope });
             _scanIndex = 0;
             _ignoredCount = 0;
             _complete = false;
@@ -267,9 +265,9 @@ namespace July.AssetCheck
             _workspace().ReadCurrentSettings();
             SynchronizeSettings();
             if (!CanCopy) throw new InvalidOperationException("请先完成当前目录的扫描。");
-            var paths = _entries.Where(entry => entry.NeedsCopy && (!selectedOnly || _selected.Contains(entry.Guid)))
+            var paths = EntriesForKind().Where(entry => entry.NeedsCopy && (!selectedOnly || _selected.Contains(entry.Guid)))
                 .Select(entry => AssetCheckTarget.RequirePath(entry.Guid)).ToArray();
-            _operation = new WebGLTextureSettingsCopy(paths, () => _workspace().ReadCurrentSettings());
+            _operation = new WebGLPlatformSettingsCopy(paths, () => _workspace().ReadCurrentSettings());
             _message = "复制中。";
             Refresh();
             _list.RefreshItems();
@@ -291,7 +289,7 @@ namespace July.AssetCheck
                     {
                         var path = _scanPaths[_scanIndex++];
                         if (exclusions.Contains(AssetDatabase.AssetPathToGUID(path), path)) _ignoredCount++;
-                        else _entries.Add(WebGLTextureSettingsCopy.Inspect(path));
+                        else _entries.Add(WebGLPlatformSettingsCopy.Inspect(path));
                     }
                     if (_scanIndex == _scanPaths.Length) FinishScan();
                 }
@@ -338,18 +336,25 @@ namespace July.AssetCheck
 
         private void RebuildRows()
         {
-            _visible = _entries.Where(entry => !_onlyDifferences.value || entry.NeedsCopy).ToList();
+            _visible = EntriesForKind().Where(entry => !_onlyDifferences.value || entry.NeedsCopy).ToList();
             _list.itemsSource = _visible;
             _list.RefreshItems();
             Refresh();
         }
 
+        private IEnumerable<WebGLPlatformSettingsCopyEntry> EntriesForKind() => _kind.index switch
+        {
+            1 => _entries.Where(entry => entry.Kind == AssetCheckKind.Texture),
+            2 => _entries.Where(entry => entry.Kind == AssetCheckKind.Audio),
+            _ => _entries
+        };
+
         private void Refresh()
         {
             _scan.SetEnabled(!Running);
             _resultControls.SetEnabled(!Running);
-            _copyAll.SetEnabled(CanCopy && _entries.Any(entry => entry.NeedsCopy));
-            _copySelected.SetEnabled(CanCopy && _entries.Any(entry => entry.NeedsCopy && _selected.Contains(entry.Guid)));
+            _copyAll.SetEnabled(CanCopy && EntriesForKind().Any(entry => entry.NeedsCopy));
+            _copySelected.SetEnabled(CanCopy && EntriesForKind().Any(entry => entry.NeedsCopy && _selected.Contains(entry.Guid)));
             _cancel.SetEnabled(Running);
             var differences = _entries.Count(entry => entry.NeedsCopy);
             _scannedCount.text = (_entries.Count + _ignoredCount).ToString("N0");
@@ -362,7 +367,7 @@ namespace July.AssetCheck
             _list.style.display = _visible.Count > 0 ? DisplayStyle.Flex : DisplayStyle.None;
             _empty.style.display = _visible.Count == 0 ? DisplayStyle.Flex : DisplayStyle.None;
             _empty.text = Scanning ? "正在读取平台配置…" : !_complete ? "扫描当前目录，查看平台配置差异" :
-                _entries.Count == 0 ? "当前目录没有可检查的贴图或图集" : "当前筛选下没有差异文件";
+                _entries.Count == 0 ? "当前目录没有可复制的贴图、图集或音频" : "当前筛选下没有差异文件";
             _progress.style.display = Running ? DisplayStyle.Flex : DisplayStyle.None;
             _progress.title = Scanning ? $"扫描 {_scanIndex}/{_scanPaths.Length}" : Copying ? $"复制 {_operation.Processed}/{_operation.Total}" : "";
             _progress.value = Scanning ? 100f * _scanIndex / Math.Max(1, _scanPaths.Length) :

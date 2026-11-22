@@ -232,7 +232,7 @@ namespace July.AssetCheck
                 var selected = cell.Q<Toggle>("select");
                 selected.style.display = row.IsFile ? DisplayStyle.Flex : DisplayStyle.None;
                 selected.SetValueWithoutNotify(row.IsFile && Model.Selected.Contains(row.File.Id));
-                selected.SetEnabled(CanModify && row.IsFile && row.File.VisibleIssues.Any(issue => issue.ConfirmedFix() != null));
+                selected.SetEnabled(CanModify && row.IsFile && Model.SelectionIssues(row.File).Any(issue => issue.ConfirmedFix() != null));
             }
             var expand = cell.Q<Button>("expand");
             var expandable = row.UnknownHeader || row.IsFile && row.File.VisibleIssues.Length > 1;

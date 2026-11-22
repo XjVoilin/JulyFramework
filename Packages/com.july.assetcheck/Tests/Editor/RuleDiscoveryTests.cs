@@ -12,6 +12,7 @@ using Object = UnityEngine.Object;
 namespace July.AssetCheck.Tests
 {
     // 此规则无需注册，位于模块之外的独立程序集。
+    [AssetCheckRuleVersion(2)]
     internal sealed class DiscoveredHierarchyRule : IAssetCheckRule<PrefabSceneCheckContext>
     {
         private int _visits;
@@ -47,6 +48,19 @@ namespace July.AssetCheck.Tests
         public void Fix(TextureCheckContext context, AssetCheckIssue issue) => context.Importer.mipmapEnabled = false;
     }
 
+    internal sealed class DuplicateTextureRepairRule : IAssetCheckFix<TextureCheckContext>
+    {
+        public void Check(TextureCheckContext context)
+        {
+            if (Path.GetFileName(context.AssetPath) != "duplicate-fix.png") return;
+            context.Report(context.Importer, "duplicate", "扩展规则", "实际一", "标准", canFix: true);
+            context.Report(context.Importer, "duplicate", "扩展规则", "实际二", "标准", canFix: true);
+        }
+
+        public void Fix(TextureCheckContext context, AssetCheckIssue issue) =>
+            throw new InvalidOperationException("A duplicate issue must never reach repair.");
+    }
+
     public sealed class RuleDiscoveryTests
     {
         private string _folder;
@@ -75,6 +89,16 @@ namespace July.AssetCheck.Tests
             var path = _folder + "/Sample.prefab";
             try { PrefabUtility.SaveAsPrefabAsset(root, path); }
             finally { Object.DestroyImmediate(root); }
+            return path;
+        }
+
+        private string Texture(string name)
+        {
+            var path = _folder + "/" + name + ".png";
+            var texture = new Texture2D(4, 4);
+            try { File.WriteAllBytes(path, texture.EncodeToPNG()); }
+            finally { Object.DestroyImmediate(texture); }
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
             return path;
         }
 
@@ -123,11 +147,7 @@ namespace July.AssetCheck.Tests
 
         [Test] public void DiscoveredRepairUsesItsProducerThroughWorkspaceRecheckAndImport()
         {
-            var path = _folder + "/extension.png";
-            var texture = new Texture2D(4, 4);
-            try { File.WriteAllBytes(path, texture.EncodeToPNG()); }
-            finally { Object.DestroyImmediate(texture); }
-            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+            var path = Texture("extension");
             var importer = (TextureImporter)AssetImporter.GetAtPath(path);
             importer.mipmapEnabled = true;
             importer.SaveAndReimport();
@@ -169,7 +189,17 @@ namespace July.AssetCheck.Tests
             Assert.That(File.ReadAllBytes(path), Is.EqualTo(before));
         }
 
-        [Test] public void ReportContextIncludesDiscoveredRuleAssemblyAndBuildFingerprint()
+        [Test] public void DuplicateRepairIssueFailsDuringCheckWithThePathAndRuleCode()
+        {
+            var path = Texture("duplicate-fix");
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                new TextureCheckModule().Check(path, new PlatformStandards()));
+            Assert.That(exception.Message, Does.Contain("重复的可修复问题标识"));
+            Assert.That(exception.Message, Does.Contain(path));
+            Assert.That(exception.Message, Does.Contain("DuplicateTextureRepairRule.duplicate"));
+        }
+
+        [Test] public void ReportContextIncludesStableRuleIdentityAndVersion()
         {
             Prefab("Ordinary");
             string context;
@@ -178,8 +208,10 @@ namespace July.AssetCheck.Tests
                 Scan(workspace, AssetCheckKind.PrefabScene);
                 context = workspace.GetReport(AssetCheckKind.PrefabScene).Context;
             }
-            Assert.That(context, Does.Contain(typeof(DiscoveredHierarchyRule).FullName));
-            Assert.That(context, Does.Contain(typeof(DiscoveredHierarchyRule).Module.ModuleVersionId.ToString()));
+            var rule = typeof(DiscoveredHierarchyRule);
+            Assert.That(context, Does.Contain(rule.Assembly.GetName().Name + ":" + rule.FullName + "@2"));
+            Assert.That(context, Does.Contain(typeof(ReadOnlyModuleRepairRule).FullName + "@1"));
+            Assert.That(context, Does.Not.Contain(rule.Module.ModuleVersionId.ToString()));
         }
 
         private sealed class InvalidContext : AssetCheckContext

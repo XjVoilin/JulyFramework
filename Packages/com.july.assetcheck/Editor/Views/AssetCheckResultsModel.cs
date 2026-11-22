@@ -180,9 +180,14 @@ namespace July.AssetCheck
             RebuildRows();
         }
 
+        internal AssetCheckIssue[] SelectionIssues(AssetCheckFileRow file) =>
+            _report != null && AssetCheckCatalog.Get(_report.Kind).FixAllSelectedIssues
+                ? file.AllIssues : file.VisibleIssues;
+
         internal AssetCheckIssue[] Fixable(bool selectedOnly) => Files
             .Where(file => (file.HasProblem || ShowUnknown) && (!selectedOnly || Selected.Contains(file.Id)))
-            .SelectMany(file => file.VisibleIssues).Select(issue => issue.ConfirmedFix()).Where(issue => issue != null).ToArray();
+            .SelectMany(file => selectedOnly ? SelectionIssues(file) : file.VisibleIssues)
+            .Select(issue => issue.ConfirmedFix()).Where(issue => issue != null).ToArray();
 
         internal AssetCheckIssue[] AllFixable() => (_report?.Issues ?? new List<AssetCheckIssue>())
             .Select(issue => issue.ConfirmedFix()).Where(issue => issue != null).ToArray();

@@ -72,6 +72,35 @@ namespace July.AssetCheck.Tests
         }
 
         [Test]
+        public void PreviousBuildFingerprintReopensReadOnlyAndStaleWithoutRewritingIt()
+        {
+            Mesh("a.asset");
+            using (var workspace = Workspace())
+            {
+                workspace.StartScan(AssetCheckKind.Model);
+                Drain(workspace);
+            }
+            using (var reopened = Workspace())
+                Assert.That(reopened.GetReport(AssetCheckKind.Model).Stale, Is.False);
+
+            var legacy = Read(AssetCheckKind.Model);
+            var current = AssetCheckRules<ModelCheckContext>.Fingerprint;
+            var type = typeof(MeshTriangleRule);
+            legacy.standardsContext = legacy.standardsContext.Replace("|规则:" + current + "|忽略:",
+                "|规则:" + type.AssemblyQualifiedName + "@" + type.Module.ModuleVersionId + "|忽略:");
+            var path = _store.PathFor(AssetCheckKind.Model);
+            File.WriteAllText(path, JsonUtility.ToJson(legacy));
+            var before = File.ReadAllBytes(path);
+            using (var reopened = Workspace())
+            {
+                var report = reopened.GetReport(AssetCheckKind.Model);
+                Assert.That(report.IsSnapshot && report.Complete && report.Stale, Is.True);
+                Assert.That(report.CheckedFiles, Is.EqualTo(1));
+            }
+            CollectionAssert.AreEqual(before, File.ReadAllBytes(path));
+        }
+
+        [Test]
         public void RepeatedScanOverwritesItsModuleAndLeavesOtherModulesIntact()
         {
             Mesh("a.asset");
@@ -206,6 +235,53 @@ namespace July.AssetCheck.Tests
                 Assert.That(workspace.GetReport(AssetCheckKind.Model).Complete, Is.True);
                 Assert.That(workspace.ReportSaveFailure, Does.Contain("模型结果保存失败"));
             }
+        }
+
+        [Test]
+        public void LockedAudioReportPreservesThePreviousSnapshotAndLeavesNoTemporaryFile()
+        {
+            Assume.That(Application.platform, Is.EqualTo(RuntimePlatform.WindowsEditor));
+            var report = new AssetCheckReport(AssetCheckKind.Audio, "previous", AssetCheckPlatform.MiniGame, _root)
+            { Complete = true };
+            _store.Save(report, false);
+            var path = _store.PathFor(AssetCheckKind.Audio);
+            var previous = File.ReadAllBytes(path);
+
+            report.Context = "latest";
+            using (var reader = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            {
+                Assert.Throws<IOException>(() => _store.Save(report, false));
+                CollectionAssert.AreEqual(previous, File.ReadAllBytes(path));
+                Assert.That(Directory.GetFiles(_store.DirectoryPath), Is.EquivalentTo(new[] { path }));
+            }
+
+            _store.Save(report, false);
+            Assert.That(Read(AssetCheckKind.Audio).standardsContext, Is.EqualTo("latest"));
+        }
+
+        [Test]
+        public void FileReplacementRetriesWhenAShortReaderLockIsReleased()
+        {
+            Assume.That(Application.platform, Is.EqualTo(RuntimePlatform.WindowsEditor));
+            Directory.CreateDirectory(_store.DirectoryPath);
+            var path = _store.PathFor(AssetCheckKind.Audio);
+            var temporary = path + ".fixture.tmp";
+            File.WriteAllText(path, "previous");
+            File.WriteAllText(temporary, "latest");
+            var waits = 0;
+
+            using var reader = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            AssetCheckFileReplacement.Commit(temporary, path, wait: delay =>
+            {
+                waits++;
+                Assert.That(delay, Is.GreaterThan(0));
+                Assert.That(File.ReadAllText(path), Is.EqualTo("previous"));
+                reader.Dispose();
+            });
+
+            Assert.That(waits, Is.EqualTo(1));
+            Assert.That(File.ReadAllText(path), Is.EqualTo("latest"));
+            Assert.That(Directory.GetFiles(_store.DirectoryPath), Is.EquivalentTo(new[] { path }));
         }
 
         private AssetCheckWorkspace Workspace()

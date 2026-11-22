@@ -27,15 +27,22 @@ namespace July.AssetCheck
 
         internal void Add(AssetCheckIssue issue)
         {
-            if (issue.CanFix && !_ruleCanFix)
-                throw new InvalidOperationException("可修改的问题必须由实现修复接口的规则报告：" + _rule.GetType().FullName);
-            if (issue.CanFix && !SupportsFix)
-                throw new InvalidOperationException("当前检查模块只支持报告问题，不支持自动修改：" + Kind);
+            if (issue.CanFix)
+            {
+                if (!_ruleCanFix)
+                    throw new InvalidOperationException("可修改的问题必须由实现修复接口的规则报告：" + _rule.GetType().FullName);
+                if (!SupportsFix)
+                    throw new InvalidOperationException("当前检查模块只支持报告问题，不支持自动修改：" + Kind);
+                var key = issue.Key;
+                if (_issues.Exists(previous => previous.CanFix && previous.TargetId == issue.TargetId && previous.Key == key))
+                    throw new InvalidOperationException($"重复的可修复问题标识：{AssetPath} / {key}");
+            }
             issue.Rule = _rule;
             _issues.Add(issue);
         }
 
         /// <summary>按规则内的局部编号报告问题，对象位置和文件标识由框架补充。
+        /// 同一规则在同一对象位置报告多条可修复问题时，每条问题应使用不同的 code。
         /// 检查只读取已保存资源，不修改资源；继承对象的归属由规则判断。</summary>
         public void Report(Object owner, string code, string problem, string actual, string expected,
             string propertyPath = null, bool canFix = false, bool unverified = false)
@@ -50,9 +57,8 @@ namespace July.AssetCheck
             long localId = 0;
             if (owner != null && EditorUtility.IsPersistent(owner))
                 AssetDatabase.TryGetGUIDAndLocalFileIdentifier(owner, out string _, out localId);
-            var type = _rule.GetType();
             Add(new AssetCheckIssue(AssetPath, AssetCheckTarget.Id(AssetPath), Kind,
-                type.Assembly.GetName().Name + ":" + type.FullName + "." + code,
+                AssetCheckRuleIdentity.Id(_rule.GetType()) + "." + code,
                 problem, actual, expected, canFix, unverified, resourceName: AssetPath + (location.Length > 0 ? " / " + location : ""),
                 localId: localId, location: location, propertyPath: propertyPath)
                 { ObjectLocation = AssetCheckObjectLocation.Capture(owner) });
@@ -103,21 +109,6 @@ namespace July.AssetCheck
         public Material Material { get; }
         internal MaterialCheckContext(Material material, string path, List<AssetCheckIssue> issues)
             : base(path, AssetCheckKind.Material, issues) { Material = material; }
-    }
-
-    public sealed class AudioCheckContext : AssetCheckContext
-    {
-        public AudioClip Clip { get; }
-        public AudioStandards Standards { get; }
-        internal AudioCheckContext(AudioClip clip, string path, AudioStandards standards, List<AssetCheckIssue> issues)
-            : base(path, AssetCheckKind.Audio, issues) { Clip = clip; Standards = standards; }
-    }
-
-    public sealed class ProjectCheckContext : AssetCheckContext
-    {
-        public ProjectStandards Standards { get; }
-        internal ProjectCheckContext(string path, ProjectStandards standards, List<AssetCheckIssue> issues)
-            : base(path, AssetCheckKind.Project, issues) { Standards = standards; }
     }
 
     public sealed class UrpCheckContext : AssetCheckContext

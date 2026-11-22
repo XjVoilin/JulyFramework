@@ -51,7 +51,7 @@ namespace July.AssetCheck.Tests
             var android = JsonUtility.ToJson(importer.GetPlatformTextureSettings("Android"));
             var web = JsonUtility.ToJson(importer.GetPlatformTextureSettings("WebGL"));
 
-            Assert.That(WebGLTextureSettingsCopy.CopyAsset(path), Is.True);
+            Assert.That(WebGLPlatformSettingsCopy.CopyAsset(path), Is.True);
             importer = (TextureImporter)AssetImporter.GetAtPath(path);
             AssertTargets(source, importer.GetPlatformTextureSettings);
             Assert.That(JsonUtility.ToJson(importer.GetPlatformTextureSettings("WebGL")), Is.EqualTo(web));
@@ -59,7 +59,7 @@ namespace July.AssetCheck.Tests
             Assert.That(JsonUtility.ToJson(importer.GetPlatformTextureSettings("Android")), Is.EqualTo(android));
             Assert.That(importer.isReadable, Is.True);
             TextureBatchImportProbe.Batches.Clear();
-            Assert.That(WebGLTextureSettingsCopy.CopyAsset(path), Is.False);
+            Assert.That(WebGLPlatformSettingsCopy.CopyAsset(path), Is.False);
             Assert.That(TextureBatchImportProbe.Batches, Is.Empty, "相同配置不重复导入");
         }
 
@@ -79,7 +79,7 @@ namespace July.AssetCheck.Tests
             importer.SaveAndReimport();
             var web = JsonUtility.ToJson(importer.GetPlatformTextureSettings("WebGL"));
 
-            WebGLTextureSettingsCopy.CopyAsset(path);
+            WebGLPlatformSettingsCopy.CopyAsset(path);
             importer = (TextureImporter)AssetImporter.GetAtPath(path);
             AssertTargets(defaults, importer.GetPlatformTextureSettings);
             Assert.That(JsonUtility.ToJson(importer.GetPlatformTextureSettings("WebGL")), Is.EqualTo(web));
@@ -108,7 +108,7 @@ namespace July.AssetCheck.Tests
             EditorUtility.SetDirty(atlas);
             AssetDatabase.SaveAssetIfDirty(atlas);
 
-            Assert.That(WebGLTextureSettingsCopy.CopyAsset(path), Is.True);
+            Assert.That(WebGLPlatformSettingsCopy.CopyAsset(path), Is.True);
             atlas = AssetDatabase.LoadAssetAtPath<SpriteAtlas>(path);
             AssertTargets(source, atlas.GetPlatformSettings);
             Assert.That(JsonUtility.ToJson(atlas.GetPlatformSettings("WebGL")), Is.EqualTo(web));
@@ -116,7 +116,7 @@ namespace July.AssetCheck.Tests
             Assert.That(JsonUtility.ToJson(atlas.GetPlatformSettings("Android")), Is.EqualTo(android));
             Assert.That(JsonUtility.ToJson(atlas.GetPackingSettings()), Is.EqualTo(packing));
             Assert.That(JsonUtility.ToJson(atlas.GetTextureSettings()), Is.EqualTo(texture));
-            Assert.That(WebGLTextureSettingsCopy.CopyAsset(path), Is.False);
+            Assert.That(WebGLPlatformSettingsCopy.CopyAsset(path), Is.False);
         }
 
         [Test]
@@ -129,17 +129,17 @@ namespace July.AssetCheck.Tests
             AssetDatabase.CreateAsset(new SpriteAtlas(), atlas);
             var nativeTexture = _root + "/generated.asset";
             AssetDatabase.CreateAsset(new Texture2D(4, 4), nativeTexture);
-            Assert.That(WebGLTextureSettingsCopy.Collect(new[] { _root, first, _root + "/nested" }),
+            Assert.That(WebGLPlatformSettingsCopy.Collect(new[] { _root, first, _root + "/nested" }),
                 Is.EquivalentTo(new[] { first, second, atlas }));
-            Assert.Throws<ArgumentException>(() => WebGLTextureSettingsCopy.Collect(new[] { "Packages" }));
-            Assert.Throws<ArgumentException>(() => WebGLTextureSettingsCopy.Collect(new[] { nativeTexture }));
+            Assert.Throws<ArgumentException>(() => WebGLPlatformSettingsCopy.Collect(new[] { "Packages" }));
+            Assert.Throws<ArgumentException>(() => WebGLPlatformSettingsCopy.Collect(new[] { nativeTexture }));
         }
 
         [Test]
         public void BatchImportsTwentyThenFiveAndCanCancelBetweenBatches()
         {
             var paths = Enumerable.Range(0, 25).Select(i => Texture("batch" + i)).ToArray();
-            var operation = new WebGLTextureSettingsCopy(paths, AssetCheckSettings.CreateDefault);
+            var operation = new WebGLPlatformSettingsCopy(paths, AssetCheckSettings.CreateDefault);
             TextureBatchImportProbe.Batches.Clear();
             operation.Step();
             Assert.That(operation.Processed, Is.EqualTo(20));
@@ -150,7 +150,7 @@ namespace July.AssetCheck.Tests
             Assert.That(operation.Processed, Is.EqualTo(20));
             Assert.That(((TextureImporter)AssetImporter.GetAtPath(paths[24])).GetPlatformTextureSettings("MiniGame").overridden, Is.False);
 
-            var remaining = new WebGLTextureSettingsCopy(paths, AssetCheckSettings.CreateDefault);
+            var remaining = new WebGLPlatformSettingsCopy(paths, AssetCheckSettings.CreateDefault);
             remaining.Step();
             Assert.That(remaining.Unchanged, Is.EqualTo(20));
             remaining.Step();
@@ -164,7 +164,7 @@ namespace July.AssetCheck.Tests
         {
             var first = Texture("first");
             var deleted = Texture("deleted");
-            var operation = new WebGLTextureSettingsCopy(new[] { first, deleted }, AssetCheckSettings.CreateDefault);
+            var operation = new WebGLPlatformSettingsCopy(new[] { first, deleted }, AssetCheckSettings.CreateDefault);
             var moved = _root + "/moved.png";
             Assert.That(AssetDatabase.MoveAsset(first, moved), Is.Empty);
             AssetDatabase.DeleteAsset(deleted);
@@ -183,7 +183,7 @@ namespace July.AssetCheck.Tests
             var shared = new AssetCheckWorkspace(new AssetCheckSettingsFile(_config));
             shared.ChangeSettings(settings => settings.scope = _root);
             var host = ScriptableObject.CreateInstance<EditorWindow>();
-            var window = new WebGLTextureSettingsCopyPanel(() => shared, () => { });
+            var window = new WebGLPlatformSettingsCopyPanel(() => shared, () => { });
             host.rootVisualElement.Add(window);
             window.SynchronizeSettings();
             try
@@ -199,17 +199,17 @@ namespace July.AssetCheck.Tests
         public void PreviewReadsInheritedSourceAndDetectsQualityDifferencesWithoutWriting()
         {
             var path = Texture("preview");
-            WebGLTextureSettingsCopy.CopyAsset(path);
+            WebGLPlatformSettingsCopy.CopyAsset(path);
             var importer = (TextureImporter)AssetImporter.GetAtPath(path);
             var mini = importer.GetPlatformTextureSettings("MiniGame");
             mini.compressionQuality = 71;
             TuanjieTextureSettings.WriteSettings(importer, mini);
             importer.SaveAndReimport();
             var before = File.ReadAllBytes(path + ".meta");
-            var entry = WebGLTextureSettingsCopy.Inspect(path);
-            Assert.That(entry.Inherited, Is.True);
-            Assert.That(entry.CopyMiniGame, Is.True);
-            Assert.That(entry.CopyWeixinMiniGame, Is.False);
+            var entry = WebGLPlatformSettingsCopy.Inspect(path);
+            Assert.That(entry.Source.Text, Does.StartWith("继承 Default"));
+            Assert.That(entry.MiniGame.NeedsCopy, Is.True);
+            Assert.That(entry.WeixinMiniGame.NeedsCopy, Is.False);
             Assert.That(File.ReadAllBytes(path + ".meta"), Is.EqualTo(before));
         }
 
@@ -224,7 +224,7 @@ namespace July.AssetCheck.Tests
             var shared = new AssetCheckWorkspace(new AssetCheckSettingsFile(_config));
             shared.ChangeSettings(settings => settings.scope = _root);
             var host = ScriptableObject.CreateInstance<EditorWindow>();
-            var window = new WebGLTextureSettingsCopyPanel(() => shared, () => { });
+            var window = new WebGLPlatformSettingsCopyPanel(() => shared, () => { });
             host.rootVisualElement.Add(window);
             window.SynchronizeSettings();
             try
@@ -243,13 +243,13 @@ namespace July.AssetCheck.Tests
                 Assert.That(copy.enabledInHierarchy, Is.True);
                 Assert.That(File.ReadAllBytes(path + ".meta"), Is.EqualTo(before));
                 Assert.That(File.ReadAllBytes(atlasPath), Is.EqualTo(atlasBefore));
-                Assert.That(((WebGLTextureSettingsCopyEntry)list.itemsSource[0]).NeedsCopy, Is.True);
+                Assert.That(((WebGLPlatformSettingsCopyEntry)list.itemsSource[0]).NeedsCopy, Is.True);
                 window.StartCopy(false);
                 DrainWindow(window);
                 Assert.That(list.itemsSource.Count, Is.Zero, "默认只列出差异，复制后复查应无差异");
                 Assert.That(copy.enabledInHierarchy, Is.False);
                 Assert.That(root.Q<Label>("status").text, Does.Contain("修改 2 个文件"));
-                Assert.That(WebGLTextureSettingsCopy.Inspect(path).NeedsCopy, Is.False);
+                Assert.That(WebGLPlatformSettingsCopy.Inspect(path).NeedsCopy, Is.False);
             }
             finally { window.Dispose(); shared.Dispose(); Object.DestroyImmediate(host); }
         }
@@ -262,7 +262,7 @@ namespace July.AssetCheck.Tests
             var shared = new AssetCheckWorkspace(new AssetCheckSettingsFile(_config));
             shared.ChangeSettings(settings => settings.scope = _root);
             var host = ScriptableObject.CreateInstance<EditorWindow>();
-            var window = new WebGLTextureSettingsCopyPanel(() => shared, () => { });
+            var window = new WebGLPlatformSettingsCopyPanel(() => shared, () => { });
             host.rootVisualElement.Add(window);
             window.SynchronizeSettings();
             try
@@ -283,8 +283,8 @@ namespace July.AssetCheck.Tests
                 Assert.That(list.itemsSource.Count, Is.EqualTo(2));
                 window.StartCopy(true);
                 DrainWindow(window);
-                Assert.That(WebGLTextureSettingsCopy.Inspect(first).NeedsCopy, Is.False);
-                Assert.That(WebGLTextureSettingsCopy.Inspect(second).NeedsCopy, Is.True);
+                Assert.That(WebGLPlatformSettingsCopy.Inspect(first).NeedsCopy, Is.False);
+                Assert.That(WebGLPlatformSettingsCopy.Inspect(second).NeedsCopy, Is.True);
                 Assert.That(list.itemsSource.Count, Is.EqualTo(2));
             }
             finally { window.Dispose(); shared.Dispose(); Object.DestroyImmediate(host); }
@@ -297,7 +297,7 @@ namespace July.AssetCheck.Tests
             var shared = new AssetCheckWorkspace(new AssetCheckSettingsFile(_config));
             shared.ChangeSettings(settings => settings.scope = _root);
             var host = ScriptableObject.CreateInstance<EditorWindow>();
-            var window = new WebGLTextureSettingsCopyPanel(() => shared, () => { });
+            var window = new WebGLPlatformSettingsCopyPanel(() => shared, () => { });
             host.rootVisualElement.Add(window);
             window.SynchronizeSettings();
             try
@@ -335,7 +335,7 @@ namespace July.AssetCheck.Tests
             var shared = new AssetCheckWorkspace(new AssetCheckSettingsFile(_config));
             shared.ChangeSettings(settings => settings.scope = _root);
             var host = ScriptableObject.CreateInstance<EditorWindow>();
-            var window = new WebGLTextureSettingsCopyPanel(() => shared, () => { });
+            var window = new WebGLPlatformSettingsCopyPanel(() => shared, () => { });
             host.rootVisualElement.Add(window);
             window.SynchronizeSettings();
             try
@@ -352,7 +352,7 @@ namespace July.AssetCheck.Tests
                 window.Pump();
                 window.Cancel();
                 window.Pump();
-                Assert.That(paths.Count(path => !WebGLTextureSettingsCopy.Inspect(path).NeedsCopy), Is.EqualTo(20));
+                Assert.That(paths.Count(path => !WebGLPlatformSettingsCopy.Inspect(path).NeedsCopy), Is.EqualTo(20));
                 Assert.That(window.Q<Button>("copy-all").enabledInHierarchy, Is.False);
                 Assert.That(window.Q<Label>("status").text, Does.Contain("已处理 20/25"));
             }
@@ -374,13 +374,13 @@ namespace July.AssetCheck.Tests
             var settings = AssetCheckSettings.CreateDefault();
             settings.ignoredAssets.Add(new IgnoredAsset { guid = AssetDatabase.AssetPathToGUID(single), lastKnownPath = single });
             settings.ignoredAssets.Add(new IgnoredAsset { guid = AssetDatabase.AssetPathToGUID(_root + "/Skip"), lastKnownPath = _root + "/Skip" });
-            var operation = new WebGLTextureSettingsCopy(WebGLTextureSettingsCopy.Collect(new[] { _root }), () => settings);
+            var operation = new WebGLPlatformSettingsCopy(WebGLPlatformSettingsCopy.Collect(new[] { _root }), () => settings);
             operation.Step();
             Assert.That(operation.Processed, Is.EqualTo(4));
             Assert.That(operation.Modified, Is.EqualTo(1));
             Assert.That(operation.Ignored, Is.EqualTo(3));
             Assert.That(operation.Unchanged, Is.Zero);
-            Assert.That(WebGLTextureSettingsCopy.Inspect(included).NeedsCopy, Is.False);
+            Assert.That(WebGLPlatformSettingsCopy.Inspect(included).NeedsCopy, Is.False);
             for (var index = 0; index < ignoredPaths.Length; index++)
                 Assert.That(File.ReadAllBytes(ignoredPaths[index]), Is.EqualTo(before[index]), ignoredPaths[index]);
         }
@@ -390,7 +390,7 @@ namespace July.AssetCheck.Tests
         {
             var paths = Enumerable.Range(0, 25).Select(index => Texture("policy" + index.ToString("D2"))).ToArray();
             var settings = AssetCheckSettings.CreateDefault();
-            var operation = new WebGLTextureSettingsCopy(paths, () => settings);
+            var operation = new WebGLPlatformSettingsCopy(paths, () => settings);
             operation.Step();
             var before = paths.Skip(20).Select(path => File.ReadAllBytes(path + ".meta")).ToArray();
             settings.ignoredAssets.Add(new IgnoredAsset { guid = AssetDatabase.AssetPathToGUID(_root), lastKnownPath = _root });
@@ -409,7 +409,7 @@ namespace July.AssetCheck.Tests
             using (var shared = new AssetCheckWorkspace(new AssetCheckSettingsFile(_config)))
             {
                 shared.ChangeSettings(settings => settings.scope = _root);
-                using (var panel = new WebGLTextureSettingsCopyPanel(() => shared, () => { }))
+                using (var panel = new WebGLPlatformSettingsCopyPanel(() => shared, () => { }))
                 {
                     panel.StartScan(); DrainWindow(panel);
                     var guid = AssetDatabase.AssetPathToGUID(path);
@@ -434,7 +434,7 @@ namespace July.AssetCheck.Tests
             using (var shared = new AssetCheckWorkspace(new AssetCheckSettingsFile(_config)))
             {
                 shared.ChangeSettings(settings => settings.scope = _root);
-                using (var panel = new WebGLTextureSettingsCopyPanel(() => shared, () => { }))
+                using (var panel = new WebGLPlatformSettingsCopyPanel(() => shared, () => { }))
                 {
                     panel.StartScan(); DrainWindow(panel);
                     panel.StartCopy(false);
@@ -455,7 +455,7 @@ namespace July.AssetCheck.Tests
             }
         }
 
-        private static void DrainWindow(WebGLTextureSettingsCopyPanel window)
+        private static void DrainWindow(WebGLPlatformSettingsCopyPanel window)
         {
             for (var index = 0; index < 100 && window.Q<Button>("cancel").enabledInHierarchy; index++)
                 window.Pump();

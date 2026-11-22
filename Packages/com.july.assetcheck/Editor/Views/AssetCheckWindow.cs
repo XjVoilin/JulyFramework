@@ -18,7 +18,7 @@ namespace July.AssetCheck
         private ObjectField _scope;
         private VisualElement _checkPage;
         private VisualElement _scopeHeader;
-        private WebGLTextureSettingsCopyPanel _copyPage;
+        private WebGLPlatformSettingsCopyPanel _copyPage;
         private BundleAnalysisPanel _analysisPage;
         private FontCheckPanel _fontPage;
         private PlayerBuildAnalysisPanel _playerBuildPage;
@@ -29,6 +29,7 @@ namespace July.AssetCheck
         private AssetCheckOverview _overview;
         private Label _status;
         private Label _error;
+        private Label _taskError;
         private Label _notice;
         private ProgressBar _progress;
         private Foldout _standards;
@@ -213,13 +214,17 @@ namespace July.AssetCheck
             _cancel = new Button(() => _workspace.Cancel()) { text = "取消" };
             footer.Add(_cancel);
             root.Add(footer);
+            _taskError = new Label();
+            _taskError.AddToClassList("operation-error");
+            _taskError.style.display = DisplayStyle.None;
+            root.Add(_taskError);
             _progress = new ProgressBar { lowValue = 0, highValue = 1 };
             root.Add(_progress);
 
             RunUi(LoadWorkspace);
             if (_workspace != null)
             {
-                _copyPage = new WebGLTextureSettingsCopyPanel(() => _workspace, CopyStateChanged);
+                _copyPage = new WebGLPlatformSettingsCopyPanel(() => _workspace, CopyStateChanged);
                 shell.Add(_copyPage);
                 _analysisPage = new BundleAnalysisPanel(() => _workspace, RequestRefresh);
                 shell.Add(_analysisPage);
@@ -470,8 +475,9 @@ namespace July.AssetCheck
             _cancel.style.display = ready && _workspace.Running ? DisplayStyle.Flex : DisplayStyle.None;
             _scanCurrent.text = "检查" + AssetCheckWorkspace.KindName(_kind);
             _typeTabs.Select(_kind);
-            _notice.tooltip = AssetCheckCatalog.Entries.Single(value => value.Kind == _kind).Notice +
-                "\n勾选按整个文件操作。修改选中遵循问题筛选；修改全部处理当前类型的全部已确认问题。";
+            var currentRegistration = AssetCheckCatalog.Get(_kind);
+            _notice.tooltip = currentRegistration.Notice + "\n勾选按整个文件操作。" + currentRegistration.SelectedFixNotice +
+                "修改全部处理当前类型的全部已确认问题。";
             if (!ready)
             {
                 _overview.Bind(null);
@@ -483,6 +489,9 @@ namespace July.AssetCheck
             _scope.SetValueWithoutNotify(AssetDatabase.LoadAssetAtPath<DefaultAsset>(_workspace.Settings.scope));
             _scope.tooltip = _workspace.Settings.scope;
             var report = _workspace.GetReport(_kind);
+            _taskError.text = _workspace.Failure ?? report?.Failure;
+            _taskError.tooltip = _taskError.text;
+            _taskError.style.display = string.IsNullOrEmpty(_taskError.text) ? DisplayStyle.None : DisplayStyle.Flex;
             _overview.Bind(report);
             _results.Bind(report, _workspace.Running);
             foreach (var registration in AssetCheckCatalog.Entries) RefreshTab(registration.Kind);
@@ -495,7 +504,7 @@ namespace July.AssetCheck
             _ignoredFoldout.style.display = ignored.Count == 0 ? DisplayStyle.None : DisplayStyle.Flex;
             _ignored.itemsSource = ignored;
             _ignored.style.height = Math.Min(6, ignored.Count) * 28 + 2;
-            _status.text = _workspace.Failure == null ? _workspace.Activity : _workspace.Activity + " 错误：" + _workspace.Failure;
+            _status.text = _workspace.Activity;
             if (!string.IsNullOrEmpty(_workspace.ReportSaveFailure))
                 _status.text += " " + _workspace.ReportSaveFailure;
             if (!string.IsNullOrEmpty(_workspace.ReportLoadFailure)) _status.text += " " + _workspace.ReportLoadFailure;
@@ -514,7 +523,7 @@ namespace July.AssetCheck
             _fixAll.tooltip = DescribeFixScope(all) + "\n修改当前类型全部已确认问题，不受问题筛选和折叠影响；未验证目标需明确设为标准。";
             _fixSelected.SetEnabled(CanModify(report) && issues.Length > 0);
             _fixSelected.text = DescribeFix("修改选中", issues);
-            _fixSelected.tooltip = DescribeFixScope(issues) + "\n只修改勾选文件中符合当前筛选的已确认问题。";
+            _fixSelected.tooltip = DescribeFixScope(issues) + "\n" + AssetCheckCatalog.Get(_kind).SelectedFixNotice;
         }
 
         private bool CanModify(AssetCheckReport report) => report != null && !report.IsSnapshot && report.Complete &&

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine.UIElements;
@@ -11,13 +10,17 @@ namespace July.AssetCheck
     {
         internal static VisualElement Build(AssetCheckKind kind, AssetCheckSettings settings, Action<Action<AssetCheckSettings>> change)
         {
+            var registration = AssetCheckCatalog.Get(kind);
             var scroll = new ScrollView(ScrollViewMode.Vertical);
             scroll.style.maxHeight = 190;
             scroll.style.height = 110;
             var line = new VisualElement();
             line.AddToClassList("standard-fields");
+            if (registration.FitStandardsToContent)
+                line.RegisterCallback<GeometryChangedEvent>(evt =>
+                    scroll.style.height = Math.Min(190, (float)Math.Ceiling(evt.newRect.height)));
             scroll.Add(line);
-            AssetCheckCatalog.Entries.Single(entry => entry.Kind == kind).Form(line, settings.CurrentStandards,
+            registration.Form(line, settings.CurrentStandards,
                 action => change(value => action(value.CurrentStandards)));
             return scroll;
         }

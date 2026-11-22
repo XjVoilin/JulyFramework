@@ -24,7 +24,12 @@ namespace July.AssetCheck
             var path = PathFor(kind);
             if (!File.Exists(path)) return null;
             AssetCheckReportSnapshot data;
-            try { data = JsonUtility.FromJson<AssetCheckReportSnapshot>(File.ReadAllText(path)); }
+            try
+            {
+                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
+                using var reader = new StreamReader(stream);
+                data = JsonUtility.FromJson<AssetCheckReportSnapshot>(reader.ReadToEnd());
+            }
             catch (ArgumentException exception) { throw new InvalidDataException("报告 JSON 无法解析：" + path, exception); }
             if (data == null || data.schemaVersion != 2 || data.module != kind.ToString() ||
                 !Enum.TryParse(data.platform, out AssetCheckPlatform platform) || !Enum.IsDefined(typeof(AssetCheckPlatform), platform) ||
@@ -82,10 +87,13 @@ namespace July.AssetCheck
             };
             Directory.CreateDirectory(DirectoryPath);
             var path = PathFor(report.Kind);
-            var temporary = path + ".tmp";
-            File.WriteAllText(temporary, JsonUtility.ToJson(snapshot, true) + Environment.NewLine, new UTF8Encoding(false));
-            if (File.Exists(path)) File.Replace(temporary, path, null);
-            else File.Move(temporary, path);
+            var temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                File.WriteAllText(temporary, JsonUtility.ToJson(snapshot, true) + Environment.NewLine, new UTF8Encoding(false));
+                AssetCheckFileReplacement.Commit(temporary, path, allowCreate: true);
+            }
+            finally { if (File.Exists(temporary)) File.Delete(temporary); }
         }
     }
 

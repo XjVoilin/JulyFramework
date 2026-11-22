@@ -60,6 +60,8 @@
 .asset-check .standard-fields { flex-direction: row; flex-wrap: wrap; padding-top: 6px; padding-bottom: 6px; }
 .asset-check .standard-field { width: 260px; margin-right: 14px; margin-bottom: 5px; }
 .asset-check .standard-field > .unity-base-field__label { min-width: 124px; }
+.asset-check .audio-load-types { width: 100%; flex-direction: row; flex-wrap: wrap; }
+.asset-check .standard-field.audio-load-type { width: 408px; max-width: 100%; }
 .asset-check .report-bar { flex-direction: row; align-items: center; padding: 2px 10px; height: 30px; flex-shrink: 0; }
 .asset-check .report-bar > Button { margin-right: 6px; padding-left: 10px; padding-right: 10px; }
 .asset-check .help { margin-left: 3px; color: var(--ac-muted); width: 20px; -unity-text-align: middle-center; }
@@ -100,6 +102,6 @@
 .asset-check .footer { flex-direction: row; align-items: center; margin: 4px 12px; height: 26px; flex-shrink: 0; }
 .asset-check .footer > .summary { flex-shrink: 1; color: var(--ac-muted); font-size: 11px; }
 .asset-check .footer > Button { flex-shrink: 0; }
-.asset-check .format-standard { width: 340px; margin-right: 14px; margin-bottom: 6px; }
+.asset-check .format-standard { width: 340px; max-width: 100%; margin-right: 14px; margin-bottom: 6px; }
 .asset-check .format-options { flex-direction: row; flex-wrap: wrap; }
 .asset-check .format-options > Toggle { width: 106px; }

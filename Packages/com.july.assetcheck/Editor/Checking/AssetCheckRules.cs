@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using UnityEditor;
@@ -17,15 +18,36 @@ namespace July.AssetCheck
         void Fix(TContext context, AssetCheckIssue issue);
     }
 
+    /// <summary>检查或修复语义变化时递增。未声明的规则使用版本 1。</summary>
+    [AttributeUsage(AttributeTargets.Class, Inherited = false)]
+    public sealed class AssetCheckRuleVersionAttribute : Attribute
+    {
+        public int Version { get; }
+
+        public AssetCheckRuleVersionAttribute(int version)
+        {
+            if (version < 1) throw new ArgumentOutOfRangeException(nameof(version));
+            Version = version;
+        }
+    }
+
+    internal static class AssetCheckRuleIdentity
+    {
+        internal static string Id(Type type) => type.Assembly.GetName().Name + ":" + type.FullName;
+
+        internal static string Fingerprint(Type type) => Id(type) + "@" +
+            (type.GetCustomAttribute<AssetCheckRuleVersionAttribute>()?.Version ?? 1).ToString(CultureInfo.InvariantCulture);
+    }
+
     internal static class AssetCheckRules<TContext> where TContext : AssetCheckContext
     {
         // 仅共享不可变的规则发现元数据；规则实例归对应模块和工作区所有。
         private static readonly Type[] Types = TypeCache.GetTypesDerivedFrom<IAssetCheckRule<TContext>>()
             .Where(type => type.IsClass && !type.IsAbstract && !type.ContainsGenericParameters)
-            .OrderBy(type => type.AssemblyQualifiedName, StringComparer.Ordinal).ToArray();
+            .OrderBy(type => type.FullName, StringComparer.Ordinal)
+            .ThenBy(type => type.Assembly.GetName().Name, StringComparer.Ordinal).ToArray();
 
-        internal static readonly string Fingerprint = string.Join(";", Types.Select(type =>
-            type.AssemblyQualifiedName + "@" + type.Module.ModuleVersionId));
+        internal static readonly string Fingerprint = string.Join(";", Types.Select(AssetCheckRuleIdentity.Fingerprint));
 
         internal static IAssetCheckRule<TContext>[] Create()
         {

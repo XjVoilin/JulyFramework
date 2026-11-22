@@ -98,6 +98,8 @@ AB大小、依赖和归属固定来自读取的report，读取新构建report才
 
 WebGL 未启用平台覆盖时，复制继承的 Default 参数，在两个目标启用覆盖。Automatic 保持原值，由目标平台解释，不推断实际压缩格式。只复制平台参数，不修改 WebGL、Default、其他平台、源图、图集打包对象或检查标准，也不执行图集打包。
 
+类型筛选支持贴图和图集、音频。音频按 WebGL 的生效配置比较压缩格式、加载方式、采样率、质量及预加载设置，并按需复制到 MiniGame。WebGL 没有显式覆盖时，使用 WebGL 导入器解析后的继承配置。团结 1.6.7 的音频 MiniGame 与 WeixinMiniGame 共用一个平台覆盖；贴图的两种平台名分别留存历史配置。类型筛选限制“全选差异”和“复制全部差异”的范围。音频复制属于显式同步操作，平台设置可以不同且同时满足资源检查标准。
+
 复制扫描和执行均沿用资源检查的同一忽略名单：单文件按 GUID，目录递归覆盖子资源，移动或改名后仍按 GUID 识别。被忽略的贴图和图集不会列为待复制项，统计中显示忽略数量。执行前重新核对名单，即使传入旧扫描路径也不复制已忽略文件。添加或恢复忽略项后，复制页清空旧结果并要求重新扫描；配置文件被外部修改时暂停复制，须重新加载配置后扫描。
 
 扫描、复制每批最多 20 个文件；扫描只读，复制在批次结束后集中导入并更新进度，相同配置不重复保存或导入。可在批次之间取消；关闭窗口也会停止后续批次。未完成或过期的扫描不允许复制。取消或失败保留已经保存的修改，失败在窗口和 Console 显示。建议先提交资源配置，便于按版本控制查看与恢复结果。
@@ -134,7 +136,7 @@ WebGL 未启用平台覆盖时，复制继承的 Default 参数，在两个目�
 | 模型 | Read/Write、导入灯光、导入相机、自动碰撞体均禁止 | 关闭对应导入选项，对整个模型文件、所有平台生效 |
 | 材质 | Shader 有效，资源引用有效 | 人工恢复，不替换 Shader、不清空引用 |
 | 预制体／场景 | 无 Missing Script，持久化引用有效 | 包含源 Prefab 丢失；人工恢复，不删除组件 |
-| 音频 | 当前导入采样率 ≤44100Hz、声道 ≤2 | 仅检查，不模拟各小游戏 SDK 的音频实现，不自动修改 |
+| 音频 | 当前导入采样率 ≤44100Hz、声道 ≤2，各目标平台的固定采样率满足同一上限，已指定用途的资源使用该用途允许的加载方式 | 可按项目标准补齐 MiniGame 覆盖、修复平台采样率和加载方式，以及在明确要求单声道时修改导入声道 |
 | URP | HDR、Depth Texture、Opaque Texture 禁止 | 关闭，影响该管线的全部使用者及相关效果 |
 | URP | MSAA ≤1（关闭），Render Scale ≤1.0，SRP Batcher 必须开启 | 修改对应管线选项，不提高原本低于上限的数值 |
 | URP | 主光源阴影允许，分辨率 ≤512、距离 ≤50、级联 ≤1；软阴影禁止 | 关闭或降低相应设置，可能影响阴影表现 |
@@ -144,6 +146,14 @@ WebGL 未启用平台覆盖时，复制继承的 Default 参数，在两个目�
 | 项目设置 | 目标默认质量档有效；Graphics／Quality 管线引用有效 | 仅检查；正常 Built-in 空引用或 Quality 回退合法 |
 
 允许表示可以开启，不会强制每个资源开启。以上数值是可修改的项目标准，不是帧率、内存或平台兼容性的保证。关闭的 URP 功能不因残留的从属参数报错。URP 检查管线配置本身，不推断相机、Feature 或运行时代码的所有最终行为。
+
+音频检查分别使用 WebGL、MiniGame 的导入设置。项目可将“MiniGame 覆盖”设为“必须开启”，单独报告继承 Default 的音频。采样率的 Preserve 和 Optimize 不模拟其他平台的实际导入数据。Project 资源标签 `BGM` 和 `SFX` 用于明确音频用途，分别使用标准面板里的允许加载方式。默认 BGM 允许 Compressed In Memory，SFX 允许 Decompress On Load 和 Compressed In Memory。未标注用途的音频继续应用通用检查。不同平台的配置分别按标准判定。
+
+补齐缺少的 MiniGame 音频覆盖时，以 MiniGame 的继承设置为基础，使用该平台支持的 AAC 44.1 kHz，并按资源用途处理不合规的加载方式。项目上限低于 44.1 kHz 时显示该标准与 MiniGame 的冲突。需要将 WebGL 参数同步到 MiniGame 时使用“平台配置复制”。
+
+音频的“修改选中”处理所选文件的全部可修问题，包含问题类型筛选未显示的条目。WebGL 和 MiniGame 分别按标准修改，同一个文件的覆盖和单声道设置合并保存并复查。单声道修复改变导入结果。源音频保持原样。
+
+普通 Unity 2022.3 与团结引擎对音频平台键 36 的含义不同。本工具针对小游戏项目，在普通 Unity 中读取磁盘上的 MiniGame 数据，并在执行复制时只更新对应的音频覆盖。团结引擎中使用原生 AudioImporter 接口。
 
 普通贴图与图集的 MiniGame、WeixinMiniGame 未启用平台覆盖时，显示“未配置平台覆盖”，计为问题并纳入“修改全部”。已配置且允许的格式保留；已启用覆盖但 Automatic 无法解析的目标仍为未验证，不随“修改全部”改写，可明确“设为标准”。WebGL 保持按有效格式检查，不强制建立覆盖。
 
@@ -158,7 +168,7 @@ WebGL 未启用平台覆盖时，复制继承的 Default 参数，在两个目�
 
 ## 项目规则扩展
 
-在项目的 Editor 程序集中引用 `July.AssetCheck.Editor`，实现所需 Context 的规则接口即可参与检查，无特性、手动注册、规则 ID 或版本配置：
+在项目的 Editor 程序集中引用 `July.AssetCheck.Editor`，实现所需 Context 的规则接口即可参与检查。规则自动发现，未声明版本时使用版本 1。
 
 ```csharp
 internal sealed class ExampleLayerRule : IAssetCheckRule<PrefabSceneCheckContext>
@@ -172,15 +182,16 @@ internal sealed class ExampleLayerRule : IAssetCheckRule<PrefabSceneCheckContext
 }
 ```
 
-- Workspace 拥有 Module，Module 拥有规则实例。静态缓存仅保存发现的类型与构建标识；内置、项目规则统一发现、创建和执行，无两份注册表或合并排重。
+- Workspace 拥有 Module，Module 拥有规则实例。静态缓存仅保存发现的类型与稳定规则指纹，内置和项目规则统一发现、创建和执行。
 - 问题统一由 Context 收集，在加入结果时校验修复条件并关联产生规则。规则无法直接访问结果列表；内置稳定标识与项目 `Report` 共用同一收集路径，调度器不再事后遍历结果补写归属。
 - 一个 Module 固定一种 Context：`TextureCheckContext`、`ModelCheckContext`、`MaterialCheckContext`、`PrefabSceneCheckContext`、`AudioCheckContext`、`UrpCheckContext`、`ProjectCheckContext`。规则不加载资源、不保存 Context，也不修改检查输入。
 - 所有非抽象、封闭的规则实现都参与发现，访问权限不决定是否启用。具体规则必须提供无参构造（可以非公开）；构造契约或规则执行失败明确中止检查。规则之间不依赖执行顺序。
 - 模型导入选项与 URP 数值表是规则内部的参数化检查项，不实现规则接口。一个规则可以报告多条问题；原内置问题标识、平台目标及修复语义保留。
 - `TextureCheckContext` 用 `IsAtlas` 区分图集与导入贴图，分别提供 Atlas 或 Importer；启用图集源图无压缩标准后，`IsAtlasSource` 标识被图集收录的 Sprite 纹理。归属索引由 Module 持有，资源导入／删除／移动后重建；查询目录外图集只用于判定归属，不扩大结果或修改范围。扫描不触发图集打包。`UrpCheckContext` 提供当前 SerializedObject，以 `IsPipeline` 区分管线与 Renderer；Facts 仅在管线结构验证成功时提供。
-- `Report` 的 code 在当前规则内保持稳定；框架自动补充程序集／类型标识、文件标识和对象位置。框架不会按继承关系自动过滤项目规则：内置引用完整性规则继续归属源 Prefab，而依赖使用者层级的业务规则可以报告继承节点。
-- 需要修复的规则可实现 `IAssetCheckFix<TContext>`，并以 `canFix: true` 报告可修复项。当前支持保存修改的 Module 是贴图、模型、URP；其余 Module 保持人工处理。修复由产生当前问题的规则执行，沿用修改前重新检查、平台目标限制、保存／导入和修改后复查。
-- 报告上下文包含参与规则的类型及程序集构建标识；重新编译、添加或移除规则后，旧快照会要求重新检查。
+- `Report` 的 code 在当前规则内保持稳定。同一规则在同一对象位置报告多条可修复问题时，每条使用不同的 code，重复标识会在检查时报告。框架自动补充程序集／类型标识、文件标识和对象位置。框架不会按继承关系自动过滤项目规则：内置引用完整性规则继续归属源 Prefab，而依赖使用者层级的业务规则可以报告继承节点。
+- 音频规则使用 `AudioCheckContext.TryGetPlatformSettings` 获取模块已解析的 WebGL、MiniGame 生效设置和覆盖状态。
+- 需要修复的规则可实现 `IAssetCheckFix<TContext>`，并以 `canFix: true` 报告可修复项。当前支持保存修改的 Module 是贴图、模型、音频、URP。修复由产生当前问题的规则执行，沿用修改前重新检查、平台目标限制、保存／导入和修改后复查。
+- 报告上下文记录程序集名称、规则类型和规则语义版本。添加、移除规则或递增版本会使旧报告过期。同一规则的检查或修复语义变化时，使用 `[AssetCheckRuleVersion(2)]` 或递增已有版本。旧版程序集指纹的报告仍能只读打开，首次重新检查后会写入稳定指纹。
 
 ## 修改与忽略
 
@@ -203,10 +214,10 @@ internal sealed class ExampleLayerRule : IAssetCheckRule<PrefabSceneCheckContext
 - AssetCheckWorkspace 只负责配置、任务、忽略、报告和完整修改流程；AssetCheckWindow 负责公共展示与用户操作。
 - IAssetCheckModule 维持 Collect／Check／Fix 三个入口。收集返回检查对象标识，普通资源是 GUID，项目配置是稳定路径，AssetCheckTarget 统一解析，不伪造 GUID。
 - 新增规则实现对应上下文的 IAssetCheckRule<TContext>，提供无参构造，即可由 Unity TypeCache 自动发现；需要修复时实现 IAssetCheckFix<TContext>，且模块本身必须允许保存。项目编辑器程序集中的规则同样可被发现。类型自行读取事实，规则自行判断，各类型不需要采用同一种事实结构。规则实例归各模块和工作区所有，只共享不可变的发现元数据。
-- 新类型增加 Kind 与必要标准、实现模块、在所属类型目录提供标准表单，在 AssetCheckCatalog 一次注册名称／范围／标准上下文／表单；扫描全部和 Tab 自动采用注册项，不修改工作区调度和结果界面。
+- 新类型增加 Kind 与必要标准、实现模块、在所属类型目录提供标准表单，在 AssetCheckCatalog 一次注册名称／范围／标准上下文／表单。需要批量导入或跟踪范围外依赖时，由模块随注册声明。全量扫描和 Tab 自动采用注册项。
 - 大层级可实现 IIncrementalAssetCheckModule，在文件内部让出编辑器执行权；迭代器释放必须清理临时资源，只有完整检查后的文件计入统计。预制体／场景模块已采用此方式。 编辑器在每次更新内按约8毫秒预算推进多个步骤，避免分批检查被编辑器帧率拖慢；单次 Unity 原生调用仍可能超过该预算。
 - 共用 SerializedReferenceChecks 识别失效引用；类型模块决定检查哪些对象和字段。
-- 规则通过 TypeCache 发现，类型模块仍在 AssetCheckCatalog 显式注册；不提供规则 DSL、隐藏的优先级或额外的规则启停配置。报告上下文包含规则程序集指纹，规则变化后旧报告需要重新扫描。
+- 规则通过 TypeCache 发现，类型模块仍在 AssetCheckCatalog 显式注册。稳定规则指纹用于识别旧报告是否过期。
 
 ## AB 资源大小与独立分析构建
 

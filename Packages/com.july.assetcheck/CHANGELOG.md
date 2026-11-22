@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Check WebGL and MiniGame audio sample-rate overrides against the project standard and allow explicit BGM/SFX usage labels with configurable load types.
+- Add audio to platform settings copying, with an audio filter and a WebGL-to-MiniGame preview and copy action.
+- Add a project policy for requiring the shared MiniGame audio override, allow copying inherited WebGL audio settings, and fit the audio standards form to its contents.
+- Retry transient Windows conflicts when replacing saved inspection reports, preserve the previous snapshot while blocked, and use a separate temporary file for each write.
+- Enable direct repair of missing MiniGame audio overrides using MiniGame import requirements and the configured audio standards.
+- Repair all actionable audio issues in each selected file, including issues hidden by the problem filter, and save WebGL, MiniGame and mono changes together.
+
 - Browse saved client resource reports independently of the active Unity build target. Add an explicit report-platform selector, default to the newest available resource data, retain the open-page selection on refresh, and discover legacy records without switching platforms or building.
 
 - Use a concrete, script-backed EditorWindow for Player resource UI regressions instead of showing the EditorWindow base type; keep explicit Close cleanup and avoid anonymous test-window restoration.
