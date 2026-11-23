@@ -1,0 +1,14 @@
+{
+    "light": {
+        "nodeName": "",
+        "sceneGuid": "",
+        "nodeId": "",
+        "rotation": { "x": 0.292184, "y": -0.309661, "z": 0.100609, "w": 0.89924 },
+        "color": { "r": 1, "g": 1, "b": 1, "a": 1 },
+        "intensity": 0.38,
+        "shadows": 0,
+        "shadowStrength": 1,
+        "shadowBias": 0.05,
+        "shadowNormalBias": 0.4
+    }
+}

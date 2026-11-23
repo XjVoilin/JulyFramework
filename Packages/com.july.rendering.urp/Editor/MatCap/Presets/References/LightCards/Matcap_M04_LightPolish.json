@@ -1,0 +1,179 @@
+{
+    "version": 1,
+    "generator": "reflection-cards",
+    "size": 128,
+    "srgb": true,
+    "lightCards": [
+        {
+            "hidden": false,
+            "shape": 0,
+            "position": {
+                "x": 0.325,
+                "y": 0.184
+            },
+            "size": {
+                "x": 1.25,
+                "y": 0.689
+            },
+            "angle": -13.544,
+            "intensity": 0.5751720068016293,
+            "color": {
+                "r": 1,
+                "g": 1,
+                "b": 1,
+                "a": 1
+            },
+            "softness": 0.37
+        },
+        {
+            "hidden": false,
+            "shape": 0,
+            "position": {
+                "x": -0.408,
+                "y": 0.116
+            },
+            "size": {
+                "x": 1.25,
+                "y": 0.587
+            },
+            "angle": -4.011,
+            "intensity": 0.5252632367224114,
+            "color": {
+                "r": 1,
+                "g": 1,
+                "b": 1,
+                "a": 1
+            },
+            "softness": 0.605
+        },
+        {
+            "hidden": false,
+            "shape": 0,
+            "position": {
+                "x": 0.866,
+                "y": 0.25
+            },
+            "size": {
+                "x": 1.25,
+                "y": 0.511
+            },
+            "angle": -7.39,
+            "intensity": 0.7682546602982379,
+            "color": {
+                "r": 1,
+                "g": 1,
+                "b": 1,
+                "a": 1
+            },
+            "softness": 0.724
+        },
+        {
+            "hidden": false,
+            "shape": 0,
+            "position": {
+                "x": -0.86,
+                "y": 0.311
+            },
+            "size": {
+                "x": 1.25,
+                "y": 0.359
+            },
+            "angle": 2.584,
+            "intensity": 0.6665743637722278,
+            "color": {
+                "r": 1,
+                "g": 1,
+                "b": 1,
+                "a": 1
+            },
+            "softness": 0.75
+        },
+        {
+            "hidden": false,
+            "shape": 0,
+            "position": {
+                "x": 0.204,
+                "y": 0.637
+            },
+            "size": {
+                "x": 0.929,
+                "y": 0.499
+            },
+            "angle": -2.219,
+            "intensity": 0.21896971153127098,
+            "color": {
+                "r": 1,
+                "g": 1,
+                "b": 1,
+                "a": 1
+            },
+            "softness": 0.281
+        },
+        {
+            "hidden": false,
+            "shape": 0,
+            "position": {
+                "x": -0.514,
+                "y": -0.641
+            },
+            "size": {
+                "x": 1.25,
+                "y": 0.668
+            },
+            "angle": 31.393,
+            "intensity": 0.1959693177785659,
+            "color": {
+                "r": 1,
+                "g": 1,
+                "b": 1,
+                "a": 1
+            },
+            "softness": 0.75
+        },
+        {
+            "hidden": false,
+            "shape": 2,
+            "position": {
+                "x": 0.46081839881043607,
+                "y": 0.06488286569856001
+            },
+            "size": {
+                "x": 0.16,
+                "y": 0.34
+            },
+            "angle": 0,
+            "intensity": 0.4661536360604655,
+            "color": {
+                "r": 1,
+                "g": 1,
+                "b": 1,
+                "a": 1
+            },
+            "softness": 0.045,
+            "softRange": 9.58090119694208
+        },
+        {
+            "hidden": false,
+            "shape": 2,
+            "position": {
+                "x": -0.22081839881043608,
+                "y": 0.11649130134656002
+            },
+            "size": {
+                "x": 0.16,
+                "y": 0.34
+            },
+            "angle": 0,
+            "intensity": 0.4360732089367116,
+            "color": {
+                "r": 1,
+                "g": 1,
+                "b": 1,
+                "a": 1
+            },
+            "softness": 0.045,
+            "softRange": 9.678998143008744
+        }
+    ],
+    "fill": 0.062400196877837814
+}

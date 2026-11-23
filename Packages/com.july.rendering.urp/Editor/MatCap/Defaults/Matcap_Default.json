@@ -1,0 +1,31 @@
+{
+    "version": 1,
+    "size": 128,
+    "srgb": false,
+    "generator": "reflection-cards",
+    "lightCards": [
+        {
+            "hidden": false,
+            "shape": 2,
+            "position": {
+                "x": -0.4505883753299713,
+                "y": 0.5513603687286377
+            },
+            "size": {
+                "x": 0.1599999964237213,
+                "y": 0.3400000035762787
+            },
+            "angle": 0,
+            "intensity": 0.791459321975708,
+            "color": {
+                "r": 1,
+                "g": 1,
+                "b": 1,
+                "a": 1
+            },
+            "softness": 0.04500000178813934,
+            "softRange": 23.743759155273438
+        }
+    ],
+    "fill": 0.10460471361875534
+}

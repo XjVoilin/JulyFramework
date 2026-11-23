@@ -1,0 +1,314 @@
+{
+    "models": [
+        {
+            "label": "G001 · maKeBei",
+            "assetGuid": "a2984938cae5c224d964c1fd9197e85b",
+            "materialGuid": "b39fb45ab32ec3d4aa46859481638971"
+        },
+        {
+            "label": "G008 · BigPotPigTrotter",
+            "assetGuid": "1ca71cb9358cb0d4b801d9d697acd1fa",
+            "materialGuid": "6252afa6945be334b9185d62e781bdee"
+        },
+        {
+            "label": "G011 · BigPotShrimp",
+            "assetGuid": "73d6eab08710f3244a50b9b170c9df57",
+            "materialGuid": "a5ec40e4e2b88c34d81e84ae1a7cc2a9"
+        },
+        {
+            "label": "G013 · BlueBottle1",
+            "assetGuid": "f86d32bd0702e5c4293ab6013cd92003",
+            "materialGuid": "b2e5c1563f869814cabe9de0a57969ee"
+        },
+        {
+            "label": "G016 · Cleanser2",
+            "assetGuid": "256a88354926d16438087fb7531c11b3",
+            "materialGuid": "b2e5c1563f869814cabe9de0a57969ee"
+        },
+        {
+            "label": "G020 · LipstickPuple2",
+            "assetGuid": "a1afeb8401d319d4780fd8dec114c7d9",
+            "materialGuid": "b02d385b875bd134bbce33fa11806cb0"
+        },
+        {
+            "label": "G022 · NailPolish1",
+            "assetGuid": "7aa84618ffcb2cd419395d6054cbdd45",
+            "materialGuid": "03e47c4aa7f8f8a4bb25bc2808c8486e"
+        },
+        {
+            "label": "G031 · Carrot",
+            "assetGuid": "e3f9fedad6c76b244966d3e8e577fc53",
+            "materialGuid": "6f1e5cb5f1636b84689a7f302b074277"
+        },
+        {
+            "label": "G032 · ChinaBowl",
+            "assetGuid": "d4c268818628c454a9830ce2ad3f2b4b",
+            "materialGuid": "7297138cf85959549b66d8360b21d15f"
+        },
+        {
+            "label": "G046 · WindOilBottle",
+            "assetGuid": "781ad5d091eb81b4ba7a4b0641db9467",
+            "materialGuid": "32ad267eef010864981983292c17fd3b"
+        },
+        {
+            "label": "G050 · BeanPaste",
+            "assetGuid": "8cad0bea66881524fa28e393f04923ae",
+            "materialGuid": "d90b62fe6c4cbb649b9303e1c20115a4"
+        },
+        {
+            "label": "G070 · JadeBracelet3",
+            "assetGuid": "038d7e68fa5d7eb4d8ea3e73f23ac55b",
+            "materialGuid": "4c9568a453e0adf428a4adab346f1c23"
+        },
+        {
+            "label": "G071 · JadeBuddha",
+            "assetGuid": "b9fbfd15f8b07014da7f6b6d7221e1e2",
+            "materialGuid": "d7e4bee0d836d7a4698ef4a6a718b850"
+        },
+        {
+            "label": "G085 · AP26AppleSauce",
+            "assetGuid": "023b55cb6e2017544bfc289a1213995e",
+            "materialGuid": "2a9a5753b7cacaa4e8c30d7b9bdf3501"
+        },
+        {
+            "label": "G098 · AP26OrangeSoda",
+            "assetGuid": "4e75e7ffaac9299429c04190a50ee4af",
+            "materialGuid": "1ce7f865a845bfb48a6f6cf39171b12d"
+        },
+        {
+            "label": "G104 · AP26Teacup",
+            "assetGuid": "44a6c1a45cdd765448bb1870efb438f7",
+            "materialGuid": "739c523517f28624f981ab6c9dc2f742"
+        },
+        {
+            "label": "G117 · Goose_GTYoYo",
+            "assetGuid": "0e7e3e62ba4915e45a8a0b3187bb7ae8",
+            "materialGuid": "b76823ee70559ad438917942d6a6b247"
+        },
+        {
+            "label": "G121 · GTCrocodile",
+            "assetGuid": "0718fb6238de19544b0fbafa5fa4d536",
+            "materialGuid": "67d22218cbd78e9498554892d71807aa"
+        },
+        {
+            "label": "G122 · GTDinosaur",
+            "assetGuid": "6d14cc89b8cbfa34c993cb462a2dd830",
+            "materialGuid": "d71ab618b72a29d45afcd50c5505332b"
+        },
+        {
+            "label": "G129 · GTPaperBoat",
+            "assetGuid": "8ea79e903de89bd4b85d64396c1a879e",
+            "materialGuid": "99ff4c9b681673f4cbd0ecbd8a666baa"
+        },
+        {
+            "label": "G168 · YMSilverCup",
+            "assetGuid": "2ecba72b710854d41aaad2f6254378f0",
+            "materialGuid": "cf57ddf8ef898314ba92d39fbda93cbb"
+        },
+        {
+            "label": "G193 · BellPepper",
+            "assetGuid": "a312c6d778ff80e4887dd08fd5d4a34c",
+            "materialGuid": "66dd3e2c82a2c7248b11202f3d3c38fe"
+        }
+    ],
+    "referenceMaterials": [
+        {
+            "materialGuid": "b39fb45ab32ec3d4aa46859481638971",
+            "darkRetention": 0.2
+        },
+        {
+            "materialGuid": "6252afa6945be334b9185d62e781bdee",
+            "darkRetention": 0.2
+        },
+        {
+            "materialGuid": "a5ec40e4e2b88c34d81e84ae1a7cc2a9",
+            "darkRetention": 0.2
+        },
+        {
+            "materialGuid": "b2e5c1563f869814cabe9de0a57969ee",
+            "darkRetention": 0.66
+        },
+        {
+            "materialGuid": "041bc70522cb40c48a91d18a79ecbb98",
+            "darkRetention": 0.0
+        },
+        {
+            "materialGuid": "eda18aa186dab71458edf35d1713e060",
+            "darkRetention": 1.0
+        },
+        {
+            "materialGuid": "b02d385b875bd134bbce33fa11806cb0",
+            "darkRetention": 0.3
+        },
+        {
+            "materialGuid": "34f3ae2ea520e7d41854304d18e63d69",
+            "darkRetention": 0.38
+        },
+        {
+            "materialGuid": "6e00326ec654d33429d2cb8046b7e204",
+            "darkRetention": 0.16
+        },
+        {
+            "materialGuid": "03e47c4aa7f8f8a4bb25bc2808c8486e",
+            "darkRetention": 0.38
+        },
+        {
+            "materialGuid": "1d24a082a4cadf14abe5a1a86d2b815a",
+            "darkRetention": 1.0
+        },
+        {
+            "materialGuid": "44c59da629887f646b3c9eaa3e5a1732",
+            "darkRetention": 1.0
+        },
+        {
+            "materialGuid": "6f1e5cb5f1636b84689a7f302b074277",
+            "darkRetention": 0.43
+        },
+        {
+            "materialGuid": "7297138cf85959549b66d8360b21d15f",
+            "darkRetention": 0.19
+        },
+        {
+            "materialGuid": "32ad267eef010864981983292c17fd3b",
+            "darkRetention": 1.0
+        },
+        {
+            "materialGuid": "4993cfbc8cb874e48a45335c83ddc890",
+            "darkRetention": 1.0
+        },
+        {
+            "materialGuid": "d90b62fe6c4cbb649b9303e1c20115a4",
+            "darkRetention": 1.0
+        },
+        {
+            "materialGuid": "fb999c6c635009d4888edbde9bcdc756",
+            "darkRetention": 0.54
+        },
+        {
+            "materialGuid": "639ca57fd0980ab4bbdef26fcefbaa66",
+            "darkRetention": 0.2
+        },
+        {
+            "materialGuid": "2a9a5753b7cacaa4e8c30d7b9bdf3501",
+            "darkRetention": 0.2
+        },
+        {
+            "materialGuid": "317ff488dfd9cd44b8f3cafe82f43de3",
+            "darkRetention": 0.2
+        },
+        {
+            "materialGuid": "1ce7f865a845bfb48a6f6cf39171b12d",
+            "darkRetention": 0.2
+        },
+        {
+            "materialGuid": "017c2d968c3b15b4d8f395cb271dc903",
+            "darkRetention": 0.53
+        },
+        {
+            "materialGuid": "7aed3eab0fde57948b9e317a1f07ab5e",
+            "darkRetention": 0.2
+        },
+        {
+            "materialGuid": "b76823ee70559ad438917942d6a6b247",
+            "darkRetention": 0.51
+        },
+        {
+            "materialGuid": "1acbdf8b3677be94ea9cdf907ff9bca9",
+            "darkRetention": 0.2
+        },
+        {
+            "materialGuid": "67d22218cbd78e9498554892d71807aa",
+            "darkRetention": 0.2
+        },
+        {
+            "materialGuid": "d71ab618b72a29d45afcd50c5505332b",
+            "darkRetention": 0.2
+        },
+        {
+            "materialGuid": "99ff4c9b681673f4cbd0ecbd8a666baa",
+            "darkRetention": 0.2
+        },
+        {
+            "materialGuid": "cf57ddf8ef898314ba92d39fbda93cbb",
+            "darkRetention": 0.2
+        },
+        {
+            "materialGuid": "66dd3e2c82a2c7248b11202f3d3c38fe",
+            "darkRetention": 1.0
+        }
+    ],
+    "texturePresets": [
+        {
+            "textureGuid": "c8b8e64de43e51cca57a6d560af90283",
+            "recipeGuid": "4e18374726d55a45b0d68b639a7e164d"
+        },
+        {
+            "textureGuid": "0b9c1dbf8c7e50c2b0f6e0fd53268bc3",
+            "recipeGuid": "171aca38f0db58909d57d96ab8bb52ff"
+        },
+        {
+            "textureGuid": "20093cd7da77544f8d30e1c41e248dfa",
+            "recipeGuid": "51d2b77ddf885bcf92901d15656678ee"
+        },
+        {
+            "textureGuid": "ccd2008cb24555c9b987d771b0ac9a7c",
+            "recipeGuid": "1ddba0325f54511ca3a6be4ccd0ed571"
+        },
+        {
+            "textureGuid": "1385f8c249ce5b06becaff3f5b10840b",
+            "recipeGuid": "3921b12dae0353278b4c45e2ac4fe06c"
+        },
+        {
+            "textureGuid": "9c975a72eb635002acdf1f502113f2d3",
+            "recipeGuid": "f4327c1ba9155e529c069e4df79d9bf1"
+        },
+        {
+            "textureGuid": "34ee30b46bbc581aa0ca103eb9c22320",
+            "recipeGuid": "3bad03c3132555458982b2b3b7d06818"
+        },
+        {
+            "textureGuid": "f46c0c1fdc485a138c4538c62e918600",
+            "recipeGuid": "cb6166c7de825dd09f2c50d1b0f44557"
+        },
+        {
+            "textureGuid": "d96c2e43c19a53208db2c759d67c8374",
+            "recipeGuid": "e471f3b9c0275eec9916eadd9ef85eb5"
+        },
+        {
+            "textureGuid": "f4938029003357e087a800c2d9294d23",
+            "recipeGuid": "7829bc74d0d0543389c97fd71124b252"
+        },
+        {
+            "textureGuid": "ae8e96dadda458ae8a64b9722532d14c",
+            "recipeGuid": "2e33c80290a25fa9b3fe4654fe804c5a"
+        },
+        {
+            "textureGuid": "d78bdc1412b35a36a0304361845d6d33",
+            "recipeGuid": "8059743e3c2153ed83b480f28d9c0efd"
+        },
+        {
+            "textureGuid": "06b2ef84d8965d21baf3e0281e9b7929",
+            "recipeGuid": "b8fb129faa9b5c11af85fba206f3abf9"
+        },
+        {
+            "textureGuid": "3419235265355a8c8f3c745168a52e9c",
+            "recipeGuid": "b09ba160ae8150738ad50124e3a59348"
+        },
+        {
+            "textureGuid": "623a0cb77a5e51c8b60a6ce0ee5ebcdf",
+            "recipeGuid": "6721ae65ecce589ebee94fdbfb8cc7bb"
+        },
+        {
+            "textureGuid": "725b058e0d47553db50904f2af08b365",
+            "recipeGuid": "5b9bb2a2ec255a628f6f96e1c8186dd3"
+        },
+        {
+            "textureGuid": "ecc7a94bfe67590391fddb0588d5e1b6",
+            "recipeGuid": "cee6357e59655f8e8a421acbe5082b11"
+        },
+        {
+            "textureGuid": "b23b1b52804b5fa3939146b22fd40821",
+            "recipeGuid": "ed211b5df3745fb38303aecad992634d"
+        }
+    ]
+}

@@ -1,0 +1,113 @@
+{
+    "version": 1,
+    "generator": "reflection-cards",
+    "size": 128,
+    "srgb": true,
+    "lightCards": [
+        {
+            "hidden": false,
+            "shape": 0,
+            "position": {
+                "x": 0.193,
+                "y": 0.102
+            },
+            "size": {
+                "x": 0.482,
+                "y": 0.332
+            },
+            "angle": 37.396,
+            "intensity": 1.0,
+            "color": {
+                "r": 1,
+                "g": 1,
+                "b": 1,
+                "a": 1
+            },
+            "softness": 0.3
+        },
+        {
+            "hidden": false,
+            "shape": 1,
+            "position": {
+                "x": -0.003,
+                "y": 0.711
+            },
+            "size": {
+                "x": 0.208,
+                "y": 0.325
+            },
+            "angle": 1.484,
+            "intensity": 0.997,
+            "color": {
+                "r": 1,
+                "g": 1,
+                "b": 1,
+                "a": 1
+            },
+            "softness": 0.56
+        },
+        {
+            "hidden": false,
+            "shape": 0,
+            "position": {
+                "x": 0.784,
+                "y": -0.366
+            },
+            "size": {
+                "x": 1.25,
+                "y": 0.189
+            },
+            "angle": 9.779,
+            "intensity": 0.339,
+            "color": {
+                "r": 1,
+                "g": 1,
+                "b": 1,
+                "a": 1
+            },
+            "softness": 0.228
+        },
+        {
+            "hidden": false,
+            "shape": 0,
+            "position": {
+                "x": -0.718,
+                "y": -0.009
+            },
+            "size": {
+                "x": 0.192,
+                "y": 0.112
+            },
+            "angle": 4.551,
+            "intensity": 0.94,
+            "color": {
+                "r": 1,
+                "g": 1,
+                "b": 1,
+                "a": 1
+            },
+            "softness": 0.227
+        },
+        {
+            "hidden": false,
+            "shape": 0,
+            "position": {
+                "x": 0.619,
+                "y": -0.682
+            },
+            "size": {
+                "x": 0.184,
+                "y": 0.287
+            },
+            "angle": -5.917,
+            "intensity": 0.48,
+            "color": {
+                "r": 1,
+                "g": 1,
+                "b": 1,
+                "a": 1
+            },
+            "softness": 0.75
+        }
+    ]
+}

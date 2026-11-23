@@ -1,0 +1,92 @@
+{
+    "version": 1,
+    "generator": "reflection-cards",
+    "size": 128,
+    "srgb": true,
+    "lightCards": [
+        {
+            "hidden": false,
+            "shape": 1,
+            "position": {
+                "x": 0.235,
+                "y": 0.406
+            },
+            "size": {
+                "x": 0.405,
+                "y": 0.47
+            },
+            "angle": -26.087,
+            "intensity": 0.704,
+            "color": {
+                "r": 1,
+                "g": 0.933,
+                "b": 0.841,
+                "a": 1
+            },
+            "softness": 0.75
+        },
+        {
+            "hidden": false,
+            "shape": 0,
+            "position": {
+                "x": 0.5,
+                "y": 0.597
+            },
+            "size": {
+                "x": 1.25,
+                "y": 1.119
+            },
+            "angle": 19.707,
+            "intensity": 0.113,
+            "color": {
+                "r": 0.866,
+                "g": 0.964,
+                "b": 1,
+                "a": 1
+            },
+            "softness": 0.124
+        },
+        {
+            "hidden": false,
+            "shape": 0,
+            "position": {
+                "x": 0.956,
+                "y": -0.16
+            },
+            "size": {
+                "x": 1.25,
+                "y": 0.77
+            },
+            "angle": 25.367,
+            "intensity": 0.087,
+            "color": {
+                "r": 0.917,
+                "g": 1,
+                "b": 0.997,
+                "a": 1
+            },
+            "softness": 0.75
+        },
+        {
+            "hidden": false,
+            "shape": 0,
+            "position": {
+                "x": -0.215,
+                "y": 0.54
+            },
+            "size": {
+                "x": 0.452,
+                "y": 1.25
+            },
+            "angle": 41.002,
+            "intensity": 0.056,
+            "color": {
+                "r": 0.96,
+                "g": 1,
+                "b": 0.864,
+                "a": 1
+            },
+            "softness": 0.061
+        }
+    ]
+}

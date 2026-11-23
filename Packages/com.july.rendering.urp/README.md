@@ -116,7 +116,7 @@ PNG旁保存`文件名_Image.mat`与`文件名_Quad.asset`，同一路径重复�
 1. 选中场景节点打开窗口，指定一个单材质、单子网格的静态MeshRenderer作为接收模型。
 2. 指定“自投影节点”。其子树静态网格均参与，包含禁用的网格，适合重新烘焙已停用的投影替身。只选模型自身或其替身，不要包含Item或其他箱子。
 3. 指定覆盖模型的3D URP参考相机，以及开启投影的方向光。默认离线阴影精度4096，不改变正式管线质量。
-4. 填写底色贴图属性名（Game110为`_BaseColor`），选择Assets内PNG路径，点击“烘焙并应用”。保存路径按项目记忆，现有输出直接覆盖。
+4. 确认底色贴图属性名（默认 `_BaseMap`，兼容旧版 `_BaseColor` 贴图），选择Assets内PNG路径，点击“烘焙并应用”。保存路径按项目记忆，现有输出直接覆盖。
 
 PNG尺寸沿用输入底图，保留其导入后采样颜色RGB，Alpha写入原始自阴影衰减。默认创建/更新同名`.mat`，沿用原Shader和其它材质参数，仅绑定接收模型；不覆盖原共享材质。输出使用高质量压缩、Alpha不作为透明度处理。临时的克隆方向光、纯Transform/静态网格及独立URP/Renderer在捕获后释放，源相机/灯光/管线/Renderer可见性恢复；不激活原节点或执行其脚本来烘焙。
 
@@ -133,8 +133,53 @@ PNG尺寸沿用输入底图，保留其导入后采样颜色RGB，Alpha写入原
 #pragma shader_feature_local_fragment _BAKED_SELF_SHADOW
 #if defined(_BAKED_SELF_SHADOW)
     mainLight.shadowAttenuation = min(mainLight.shadowAttenuation,
-        SAMPLE_TEXTURE2D(_BaseColor, sampler_BaseColor, uv).a);
+        SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, uv).a);
 #endif
 ```
 
 底图属性名与采样器按自己的Shader替换。Game110/ItemToon已接入该约定；未接入的URP Lit/自定义Shader会提示，工具不会擅自换Shader而改变风格。灯光方向、模型朝向或几何变化后需要重新烘焙。
+
+
+## Editor MatCap 制作与预览
+
+从 **JulyGF → 渲染 → MatCap 制作与预览** 打开面板。模型栏可选 Prefab、FBX 或「July 预设」，也可以使用 Project 中选中的模型。拖动任一预览窗可同步旋转模型。左窗关闭所有兼容材质的 MatCap，右窗合成材质栏里勾选「参与预览」的反光。点击材质名称可切换编辑对象并保留当前模型各材质的临时效果。
+
+右侧 MatCap 下拉分为「July 预设」和「项目贴图」。July 预设包含默认图和 18 组参考 MatCap，每组从同一个选项载入 PNG 和配方。「项目贴图」列出 `Matcap_` 开头或已有项目配方的贴图。跟随材质的选项按材质实际绑定的贴图加载项目配方，手动指定的贴图或配方可跨模型继续用于预览。默认贴图位于 `Runtime/Textures/MatCap/Matcap_Default.png`，对应光源配方位于 `Editor/MatCap/Defaults/Matcap_Default.json`。点击「生成 MatCap」将预览保存为新贴图，之后可以应用到材质。
+
+预览光照从已保存场景中的方向光节点同步。项目设置缺失时，工具使用包内 `Editor/MatCap/Defaults/settings.json` 创建。
+
+22 个模型参考条目在 `Editor/MatCap/Presets/models.json` 登记。模型沿用 G 编号，预设材质直接绑定拟合后的 PNG，面板按该贴图 GUID 读取光源配方。多个材质可共用同一个 PNG 和配方。预设用自带的材质和参考 Shader，项目模型用原材质的副本，透明混合、渲染队列和其他材质参数沿用原材质。模型窗口使用自己的相机和同步的方向光。样本出处与材质记录见 `Documentation~/matcap-reference-sources.json`。
+
+材质需提供 2D 贴图 `_Matcap` 和 `Float` 或 `Range` 类型的 `_MatcapScale`。强度为 0 时应关闭 MatCap。可选的 `_MatcapDarkRetention` 也使用 `Float` 或 `Range`，取值 0 到 1。字段缺失或类型错误会在对应行显示，材质按原样参与渲染。应用操作支持撤销，写入目标是项目中可编辑的独立 `.mat` 资产，共享此材质的对象会一起更新。
+
+### MatCap 玻璃 Shader
+
+项目可以为材质选择 `JulyGF/URP/MatCap Glass`。底色的 Alpha 与透明遮罩的 R、A 相乘，得到基础透明度。`Reflection Opacity` 决定反光对透明度的贡献，设为 0 时仍可通过 `MatCap Strength` 控制反光。`MatCap Tint` 和暗面反光保留率都写在材质上。双层玻璃可使用两个材质，分别设置 `Cull Mode` 和材质的渲染队列。
+
+已有项目 Shader 可引用 `Runtime/Shaders/Includes/Glass.hlsl` 的 `JulyGlassOpacity(baseOpacity, reflection, reflectionOpacity)`。函数接收已遮罩的基础透明度和已处理的反光 RGB，返回最终 Alpha。Shader 负责贴图采样、照明和混合设置。G022 的两层玻璃使用该成品 Shader，制作面板通过常规材质字段对其预览和应用 MatCap。
+
+`Runtime/Shaders/Includes/Rim.hlsl` 的 `JulyRimMask(normalWS, viewDirectionWS, width)` 接收归一化法线和视线方向，返回掠射角的边光权重。`MatCap Glass` 使用网格法线计算边光。`Rim Strength` 默认 0，`Rim Opacity` 默认为 0。启用边光后可分别调整颜色、宽度和边缘不透明度。
+
+项目光源配方以贴图 GUID 命名。打开已有贴图时，工具读取同 GUID 的配方并使用参数生成预览。已有 PNG 可以用于材质应用，调参后可通过「生成 MatCap」保存效果。
+
+点击「新建反射球」可以从空白开始布光。在同一个光源列表中，方形与圆形光板可分别调长宽、位置、旋转、亮度、颜色和边缘柔化。球面柔光可调位置、范围、亮度和颜色，亮度沿球面连续衰减。补光强度抬升球面暗部。预览从配方重新计算，导出时保存同一份配方和它烘焙出的 PNG。
+
+面板以当前贴图或配方载入时的参数作为基准。参数变化后可点击「还原参数」回到这套数据，或点「生成 MatCap」另存为新的 PNG 和配方。参数与基准一致时两个按钮置灰，预设仍可直接预览。还原只操作 MatCap 参数。
+
+面板新生成的 PNG 与配方统一为 128 × 128。直接选用的已有 PNG 按自身尺寸预览。
+
+点击光源名称，对应的反光会在贴图和「有 MatCap」的模型预览中同步暗一下再恢复。添加光源时也会自动闪一次。
+
+光源标题左侧的箭头用于折叠参数，旁边的启用勾选同时控制预览和 PNG 生成。关闭时，配方仍保存该光源的参数，重新打开即可恢复反光。
+
+光源标题右侧菜单可以移除、复制、粘贴和粘贴为新光源。粘贴会覆盖当前光源的全部参数和启用状态。列表底部的「添加光源」可选择方形光板、圆形光板或球面柔光。新增光源会在列表末尾自动展开。
+
+| 文件 | 内容 |
+| --- | --- |
+| `July/MatCapAuthoring/settings.json` | 项目共用的方向光快照 |
+| `July/MatCapAuthoring/Recipes/<TextureGUID>.json` | 贴图分辨率、颜色空间、反射球光源与补光 |
+| `Assets/.../Matcap_*.png` 与 `.meta` | 可引用的贴图和 Unity GUID，移动或重命名时一起保留 |
+
+`July/MatCapAuthoring` 位于 Unity 项目根目录。与团队共享生成结果时，一并提交 PNG、`.meta` 和对应 JSON。
+
+窗口、预览场景、烘焙、配方和参考模型均用于编辑阶段。默认图和 18 张成品 PNG 位于 `Runtime/Textures/MatCap`，项目也可在 `Assets` 下保存成品。游戏材质引用的 PNG 由游戏 Shader 采样，实际打包范围由项目构建与资源收集配置决定。

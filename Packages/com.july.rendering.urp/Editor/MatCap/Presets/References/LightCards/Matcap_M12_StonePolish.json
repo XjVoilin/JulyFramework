@@ -1,0 +1,50 @@
+{
+    "version": 1,
+    "generator": "reflection-cards",
+    "size": 128,
+    "srgb": true,
+    "lightCards": [
+        {
+            "hidden": false,
+            "shape": 1,
+            "position": {
+                "x": 0.496,
+                "y": 0.594
+            },
+            "size": {
+                "x": 0.882,
+                "y": 0.8
+            },
+            "angle": 34.274,
+            "intensity": 0.38,
+            "color": {
+                "r": 1,
+                "g": 1,
+                "b": 1,
+                "a": 1
+            },
+            "softness": 0.331
+        },
+        {
+            "hidden": false,
+            "shape": 0,
+            "position": {
+                "x": -0.23,
+                "y": -0.02
+            },
+            "size": {
+                "x": 1.157,
+                "y": 0.24
+            },
+            "angle": 43.127,
+            "intensity": 0.104,
+            "color": {
+                "r": 1,
+                "g": 0.994,
+                "b": 1,
+                "a": 1
+            },
+            "softness": 0.559
+        }
+    ]
+}
