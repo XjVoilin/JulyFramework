@@ -1,0 +1,10 @@
+{
+  "name": "July.Features",
+  "rootNamespace": "July.Features",
+  "references": [
+    "July.Arch",
+    "July.Persistence",
+    "July.Platform"
+  ],
+  "autoReferenced": true
+}

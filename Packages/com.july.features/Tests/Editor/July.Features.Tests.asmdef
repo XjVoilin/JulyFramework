@@ -1,0 +1,21 @@
+{
+  "name": "July.Features.Tests",
+  "rootNamespace": "July.Features.Tests",
+  "references": [
+    "July.Arch",
+    "July.Events",
+    "July.Features",
+    "July.Persistence",
+    "July.Platform"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "autoReferenced": false,
+  "defineConstraints": [
+    "UNITY_INCLUDE_TESTS"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}
