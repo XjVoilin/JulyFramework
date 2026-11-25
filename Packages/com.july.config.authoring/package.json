@@ -1,6 +1,6 @@
 {
   "name": "com.july.config.authoring",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "July Config Authoring",
   "description": "Editor-only Luban generation with project settings, plain C# schemes and an inheritable generation window.",
   "unity": "2022.3",
