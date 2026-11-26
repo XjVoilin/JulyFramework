@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added `UIFadeIn` to fade a Graphic to its configured alpha on enable.
+
 - Changed `ScaleIn` to use the July UI window entrance curve by default, with configurable start scale, duration, and OutBack overshoot.
 
 ## 0.2.8
