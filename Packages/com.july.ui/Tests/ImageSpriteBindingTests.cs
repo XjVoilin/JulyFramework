@@ -17,21 +17,23 @@ namespace July.UI.Tests
         private sealed class DelayedSprites : UnityResourceSystem, IResourceSystem
         {
             public readonly List<UniTaskCompletionSource<Sprite>> Requests = new();
+            public readonly List<int> ReleasedRequests = new();
             public CancellationToken LastToken;
-            public GameObject LastOwner;
 
-            async UniTask<T> IResourceSystem.LoadAsync<T>(string address, GameObject bindTo, CancellationToken ct)
+            async UniTask<ResourceHandle<T>> IResourceSystem.LoadAssetAsync<T>(string address, CancellationToken ct)
             {
                 LastToken = ct;
-                LastOwner = bindTo;
+                var index = Requests.Count;
                 var request = new UniTaskCompletionSource<Sprite>();
                 Requests.Add(request);
-                return (T)(Object)await request.Task;
+                var sprite = await request.Task;
+                return sprite == null ? null : new ResourceHandle<T>((T)(Object)sprite, () => ReleasedRequests.Add(index));
             }
         }
 
         private ArchContext _context;
         private DelayedSprites _resources;
+        private GameObject _portrait;
         private Image _image;
         private Sprite _sprite;
         private ImageSpriteBinding _binding;
@@ -42,7 +44,8 @@ namespace July.UI.Tests
             _resources = new DelayedSprites();
             _context = new ArchContext();
             _context.RegisterSystem(_resources);
-            _image = new GameObject("Portrait", typeof(RectTransform), typeof(Image)).GetComponent<Image>();
+            _portrait = new GameObject("Portrait", typeof(RectTransform), typeof(Image));
+            _image = _portrait.GetComponent<Image>();
             _sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 1, 1), Vector2.zero);
             _binding = new ImageSpriteBinding(_image);
         }
@@ -51,7 +54,7 @@ namespace July.UI.Tests
         public void TearDown()
         {
             _binding.Clear();
-            Object.DestroyImmediate(_image.gameObject);
+            Object.DestroyImmediate(_portrait);
             Object.DestroyImmediate(_sprite);
             _context.Shutdown();
         }
@@ -62,12 +65,36 @@ namespace July.UI.Tests
             _binding.SetAddress("A");
             _binding.SetAddress("A");
             Assert.That(_resources.Requests.Count, Is.EqualTo(1));
-            Assert.That(_resources.LastOwner, Is.SameAs(_image.gameObject));
             _resources.Requests[0].TrySetResult(_sprite);
             _binding.SetAddress("A");
             Assert.That(_image.sprite, Is.SameAs(_sprite));
             Assert.That(_image.enabled, Is.True);
             Assert.That(_resources.Requests.Count, Is.EqualTo(1));
+            Assert.That(_resources.ReleasedRequests, Is.Empty);
+        }
+
+        [Test]
+        public void ReplacingDisplayedSprite_ReleasesPreviousHandleAndClearReleasesCurrent()
+        {
+            _binding.SetAddress("A");
+            _resources.Requests[0].TrySetResult(_sprite);
+            _binding.SetAddress("B");
+            Assert.That(_resources.ReleasedRequests, Is.EqualTo(new[] { 0 }));
+            Assert.That(_image.sprite, Is.Null);
+            _resources.Requests[1].TrySetResult(_sprite);
+            _binding.Clear();
+            _binding.Clear();
+            Assert.That(_resources.ReleasedRequests, Is.EqualTo(new[] { 0, 1 }));
+        }
+
+        [Test]
+        public void ClearAfterImageDestroyed_ReleasesDisplayedHandle()
+        {
+            _binding.SetAddress("A");
+            _resources.Requests[0].TrySetResult(_sprite);
+            Object.DestroyImmediate(_image);
+            _binding.Clear();
+            Assert.That(_resources.ReleasedRequests, Is.EqualTo(new[] { 0 }));
         }
 
         [Test]
@@ -83,6 +110,7 @@ namespace July.UI.Tests
             _binding.SetAddress("A");
             _resources.Requests[0].TrySetResult(_sprite);
             _resources.Requests[1].TrySetResult(_sprite);
+            Assert.That(_resources.ReleasedRequests, Is.EqualTo(new[] { 0, 1 }));
             Assert.That(_image.sprite, Is.Null);
             Assert.That(_image.enabled, Is.False);
             _binding.SetAddress("A");
@@ -90,6 +118,7 @@ namespace July.UI.Tests
             _resources.Requests[2].TrySetResult(_sprite);
             Assert.That(_image.sprite, Is.SameAs(_sprite));
             _binding.Clear();
+            Assert.That(_resources.ReleasedRequests, Is.EqualTo(new[] { 0, 1, 2 }));
             Assert.That(_image.sprite, Is.Null);
             Assert.That(_image.enabled, Is.False);
         }

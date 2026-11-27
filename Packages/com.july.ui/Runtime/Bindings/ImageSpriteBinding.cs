@@ -13,6 +13,7 @@ namespace July.UI
         private readonly Image _image;
         private string _address;
         private CancellationTokenSource _pending;
+        private ResourceHandle<Sprite> _displayedHandle;
 
         public ImageSpriteBinding(Image image)
         {
@@ -33,7 +34,7 @@ namespace July.UI
             LoadAsync(address, _pending).Forget();
         }
 
-        /// <summary>取消等待并隐藏图片。已成功加载的资源由目标 GameObject 持有。</summary>
+        /// <summary>取消当前请求，清空图片并释放其资源句柄；之后可再次绑定。</summary>
         public void Clear()
         {
             _address = null;
@@ -42,25 +43,34 @@ namespace July.UI
             pending?.Cancel();
 
             // 持有者的 OnDestroy 也可能晚于目标 Image 的销毁。
-            if (_image == null) return;
-            _image.enabled = false;
-            _image.sprite = null;
+            if (_image != null)
+            {
+                _image.enabled = false;
+                _image.sprite = null;
+            }
+
+            _displayedHandle?.Dispose();
+            _displayedHandle = null;
         }
 
         private async UniTask LoadAsync(string address, CancellationTokenSource request)
         {
+            ResourceHandle<Sprite> handle = null;
             try
             {
                 var resources = this.GetSystem<IResourceSystem>();
-                var sprite = await resources.LoadAsync<Sprite>(address, _image.gameObject, request.Token);
+                handle = await resources.LoadAssetAsync<Sprite>(address, request.Token);
                 if (request.IsCancellationRequested) return;
-                if (sprite == null) throw new ResourceException($"无法加载图片：{address}");
+                if (handle == null || !handle.IsValid) throw new ResourceException($"无法加载图片：{address}");
 
-                _image.sprite = sprite;
+                _image.sprite = handle.Asset;
                 _image.enabled = true;
+                _displayedHandle = handle;
+                handle = null;
             }
             finally
             {
+                handle?.Dispose();
                 if (_pending == request) _pending = null;
                 request.Dispose();
             }
